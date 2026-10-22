@@ -234,20 +234,21 @@ td.date{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
     <h2>연결 설정</h2>
     <div class="form">
       <div class="f full"><label>Apps Script 웹앱 URL</label><input id="setUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
-      <div class="f full"><label>API 키</label><input id="setKey" type="password"></div>
     </div>
     <div class="actions">
       <button class="btn" onclick="closeSettings()">닫기</button>
       <button class="btn primary" id="setSave">저장</button>
     </div>
-    <div class="msg">이 브라우저에만 저장됩니다.</div>
+    <div class="msg">비워두면 기본 서버(config.js)를 씁니다. 이 브라우저에만 저장됩니다.</div>
   </div>
 </div>
 
+<script src="/config.js"></script>
+<script src="/lib.js"></script>
 <script>
 // ───── 상태 ─────
-const S = { url:'', key:'', rows:[], stages:[], channels:[], brands:[], filterStage:'', cur:null };
-try { S.url = localStorage.getItem('myrubi.url')||''; S.key = localStorage.getItem('myrubi.key')||''; } catch(e){}
+const S = { rows:[], stages:[], channels:[], brands:[], filterStage:'', cur:null };
+const ME = () => (window.MR && MR.user()) || {};
 
 const $ = id => document.getElementById(id);
 const fmtWon = n => n ? Number(n).toLocaleString('ko-KR') + '원' : '';
@@ -260,18 +261,11 @@ async function apiGet(params){
     if(params.action==='list') return {ok:true, ...window.MOCK};
     if(params.action==='consults') return {ok:true, rows:(window.MOCK.consults||[]).filter(c=>c.no===params.no)};
   }
-  if(!S.url) throw new Error('설정에서 웹앱 URL을 먼저 입력하세요');
-  const u = new URL(S.url); u.searchParams.set('key', S.key);
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r = await fetch(u, {redirect:'follow'});
-  const j = await r.json(); if(!j.ok) throw new Error(j.error||'오류'); return j;
+  return MR.get(params);
 }
 async function apiPost(body){
   if(window.MOCK) throw new Error('미리보기 모드에서는 저장할 수 없습니다');
-  if(!S.url) throw new Error('설정에서 웹앱 URL을 먼저 입력하세요');
-  // text/plain으로 보내면 CORS preflight 없이 Apps Script에 도달함
-  const r = await fetch(S.url, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({...body, key:S.key})});
-  const j = await r.json(); if(!j.ok) throw new Error(j.error||'오류'); return j;
+  return MR.post(body);
 }
 
 // ───── 로드 ─────
@@ -283,7 +277,7 @@ async function load(){
     fillSelect($('fBrand'), S.brands, '모든 브랜드'); fillSelect($('fChannel'), S.channels, '모든 채널');
     fillSelect($('nBrand'), S.brands); fillSelect($('nChannel'), S.channels); fillSelect($('nStage'), S.stages);
     render();
-  }catch(e){ $('meta').textContent = e.message; if(!S.url) openSettings(); }
+  }catch(e){ $('meta').textContent = e.message; if(!window.MOCK && !MR.url()) openSettings(); }
 }
 function fillSelect(sel, arr, blank){
   const cur = sel.value;
@@ -343,7 +337,7 @@ async function openDrawer(no){
   $('dInfo').innerHTML = [['담당자',r.manager],['메모',r.memo],['최근 업데이트',r.updatedAt]].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)||'–'}</dd>`).join('');
   $('dFolder').href = r.folderUrl||'#'; $('dFolder').classList.toggle('hidden', !r.folderUrl);
   $('dLog').href = r.logSheetId?`https://docs.google.com/spreadsheets/d/${r.logSheetId}/edit`:'#'; $('dLog').classList.toggle('hidden', !r.logSheetId);
-  $('cManager').value = r.manager||''; $('cNote').value='';
+  $('cManager').value = r.manager||ME().name||''; $('cNote').value='';
   $('sStage').innerHTML = S.stages.map((s,k)=>`<option ${k===i+1?'selected':''}>${s}</option>`).join('');
   $('sDate').value = today(); $('sAmount').value=''; $('sMethod').value=''; $('sNote').value=''; $('dMsg').textContent='';
   $('dConsults').innerHTML = '<div class="msg">불러오는 중…</div>';
@@ -382,7 +376,7 @@ async function run(btn, msgEl, fn){
 }
 
 // ───── 신규 ─────
-$('btnNew').onclick = ()=>{ $('nDate').value=today(); $('nMsg').textContent=''; $('newWrap').classList.remove('hidden'); $('nCustomer').focus(); };
+$('btnNew').onclick = ()=>{ $('nDate').value=today(); $('nMsg').textContent=''; if(!$('nManager').value) $('nManager').value=ME().name||''; $('newWrap').classList.remove('hidden'); $('nCustomer').focus(); };
 function closeNew(){ $('newWrap').classList.add('hidden'); }
 $('nSave').onclick = async ()=>{
   const body = { action:'create', brand:$('nBrand').value, channel:$('nChannel').value, customer:$('nCustomer').value.trim(), manager:$('nManager').value.trim(),
@@ -396,11 +390,10 @@ $('nSave').onclick = async ()=>{
 };
 
 // ───── 설정 ─────
-function openSettings(){ $('setUrl').value=S.url; $('setKey').value=S.key; $('setWrap').classList.remove('hidden'); }
+function openSettings(){ $('setUrl').value=MR.url(); $('setWrap').classList.remove('hidden'); }
 function closeSettings(){ $('setWrap').classList.add('hidden'); }
 $('btnSettings').onclick = openSettings;
-$('setSave').onclick = ()=>{ S.url=$('setUrl').value.trim(); S.key=$('setKey').value.trim();
-  try{ localStorage.setItem('myrubi.url',S.url); localStorage.setItem('myrubi.key',S.key);}catch(e){}
+$('setSave').onclick = ()=>{ const v=$('setUrl').value.trim(); MR.setUrl(v && v!==(window.MYRUBI_CONFIG||{}).API_URL ? v : '');
   closeSettings(); load(); };
 $('btnRefresh').onclick = load;
 ['q','fBrand','fChannel','fOpen'].forEach(id=>$(id).addEventListener('input', render));
@@ -409,7 +402,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeDrawer(); c
 // 바탕화면 창 안에서 열렸으면 상단 브랜드 표기는 창 제목줄에 있으므로 숨김
 if(window.self !== window.top) document.querySelector('header .brand').style.visibility = 'hidden';
 // 런처에서 ?new=1 / ?settings=1 로 열면 해당 창을 바로 띄움
-load().then(()=>{
+if(window.MOCK || MR.requireLogin()) load().then(()=>{
   const q = new URLSearchParams(location.search);
   if(q.get('new')) $('btnNew').click();
   if(q.get('settings')) openSettings();

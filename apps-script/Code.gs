@@ -13,7 +13,12 @@
  *     NNNN_Internal Reference (폴더)
  *
  * 배포: 확장 프로그램 > Apps Script > 배포 > 새 배포 > 웹 앱
- *   실행 사용자: 나 / 액세스: 모든 사용자 (API_KEY로 보호)
+ *   실행 사용자: 나 / 액세스: 모든 사용자 (직원 로그인 세션 토큰으로 보호)
+ *
+ * 로그인
+ *  - 계정은 Index 스프레드시트의 '사용자' 탭에 있음 (비밀번호는 솔트+SHA-256 해시로만 저장)
+ *  - login 성공 시 세션 토큰 발급 → 이후 모든 요청에 token 필요
+ *  - 관리자(admin)는 포털의 '사용자 관리' 앱에서 계정 추가·권한·비활성·비밀번호 초기화
  */
 
 // ───────────────────────────── 설정 ─────────────────────────────
@@ -28,8 +33,12 @@ const CONFIG = {
   // 공통 Log 템플릿 (브랜드별 template이 없을 때 사용). 비워두면 Moulton 템플릿을 씀.
   LOG_TEMPLATE_ID: '1Nvo-wZvNcwV0mDnD_0ryyS-2luQIIuw06TiB6F2R5u4',
 
-  // 포털 → 웹앱 호출 시 필요한 키. 아무 긴 임의 문자열로 바꿔 쓰세요.
-  API_KEY: 'CHANGE-ME-TO-A-LONG-RANDOM-STRING',
+  // 로그인 세션 유지 시간 (시간 단위). '로그인 상태 유지' 체크 시 REMEMBER 적용
+  SESSION_HOURS: 12,
+  SESSION_HOURS_REMEMBER: 24 * 30,
+  // 비밀번호 5회 틀리면 10분 잠금
+  MAX_FAILS: 5,
+  LOCK_MINUTES: 10,
 
   // 브랜드 코드 → 브랜드 폴더 정보
   //  name: 브랜드 폴더명 / short: 고객 폴더명·Log 파일명에 쓰는 표기 / history: Customer History 폴더 ID
@@ -75,16 +84,18 @@ const CONSULT_HEADERS = ['일시', 'No', '고객명', '브랜드', '단계', '�
 function doGet(e) {
   try {
     const p = e.parameter || {};
-    if (p.key !== CONFIG.API_KEY) return json_({ ok: false, error: 'unauthorized' });
+    const u = auth_(p.token);
 
     switch (p.action) {
-      case 'list':   return json_({ ok: true, stages: CONFIG.STAGES, channels: CONFIG.CHANNELS, brands: Object.keys(CONFIG.BRANDS), rows: listIndex_() });
-      case 'get':    return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
+      case 'me':       return json_({ ok: true, user: publicUser_(u) });
+      case 'list':     return json_({ ok: true, stages: CONFIG.STAGES, channels: CONFIG.CHANNELS, brands: Object.keys(CONFIG.BRANDS), rows: listIndex_() });
+      case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
-      default:       return json_({ ok: false, error: 'unknown action' });
+      case 'users':    requireAdmin_(u); return json_({ ok: true, users: listUsers_().map(publicUser_) });
+      default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
-    return json_({ ok: false, error: String(err) });
+    return json_({ ok: false, error: errMsg_(err) });
   }
 }
 
@@ -93,20 +104,214 @@ function doPost(e) {
   lock.waitLock(20000);
   try {
     const body = JSON.parse(e.postData.contents || '{}');
-    if (body.key !== CONFIG.API_KEY) return json_({ ok: false, error: 'unauthorized' });
+
+    // 로그인은 토큰 없이 허용
+    if (body.action === 'login') return json_(Object.assign({ ok: true }, login_(body)));
+
+    const u = auth_(body.token);
+    // 작성자(로그인한 사람) 기록용. 담당자 미입력 시 작성자로 대체
+    body.by = u.name;
 
     switch (body.action) {
-      case 'create':  return json_({ ok: true, row: createCustomer_(body) });
-      case 'stage':   return json_({ ok: true, row: advanceStage_(body) });
-      case 'consult': return json_({ ok: true, row: addConsult_(body) });
-      case 'update':  return json_({ ok: true, row: updateRow_(body) });
-      default:        return json_({ ok: false, error: 'unknown action' });
+      case 'logout':   logout_(body.token); return json_({ ok: true });
+      case 'password': changePassword_(u, body); return json_({ ok: true, user: publicUser_(findUser_(u.id)) });
+      case 'create':   return json_({ ok: true, row: createCustomer_(body) });
+      case 'stage':    return json_({ ok: true, row: advanceStage_(body) });
+      case 'consult':  return json_({ ok: true, row: addConsult_(body) });
+      case 'update':   return json_({ ok: true, row: updateRow_(body) });
+      case 'users.add':    requireAdmin_(u); return json_(Object.assign({ ok: true }, addUser_(body)));
+      case 'users.update': requireAdmin_(u); return json_(Object.assign({ ok: true }, updateUser_(u, body)));
+      default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
-    return json_({ ok: false, error: String(err) });
+    return json_({ ok: false, error: errMsg_(err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+function errMsg_(err) {
+  return String(err && err.message ? err.message : err).replace(/^Error:\s*/, '');
+}
+
+// ───────────────────────────── 로그인 / 사용자 ─────────────────────────────
+
+const USER_HEADERS = ['아이디', '이름', '권한', '비밀번호해시', '솔트', '활성', '비밀번호변경필요', '최근 로그인'];
+const ROLES = ['admin', 'staff'];
+
+function usersSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('사용자');
+  if (!sh) {
+    sh = ss.insertSheet('사용자');
+    sh.getRange(1, 1, 1, USER_HEADERS.length).setValues([USER_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function listUsers_() {
+  const sh = usersSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, USER_HEADERS.length).getValues()
+    .map((r, i) => ({
+      row: i + 2, id: String(r[0]).trim(), name: String(r[1]).trim(), role: ROLES.includes(r[2]) ? r[2] : 'staff',
+      hash: String(r[3]), salt: String(r[4]),
+      active: r[5] === true || String(r[5]).toUpperCase() === 'TRUE' || r[5] === 'Y',
+      mustChange: r[6] === true || String(r[6]).toUpperCase() === 'TRUE' || r[6] === 'Y',
+      lastLogin: r[7] instanceof Date ? Utilities.formatDate(r[7], CONFIG.TZ, 'yyyy-MM-dd HH:mm') : String(r[7] || ''),
+    }))
+    .filter(u => u.id);
+}
+
+function findUser_(id) {
+  id = String(id || '').trim().toLowerCase();
+  return listUsers_().find(u => u.id.toLowerCase() === id) || null;
+}
+
+function publicUser_(u) {
+  return { id: u.id, name: u.name, role: u.role, active: u.active, mustChange: u.mustChange, lastLogin: u.lastLogin };
+}
+
+function writeUser_(u) {
+  usersSheet_().getRange(u.row, 1, 1, USER_HEADERS.length)
+    .setValues([[u.id, u.name, u.role, u.hash, u.salt, u.active, u.mustChange, u.lastLogin || '']]);
+}
+
+function hash_(salt, pw) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + pw, Utilities.Charset.UTF_8);
+  return bytes.map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
+}
+
+function randomString_(len, chars) {
+  chars = chars || 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  while (s.length < len) {
+    const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Math.random());
+    for (const b of bytes) { if (s.length >= len) break; s += chars[((b + 256) % 256) % chars.length]; }
+  }
+  return s;
+}
+
+function login_(b) {
+  const id = String(b.id || '').trim();
+  const pw = String(b.password || '');
+  if (!id || !pw) throw new Error('아이디와 비밀번호를 입력하세요');
+
+  const cache = CacheService.getScriptCache();
+  const failKey = 'fail_' + id.toLowerCase();
+  const fails = parseInt(cache.get(failKey) || '0', 10);
+  if (fails >= CONFIG.MAX_FAILS) throw new Error('로그인 시도가 많아 ' + CONFIG.LOCK_MINUTES + '분간 잠겼습니다');
+
+  const u = findUser_(id);
+  if (!u || !u.active || !u.hash || hash_(u.salt, pw) !== u.hash) {
+    cache.put(failKey, String(fails + 1), CONFIG.LOCK_MINUTES * 60);
+    throw new Error('아이디 또는 비밀번호가 맞지 않습니다');
+  }
+  cache.remove(failKey);
+
+  purgeSessions_();
+  const token = Utilities.getUuid().replace(/-/g, '') + randomString_(16);
+  const hours = b.remember ? CONFIG.SESSION_HOURS_REMEMBER : CONFIG.SESSION_HOURS;
+  PropertiesService.getScriptProperties().setProperty('s_' + token, JSON.stringify({ id: u.id, exp: Date.now() + hours * 3600e3 }));
+
+  u.lastLogin = now_();
+  writeUser_(u);
+  return { token, user: publicUser_(u) };
+}
+
+function auth_(token) {
+  if (!token) throw new Error('unauthorized');
+  const raw = PropertiesService.getScriptProperties().getProperty('s_' + token);
+  if (!raw) throw new Error('unauthorized');
+  const s = JSON.parse(raw);
+  if (s.exp < Date.now()) { logout_(token); throw new Error('unauthorized'); }
+  const u = findUser_(s.id);
+  if (!u || !u.active) { logout_(token); throw new Error('unauthorized'); }
+  return u;
+}
+
+function requireAdmin_(u) {
+  if (u.role !== 'admin') throw new Error('관리자만 사용할 수 있습니다');
+}
+
+function logout_(token) {
+  if (token) PropertiesService.getScriptProperties().deleteProperty('s_' + token);
+}
+
+/** 만료된 세션 정리, 특정 사용자의 세션 전부 종료(userId 지정 시) */
+function purgeSessions_(userId) {
+  const props = PropertiesService.getScriptProperties();
+  const all = props.getProperties();
+  const now = Date.now();
+  Object.keys(all).forEach(k => {
+    if (k.indexOf('s_') !== 0) return;
+    try {
+      const s = JSON.parse(all[k]);
+      if (s.exp < now || (userId && String(s.id).toLowerCase() === String(userId).toLowerCase())) props.deleteProperty(k);
+    } catch (e) { props.deleteProperty(k); }
+  });
+}
+
+function checkPasswordRule_(pw) {
+  if (String(pw).length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다');
+}
+
+/** body: { current, next } */
+function changePassword_(u, b) {
+  if (!u.mustChange && hash_(u.salt, String(b.current || '')) !== u.hash) throw new Error('현재 비밀번호가 맞지 않습니다');
+  checkPasswordRule_(b.next);
+  if (hash_(u.salt, String(b.next)) === u.hash) throw new Error('이전과 다른 비밀번호를 입력하세요');
+  u.salt = randomString_(16);
+  u.hash = hash_(u.salt, String(b.next));
+  u.mustChange = false;
+  writeUser_(u);
+}
+
+/** body: { id, name, role } → 임시 비밀번호 발급 (첫 로그인 시 변경 강제) */
+function addUser_(b) {
+  const id = String(b.id || '').trim();
+  if (!/^[A-Za-z0-9._-]{3,30}$/.test(id)) throw new Error('아이디는 영문·숫자·._- 3~30자');
+  if (findUser_(id)) throw new Error('이미 있는 아이디입니다');
+  if (!b.name) throw new Error('이름을 입력하세요');
+  const temp = randomString_(10);
+  const salt = randomString_(16);
+  usersSheet_().appendRow([id, String(b.name).trim(), ROLES.includes(b.role) ? b.role : 'staff', hash_(salt, temp), salt, true, true, '']);
+  return { user: publicUser_(findUser_(id)), tempPassword: temp };
+}
+
+/** body: { id, name?, role?, active?, resetPassword? } */
+function updateUser_(me, b) {
+  const u = findUser_(b.id);
+  if (!u) throw new Error('사용자를 찾을 수 없습니다');
+  const self = u.id.toLowerCase() === me.id.toLowerCase();
+  if (self && (b.role !== undefined && b.role !== u.role || b.active === false)) throw new Error('본인 계정의 권한·활성 상태는 바꿀 수 없습니다');
+
+  if (b.name !== undefined) u.name = String(b.name).trim() || u.name;
+  if (b.role !== undefined && ROLES.includes(b.role)) u.role = b.role;
+  if (b.active !== undefined) u.active = !!b.active;
+
+  let tempPassword = null;
+  if (b.resetPassword) {
+    tempPassword = randomString_(10);
+    u.salt = randomString_(16);
+    u.hash = hash_(u.salt, tempPassword);
+    u.mustChange = true;
+  }
+  writeUser_(u);
+  if (!u.active || b.resetPassword) purgeSessions_(u.id);
+  return { user: publicUser_(u), tempPassword };
+}
+
+/**
+ * 편집기에서 직접 실행용: 관리자 계정이 하나도 없을 때 임시 관리자 생성.
+ * 실행 로그에 아이디와 임시 비밀번호가 찍힘.
+ */
+function setupAdmin() {
+  if (listUsers_().some(u => u.role === 'admin' && u.active)) { Logger.log('이미 관리자 계정이 있습니다.'); return; }
+  const r = addUser_({ id: 'admin', name: '관리자', role: 'admin' });
+  Logger.log('아이디: admin / 임시 비밀번호: ' + r.tempPassword);
 }
 
 function json_(obj) {
@@ -230,7 +435,7 @@ function createCustomer_(b) {
 
   const obj = {
     no, ref: b.ref || '', brand: brandKey, model: b.model, spec: b.spec || '', channel,
-    customer: b.customer, manager: b.manager || '', stage,
+    customer: b.customer, manager: b.manager || b.by || '', stage,
     folderId: '', folderUrl: '', logSheetId: '', memo: b.memo || '',
   };
   CONFIG.STAGES.forEach(s => obj[s] = '');
@@ -249,7 +454,7 @@ function createCustomer_(b) {
   const rowIdx = sh.getLastRow() + 1;
   writeRow_(rowIdx, obj);
 
-  if (b.memo) appendConsult_(obj, stage, b.memo, '', '', obj.manager);
+  if (b.memo) appendConsult_(obj, stage, b.memo, '', '', b.by || obj.manager);
   return obj;
 }
 
@@ -425,7 +630,7 @@ function advanceStage_(b) {
   }
 
   writeRow_(rowIdx, obj);
-  appendConsult_(obj, b.stage, b.note || (b.stage + ' 단계로 진행'), b.amount || '', b.method || '', b.manager || obj.manager);
+  appendConsult_(obj, b.stage, b.note || (b.stage + ' 단계로 진행'), b.amount || '', b.method || '', b.by || b.manager || obj.manager);
   return obj;
 }
 
@@ -436,7 +641,7 @@ function addConsult_(b) {
   const obj = rowToObj_(indexSheet_().getRange(rowIdx, 1, 1, INDEX_COLS.length).getValues()[0]);
   if (b.manager) obj.manager = b.manager;
   writeRow_(rowIdx, obj);
-  appendConsult_(obj, obj.stage, b.note || '', b.amount || '', b.method || '', b.manager || obj.manager);
+  appendConsult_(obj, obj.stage, b.note || '', b.amount || '', b.method || '', b.by || b.manager || obj.manager);
   return obj;
 }
 

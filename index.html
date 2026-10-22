@@ -76,6 +76,40 @@ button{font:inherit;cursor:pointer}
 .dock .mini.green{background:linear-gradient(145deg,#3f8c5e,#285f3f);color:#fff}
 .dock .mini.blue{background:linear-gradient(145deg,#4a6fa5,#2f4a73);color:#fff}
 
+
+/* 사용자 메뉴 */
+.topbar .user{position:relative}
+.topbar .user>button{height:22px;border:none;background:transparent;color:var(--ink);font-size:12px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px}
+.topbar .user>button:hover{background:var(--glass)}
+.topbar .user .role{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.menu{position:absolute;right:0;top:26px;min-width:180px;background:rgba(32,33,36,.96);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5);z-index:60}
+.menu button{display:block;width:100%;text-align:left;border:none;background:transparent;color:var(--ink);padding:8px 10px;border-radius:6px;font-size:13px}
+.menu button:hover{background:var(--glass-2)}
+.menu .who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12px;color:var(--ink-2)}
+.menu .who b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+
+/* 로그인 화면 */
+.lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1200px 700px at 15% 0%, #3a3d44 0%, transparent 60%),radial-gradient(900px 600px at 95% 100%, #35302c 0%, transparent 55%),linear-gradient(160deg,var(--desk-1),var(--desk-2))}
+.lock .clockbig{position:absolute;top:12vh;left:0;right:0;text-align:center}
+.lock .clockbig .t{font-size:64px;font-weight:200;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.lock .clockbig .d{font-size:15px;color:var(--ink-2);margin-top:4px}
+.card{width:min(340px,calc(100% - 32px));background:rgba(0,0,0,.32);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:16px;padding:26px 24px 22px;margin-top:10vh}
+.card .logo{font-weight:700;letter-spacing:.16em;font-size:15px;text-align:center}
+.card .sub{font-size:12px;color:var(--ink-3);text-align:center;margin:6px 0 20px}
+.card label{display:block;font-size:11px;color:var(--ink-2);margin:0 0 5px}
+.card input[type=text],.card input[type=password],.card input[type=url]{width:100%;height:40px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--ink);padding:0 12px;font:inherit;margin-bottom:12px;user-select:text}
+.card input:focus{outline:none;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+.card .row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--ink-2);margin:2px 0 16px}
+.card .row label{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;cursor:pointer}
+.card .go{width:100%;height:42px;border:none;border-radius:9px;background:#f2f2f0;color:#1c1c1c;font-weight:600}
+.card .go:disabled{opacity:.5}
+.card .err{min-height:18px;font-size:12px;color:#ff9b8a;margin-top:10px;text-align:center}
+.card .lnk{border:none;background:none;color:var(--ink-3);font-size:11px;text-decoration:underline;padding:0}
+.card .lnk:hover{color:var(--ink-2)}
+.card .note{font-size:12px;color:var(--ink-2);line-height:1.55;margin:-6px 0 16px}
+.hidden{display:none!important}
+
 @media (max-width:720px){
   .desktop{grid-template-columns:repeat(auto-fill,84px);padding:18px 12px}
   .win{inset:30px 0 64px 0!important;width:auto!important;height:auto!important;border-radius:0;min-width:0}
@@ -88,12 +122,54 @@ button{font:inherit;cursor:pointer}
 <div class="topbar">
   <div class="brand">MY RUBI<small>Rubi Workshop · internal</small></div>
   <div class="sp"></div>
+  <div class="user" id="user"></div>
   <div class="clock" id="clock"></div>
 </div>
 
 <div class="desktop" id="desktop"></div>
 
 <div class="dock" id="dock"></div>
+
+<!-- 로그인 화면 -->
+<div class="lock hidden" id="lock">
+  <div class="clockbig"><div class="t" id="lockTime"></div><div class="d" id="lockDate"></div></div>
+  <form class="card" id="loginForm" autocomplete="on">
+    <div class="logo">MY RUBI</div>
+    <div class="sub">Rubi Workshop 직원 로그인</div>
+    <label for="lgId">아이디</label>
+    <input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="lgPw">비밀번호</label>
+    <input type="password" id="lgPw" name="password" autocomplete="current-password">
+    <div class="row">
+      <label><input type="checkbox" id="lgRemember" checked> 로그인 상태 유지</label>
+      <button type="button" class="lnk" id="lgServerBtn">서버 설정</button>
+    </div>
+    <div id="lgServer" class="hidden">
+      <label for="lgUrl">서버 주소 (Apps Script 웹앱 URL)</label>
+      <input type="url" id="lgUrl" placeholder="https://script.google.com/macros/s/…/exec">
+    </div>
+    <button class="go" id="lgGo" type="submit">로그인</button>
+    <div class="err" id="lgErr"></div>
+  </form>
+
+  <!-- 비밀번호 변경 (첫 로그인 / 메뉴) -->
+  <form class="card hidden" id="pwForm" autocomplete="off">
+    <div class="logo">비밀번호 변경</div>
+    <div class="sub" id="pwSub">새 비밀번호를 정해 주세요</div>
+    <div id="pwCurWrap">
+      <label for="pwCur">현재 비밀번호</label>
+      <input type="password" id="pwCur" autocomplete="current-password">
+    </div>
+    <label for="pwNew">새 비밀번호 (8자 이상)</label>
+    <input type="password" id="pwNew" autocomplete="new-password">
+    <label for="pwNew2">새 비밀번호 확인</label>
+    <input type="password" id="pwNew2" autocomplete="new-password">
+    <button class="go" id="pwGo" type="submit">변경</button>
+    <div class="row" style="justify-content:center;margin:12px 0 0"><button type="button" class="lnk" id="pwCancel">취소</button></div>
+    <div class="err" id="pwErr"></div>
+  </form>
+</div>
+
 
 <svg width="0" height="0" style="position:absolute">
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/></symbol>
@@ -103,12 +179,15 @@ button{font:inherit;cursor:pointer}
   <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3h3M15 9l-2 4h-5"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.8-.2 4.9 1.4 5.5 4.4"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM9 20v-6h6v6"/></symbol>
 </svg>
 
+<script src="/config.js"></script>
+<script src="/lib.js"></script>
 <script>
 // ─────────── 앱 목록: 여기에 한 줄 추가하면 바탕화면과 독에 아이콘이 생김 ───────────
-// type: 'window' = 바탕화면 안에서 창으로 열림 / 'link' = 새 탭으로 열림
+// type: 'window' = 바탕화면 안에서 창으로 열림 / 'link' = 새 탭으로 열림 / admin:true = 관리자에게만 보임
 const APPS = [
   { id:'consult',  title:'상담 현황',      icon:'i-chat',   color:'dark',  type:'window', url:'/consult/',            dock:true },
   { id:'new',      title:'신규 상담',      icon:'i-plus',   color:'red',   type:'window', url:'/consult/?new=1',      dock:true },
@@ -117,7 +196,7 @@ const APPS = [
   { id:'bikes',    title:'출고 자전거',    icon:'i-bike',   color:'',      type:'window', url:'', disabled:true },
   { id:'care',     title:'루비케어',       icon:'i-shield', color:'',      type:'window', url:'', disabled:true },
   { id:'garage',   title:'루비개러지',     icon:'i-store',  color:'',      type:'window', url:'', disabled:true },
-  { id:'settings', title:'설정',           icon:'i-gear',   color:'',      type:'window', url:'/consult/?settings=1', dock:false },
+  { id:'users',    title:'사용자 관리',    icon:'i-users',  color:'',      type:'window', url:'/users/', admin:true },
 ];
 
 const $ = s => document.querySelector(s);
@@ -125,20 +204,20 @@ const wins = new Map(); // id → element
 
 // ─────────── 바탕화면 아이콘 / 독 ───────────
 function svg(id){ return `<svg><use href="#${id}"/></svg>`; }
+function visibleApps(){ const u = MR.user() || {}; return APPS.filter(a => !a.admin || u.role === 'admin'); }
 function renderDesktop(){
-  $('#desktop').innerHTML = APPS.map(a => `
+  $('#desktop').innerHTML = visibleApps().map(a => `
     <button class="icon ${a.disabled?'off':''}" data-id="${a.id}" ${a.disabled?'disabled':''}>
       <div class="g ${a.color}">${svg(a.icon)}</div>
       <div class="t">${a.title}</div>
     </button>`).join('');
-  $('#dock').innerHTML = APPS.filter(a=>a.dock).map(a => `
-    <button data-id="${a.id}"><span class="mini ${a.color}">${svg(a.icon)}</span>${a.title}</button>`).join('')
-    + `<div class="sep"></div><button data-id="settings"><span class="mini">${svg('i-gear')}</span>설정</button>`;
+  $('#dock').innerHTML = visibleApps().filter(a=>a.dock).map(a => `
+    <button data-id="${a.id}"><span class="mini ${a.color}">${svg(a.icon)}</span>${a.title}</button>`).join('');
   document.querySelectorAll('.icon,.dock button').forEach(b => b.onclick = () => openApp(b.dataset.id));
 }
 
 function openApp(id){
-  const a = APPS.find(x => x.id === id); if(!a || a.disabled) return;
+  const a = visibleApps().find(x => x.id === id); if(!a || a.disabled) return;
   if(a.type === 'link'){ window.open(a.url, '_blank', 'noopener'); return; }
   // 같은 창이 이미 있으면 앞으로 가져오기 (신규 상담은 상담 현황 창과 같은 페이지이므로 공유)
   const key = a.url.startsWith('/consult/') ? 'consult' : a.id;
@@ -217,12 +296,117 @@ function resize(w){
 function tick(){
   const d = new Date();
   $('#clock').textContent = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'}) + '  ' + d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  $('#lockTime').textContent = d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});
+  $('#lockDate').textContent = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
 }
 setInterval(tick, 15000); tick();
-renderDesktop();
 
-// 주소에 #consult 처럼 앱 id가 있으면 바로 열기
-if(location.hash) openApp(location.hash.slice(1));
+// ─────────── 로그인 ───────────
+const show = (el, on) => $(el).classList.toggle('hidden', !on);
+let pwForced = false;
+
+function showLogin(msg){
+  closeAll();
+  show('#lock', true); show('#loginForm', true); show('#pwForm', false);
+  $('#lgErr').textContent = msg || '';
+  $('#lgPw').value = '';
+  if(!MR.url()) { show('#lgServer', true); }
+  setTimeout(() => ($('#lgId').value ? $('#lgPw') : $('#lgId')).focus(), 50);
+}
+function showPasswordChange(forced){
+  pwForced = !!forced;
+  show('#lock', true); show('#loginForm', false); show('#pwForm', true);
+  show('#pwCurWrap', !forced); show('#pwCancel', !forced);
+  $('#pwSub').textContent = forced ? '처음 로그인하셨습니다. 새 비밀번호를 정해 주세요' : '현재 비밀번호를 확인한 뒤 바꿉니다';
+  ['#pwCur','#pwNew','#pwNew2'].forEach(i => $(i).value = ''); $('#pwErr').textContent = '';
+  setTimeout(() => $(forced ? '#pwNew' : '#pwCur').focus(), 50);
+}
+function enterDesktop(){
+  show('#lock', false);
+  renderDesktop(); renderUser();
+  const next = new URLSearchParams(location.search).get('next');
+  if(location.hash) openApp(location.hash.slice(1));
+  else if(next){ const a = visibleApps().find(x => x.url && next.startsWith(x.url.split('?')[0])); if(a) openApp(a.id); }
+}
+function closeAll(){ wins.forEach(w => w.remove()); wins.clear(); syncDock(); }
+
+function renderUser(){
+  const u = MR.user(); if(!u){ $('#user').innerHTML=''; return; }
+  $('#user').innerHTML = `<button id="userBtn">${u.name}${u.role==='admin'?'<span class="role">관리자</span>':''} ▾</button>
+    <div class="menu hidden" id="userMenu">
+      <div class="who"><b>${u.name}</b>${u.id}</div>
+      <button data-m="pw">비밀번호 변경</button>
+      ${u.role==='admin' ? '<button data-m="users">사용자 관리</button><button data-m="server">서버 주소 설정</button>' : ''}
+      <button data-m="logout">로그아웃</button>
+    </div>`;
+  $('#userBtn').onclick = e => { e.stopPropagation(); $('#userMenu').classList.toggle('hidden'); };
+  $('#userMenu').onclick = e => {
+    const m = e.target.dataset.m; if(!m) return; $('#userMenu').classList.add('hidden');
+    if(m === 'pw') showPasswordChange(false);
+    if(m === 'users') openApp('users');
+    if(m === 'server'){ const v = prompt('Apps Script 웹앱 URL (비우면 config.js 기본값)', MR.url()); if(v !== null) MR.setUrl(v.trim()); }
+    if(m === 'logout') logout();
+  };
+}
+document.addEventListener('click', () => { const m = $('#userMenu'); if(m) m.classList.add('hidden'); });
+
+async function logout(){
+  try { await MR.post({ action:'logout' }); } catch(e) {}
+  MR.clear(); $('#user').innerHTML=''; showLogin();
+}
+
+$('#lgServerBtn').onclick = () => { $('#lgUrl').value = MR.url(); $('#lgServer').classList.toggle('hidden'); };
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const url = $('#lgUrl').value.trim();
+  if(!$('#lgServer').classList.contains('hidden')) MR.setUrl(url && url !== (window.MYRUBI_CONFIG||{}).API_URL ? url : '');
+  const id = $('#lgId').value.trim(), pw = $('#lgPw').value;
+  if(!id || !pw){ $('#lgErr').textContent = '아이디와 비밀번호를 입력하세요'; return; }
+  $('#lgGo').disabled = true; $('#lgErr').textContent = '';
+  try {
+    MR.clear();
+    const j = await MR.post({ action:'login', id, password:pw, remember:$('#lgRemember').checked });
+    MR.setSession(j.token, j.user);
+    if(j.user.mustChange) showPasswordChange(true); else enterDesktop();
+  } catch(err){ $('#lgErr').textContent = err.message; $('#lgPw').select(); }
+  finally { $('#lgGo').disabled = false; }
+};
+$('#pwCancel').onclick = () => { if(!pwForced) show('#lock', false); };
+$('#pwForm').onsubmit = async e => {
+  e.preventDefault();
+  const cur = $('#pwCur').value, nw = $('#pwNew').value, nw2 = $('#pwNew2').value;
+  if(nw.length < 8){ $('#pwErr').textContent = '새 비밀번호는 8자 이상이어야 합니다'; return; }
+  if(nw !== nw2){ $('#pwErr').textContent = '새 비밀번호가 서로 다릅니다'; return; }
+  $('#pwGo').disabled = true; $('#pwErr').textContent = '';
+  try {
+    const j = await MR.post({ action:'password', current:cur, next:nw });
+    MR.setSession(MR.token(), j.user);
+    if(pwForced) enterDesktop(); else { show('#lock', false); alertToast('비밀번호를 바꿨습니다'); }
+  } catch(err){ $('#pwErr').textContent = err.message; }
+  finally { $('#pwGo').disabled = false; }
+};
+function alertToast(t){
+  const d = document.createElement('div');
+  d.textContent = t;
+  d.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;z-index:200';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 2200);
+}
+
+// 창 안의 앱에서 세션 만료를 알리면 로그인 화면으로
+window.addEventListener('message', e => {
+  if(e.origin === location.origin && e.data && e.data.type === 'myrubi:logout') showLogin('세션이 만료되었습니다. 다시 로그인해 주세요');
+});
+MR.onKick = () => showLogin('세션이 만료되었습니다. 다시 로그인해 주세요');
+
+// 시작: 저장된 세션이 있으면 서버에 확인
+(async function boot(){
+  if(!MR.token()){ showLogin(); return; }
+  try {
+    const j = await MR.get({ action:'me' });
+    MR.setSession(MR.token(), j.user);
+    if(j.user.mustChange) showPasswordChange(true); else enterDesktop();
+  } catch(e){ showLogin(e.message === '로그인이 필요합니다' ? '' : e.message); }
+})();
 </script>
 </body>
 </html>
