@@ -17,7 +17,7 @@
 
 ## 2. 포털 페이지 배포
 
-1. GitHub에 새 리포지토리(예: `sereno-kwon/my-rubi`)를 만들고 이 리포지토리 루트의 `index.html`, `CNAME` 이 Pages로 배포됩니다.
+1. GitHub에 새 리포지토리(예: `sereno-kwon/my-rubi`)를 만들고 루트 `index.html`(바탕화면)과 `consult/`(상담 앱)가 Pages로 배포됩니다.
 2. Settings → Pages → Source: main / root.
 3. DNS에서 `my.rubiworkshop.com` CNAME → `sereno-kwon.github.io` (다른 브랜드 사이트와 같은 방식).
 4. 사이트를 열고 우상단 **설정** 에 1-5의 웹앱 URL과 API 키를 넣습니다. 브라우저 localStorage에만 저장됩니다.
@@ -43,6 +43,7 @@ Index 시트는 그대로 열어서 고쳐도 됩니다. 포털은 매번 시트
 ## 파일
 
 - `apps-script/Code.gs` 백엔드
-- `index.html` 관리자 포털 (단일 파일)
+- `index.html` 바탕화면 런처 (앱 아이콘·창·독). 앱 추가는 파일 상단 `APPS` 배열에 한 줄
+- `consult/index.html` 상담 현황 앱 (단일 파일)
 - `CNAME`
 - `tools/backfill.py` 기존 폴더명 → Index 행 변환 스크립트 (이미 1회 실행해 Index를 채움)
