@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Rubi · 상담 현황</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#f4f4f2; --panel:#ffffff; --ink:#1c1c1c; --ink-2:#5b5b5b; --ink-3:#9a9a9a;
+  --line:#e2e2df; --rubi:#2f3136; --rubi-soft:#e9eaec; --accent:#b8402e; --ok:#2e7d4f;
+  --radius:10px; --mono:"SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* 헤더 */
+header{position:sticky;top:0;z-index:20;background:var(--rubi);color:#fff;height:52px;display:flex;align-items:center;padding:0 20px;gap:16px}
+header .brand{font-weight:700;letter-spacing:.08em;font-size:13px}
+header .brand small{font-weight:400;opacity:.6;margin-left:8px;letter-spacing:0}
+header .sp{flex:1}
+header button{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:6px 12px;font-size:12px}
+header button.primary{background:#fff;color:var(--rubi);border-color:#fff;font-weight:600}
+header button:hover{border-color:#fff}
+
+main{max-width:1280px;margin:0 auto;padding:20px 20px 60px}
+
+/* 파이프라인 */
+.pipeline{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:18px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 10px 8px;cursor:pointer;transition:.15s;position:relative}
+.stage:hover{border-color:var(--ink-3)}
+.stage.active{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.stage .n{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
+.stage .l{font-size:11px;color:var(--ink-2);margin-top:6px}
+.stage .bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--rubi);border-radius:0 0 8px 8px;opacity:.15}
+.stage.has .bar{opacity:1}
+
+/* 툴바 */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input,.toolbar select{height:34px;border:1px solid var(--line);border-radius:7px;padding:0 10px;background:var(--panel)}
+.toolbar input[type=search]{min-width:240px}
+.toolbar .sp{flex:1}
+.toolbar .meta{font-size:12px;color:var(--ink-3)}
+
+/* 테이블 */
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:var(--ink-3);font-weight:500;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);letter-spacing:.02em;white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#fafaf9}
+td.no{font-family:var(--mono);color:var(--ink-2);font-size:12px}
+td.model{max-width:360px;overflow:hidden;text-overflow:ellipsis}
+td.model .spec{color:var(--ink-3);font-size:12px;margin-left:6px}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:4px;background:var(--rubi-soft);color:var(--ink-2);letter-spacing:.02em}
+.tag.brand{background:var(--rubi);color:#fff;font-weight:600;font-size:10px;letter-spacing:.06em}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.dots i.on{background:var(--rubi)}
+.dots i.cur{background:var(--accent)}
+td.date{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.empty{padding:40px;text-align:center;color:var(--ink-3)}
+
+/* 드로어 */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--panel);z-index:31;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.12);display:flex;flex-direction:column}
+.drawer .head{padding:20px 24px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.drawer .head h2{margin:0;font-size:18px;font-weight:700}
+.drawer .head .sub{color:var(--ink-2);font-size:12px;margin-top:4px;font-family:var(--mono)}
+.drawer .head .x{position:absolute;top:16px;right:16px;border:none;background:transparent;font-size:20px;color:var(--ink-3)}
+.drawer .body{padding:20px 24px;flex:1}
+.sec{margin-bottom:24px}
+.sec h3{font-size:11px;letter-spacing:.08em;color:var(--ink-3);font-weight:600;margin:0 0 10px;text-transform:uppercase}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:6px 12px;font-size:13px}
+.kv dt{color:var(--ink-3)}
+.kv dd{margin:0}
+.timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tl{border:1px solid var(--line);border-radius:7px;padding:8px;font-size:11px}
+.tl.on{border-color:var(--rubi);background:var(--rubi-soft)}
+.tl.cur{border-color:var(--accent)}
+.tl .d{font-family:var(--mono);color:var(--ink-2);margin-top:3px;font-size:10px}
+.consults{display:flex;flex-direction:column;gap:8px}
+.c{border-left:2px solid var(--line);padding:2px 0 2px 12px}
+.c .m{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.c .t{white-space:pre-wrap}
+.c .a{font-size:12px;color:var(--ink-2)}
+
+/* 폼 */
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form .full{grid-column:1/-1}
+.f label{display:block;font-size:11px;color:var(--ink-3);margin-bottom:4px}
+.f input,.f select,.f textarea{width:100%;height:36px;border:1px solid var(--line);border-radius:7px;padding:0 10px;background:#fff}
+.f textarea{height:88px;padding:8px 10px;resize:vertical}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.btn{height:36px;padding:0 16px;border-radius:7px;border:1px solid var(--line);background:#fff}
+.btn.primary{background:var(--rubi);color:#fff;border-color:var(--rubi);font-weight:600}
+.btn.danger{color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.link{font-size:12px;color:var(--ink-2);text-decoration:underline}
+.msg{font-size:12px;margin-top:8px;color:var(--ink-2)}
+.msg.err{color:var(--accent)}
+.msg.ok{color:var(--ok)}
+
+/* 모달 */
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);padding:20px}
+.modal .box{background:var(--panel);border-radius:12px;width:min(640px,100%);padding:24px;max-height:90vh;overflow:auto}
+.modal h2{margin:0 0 16px;font-size:17px}
+
+@media (max-width:900px){
+  .pipeline{grid-template-columns:repeat(5,1fr)}
+  td.hide-m,th.hide-m{display:none}
+  .form{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">MY RUBI<small>상담 현황</small></div>
+  <div class="sp"></div>
+  <button id="btnRefresh">새로고침</button>
+  <button id="btnSettings">설정</button>
+  <button class="primary" id="btnNew">+ 신규 상담</button>
+</header>
+
+<main>
+  <div class="pipeline" id="pipeline"></div>
+
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="고객명 · 모델 · 번호 검색">
+    <select id="fBrand"><option value="">모든 브랜드</option></select>
+    <select id="fChannel"><option value="">모든 채널</option></select>
+    <label style="font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px"><input type="checkbox" id="fOpen" checked> 진행 중만</label>
+    <div class="sp"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <div class="tbl">
+    <table>
+      <thead><tr>
+        <th>No</th><th>브랜드</th><th>고객</th><th>모델</th><th class="hide-m">채널</th><th>단계</th><th class="hide-m">진행</th><th class="hide-m">최근</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty hidden" id="empty">표시할 상담이 없습니다</div>
+  </div>
+</main>
+
+<!-- 상세 드로어 -->
+<div id="drawerWrap" class="hidden">
+  <div class="overlay" onclick="closeDrawer()"></div>
+  <aside class="drawer">
+    <div class="head">
+      <h2 id="dTitle"></h2>
+      <div class="sub" id="dSub"></div>
+      <button class="x" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="body">
+      <div class="sec">
+        <h3>진행 단계</h3>
+        <div class="timeline" id="dTimeline"></div>
+      </div>
+      <div class="sec">
+        <h3>기본 정보</h3>
+        <dl class="kv" id="dInfo"></dl>
+        <div style="margin-top:8px;display:flex;gap:12px">
+          <a class="link" id="dFolder" target="_blank">Drive 폴더 열기</a>
+          <a class="link" id="dLog" target="_blank">Log 시트 열기</a>
+        </div>
+      </div>
+      <div class="sec">
+        <h3>상담 기록 추가</h3>
+        <div class="form">
+          <div class="f full"><textarea id="cNote" placeholder="상담 내용, 고객 요청, 결정 사항 등"></textarea></div>
+          <div class="f"><label>담당자</label><input id="cManager"></div>
+          <div class="f"><label>&nbsp;</label><button class="btn primary" style="width:100%" id="cSave">기록 저장</button></div>
+        </div>
+      </div>
+      <div class="sec">
+        <h3>단계 진행</h3>
+        <div class="form">
+          <div class="f"><label>다음 단계</label><select id="sStage"></select></div>
+          <div class="f"><label>날짜</label><input type="date" id="sDate"></div>
+          <div class="f"><label>결제 금액 (₩, 결제 단계만)</label><input id="sAmount" inputmode="numeric" placeholder="예: 10600000"></div>
+          <div class="f"><label>결제 수단</label><select id="sMethod"><option value="">-</option><option>계좌이체 (현금영수증)</option><option>계좌이체</option><option>카드</option><option>현금</option></select></div>
+          <div class="f full"><label>메모</label><input id="sNote" placeholder="선택"></div>
+          <div class="f full"><button class="btn primary" style="width:100%" id="sSave">단계 진행 · Drive에 기록</button></div>
+        </div>
+        <div class="msg" id="dMsg"></div>
+      </div>
+      <div class="sec">
+        <h3>상담 이력</h3>
+        <div class="consults" id="dConsults"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- 신규 상담 -->
+<div id="newWrap" class="modal hidden">
+  <div class="box">
+    <h2>신규 상담 등록</h2>
+    <div class="form">
+      <div class="f"><label>브랜드</label><select id="nBrand"></select></div>
+      <div class="f"><label>채널</label><select id="nChannel"></select></div>
+      <div class="f"><label>고객명</label><input id="nCustomer" placeholder="홍길동"></div>
+      <div class="f"><label>담당자</label><input id="nManager"></div>
+      <div class="f"><label>모델</label><input id="nModel" placeholder="ARCHETYPE"></div>
+      <div class="f"><label>사양 (선택)</label><input id="nSpec" placeholder="BESPOKE_400-120-12D_20SB"></div>
+      <div class="f"><label>시작 단계</label><select id="nStage"></select></div>
+      <div class="f"><label>날짜</label><input type="date" id="nDate"></div>
+      <div class="f full"><label>첫 상담 내용</label><textarea id="nMemo"></textarea></div>
+      <div class="f full" style="font-size:12px;color:var(--ink-2)">
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2)"><input type="checkbox" id="nFolder" checked> Drive에 고객 폴더와 Log 시트를 지금 생성 (문의 단계면 체크 해제 권장)</label>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="closeNew()">취소</button>
+      <button class="btn primary" id="nSave">등록</button>
+    </div>
+    <div class="msg" id="nMsg"></div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div id="setWrap" class="modal hidden">
+  <div class="box">
+    <h2>연결 설정</h2>
+    <div class="form">
+      <div class="f full"><label>Apps Script 웹앱 URL</label><input id="setUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+      <div class="f full"><label>API 키</label><input id="setKey" type="password"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="closeSettings()">닫기</button>
+      <button class="btn primary" id="setSave">저장</button>
+    </div>
+    <div class="msg">이 브라우저에만 저장됩니다.</div>
+  </div>
+</div>
+
+<script>
+// ───── 상태 ─────
+const S = { url:'', key:'', rows:[], stages:[], channels:[], brands:[], filterStage:'', cur:null };
+try { S.url = localStorage.getItem('myrubi.url')||''; S.key = localStorage.getItem('myrubi.key')||''; } catch(e){}
+
+const $ = id => document.getElementById(id);
+const fmtWon = n => n ? Number(n).toLocaleString('ko-KR') + '원' : '';
+const today = () => new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+
+// ───── API ─────
+// 미리보기용: window.MOCK = {stages, channels, brands, rows, consults} 가 있으면 서버 없이 동작
+async function apiGet(params){
+  if(window.MOCK){
+    if(params.action==='list') return {ok:true, ...window.MOCK};
+    if(params.action==='consults') return {ok:true, rows:(window.MOCK.consults||[]).filter(c=>c.no===params.no)};
+  }
+  if(!S.url) throw new Error('설정에서 웹앱 URL을 먼저 입력하세요');
+  const u = new URL(S.url); u.searchParams.set('key', S.key);
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r = await fetch(u, {redirect:'follow'});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'오류'); return j;
+}
+async function apiPost(body){
+  if(window.MOCK) throw new Error('미리보기 모드에서는 저장할 수 없습니다');
+  if(!S.url) throw new Error('설정에서 웹앱 URL을 먼저 입력하세요');
+  // text/plain으로 보내면 CORS preflight 없이 Apps Script에 도달함
+  const r = await fetch(S.url, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({...body, key:S.key})});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'오류'); return j;
+}
+
+// ───── 로드 ─────
+async function load(){
+  $('meta').textContent = '불러오는 중…';
+  try{
+    const j = await apiGet({action:'list'});
+    S.rows = j.rows; S.stages = j.stages; S.channels = j.channels; S.brands = j.brands;
+    fillSelect($('fBrand'), S.brands, '모든 브랜드'); fillSelect($('fChannel'), S.channels, '모든 채널');
+    fillSelect($('nBrand'), S.brands); fillSelect($('nChannel'), S.channels); fillSelect($('nStage'), S.stages);
+    render();
+  }catch(e){ $('meta').textContent = e.message; if(!S.url) openSettings(); }
+}
+function fillSelect(sel, arr, blank){
+  const cur = sel.value;
+  sel.innerHTML = (blank?`<option value="">${blank}</option>`:'') + arr.map(v=>`<option>${v}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+
+// ───── 렌더 ─────
+function isOpen(r){ return r.stage !== '출고' && r.stage !== '루비케어'; }
+function render(){
+  const q = $('q').value.trim().toLowerCase();
+  const b = $('fBrand').value, c = $('fChannel').value, open = $('fOpen').checked;
+
+  // 파이프라인 카운트 (브랜드/채널 필터만 반영)
+  const base = S.rows.filter(r => (!b||r.brand===b) && (!c||r.channel===c));
+  const counts = Object.fromEntries(S.stages.map(s=>[s,0]));
+  base.forEach(r => { if(counts[r.stage]!==undefined) counts[r.stage]++; });
+  $('pipeline').innerHTML = S.stages.map(s=>`
+    <div class="stage ${S.filterStage===s?'active':''} ${counts[s]?'has':''}" data-s="${s}">
+      <div class="n">${counts[s]}</div><div class="l">${s}</div><div class="bar"></div>
+    </div>`).join('');
+  document.querySelectorAll('.stage').forEach(el=>el.onclick=()=>{ S.filterStage = S.filterStage===el.dataset.s?'':el.dataset.s; render(); });
+
+  let list = base.filter(r => (!open||isOpen(r)) && (!S.filterStage||r.stage===S.filterStage));
+  if(q) list = list.filter(r => [r.no,r.customer,r.model,r.spec,r.brand].join(' ').toLowerCase().includes(q));
+  list.sort((a,b)=> (b.updatedAt||'').localeCompare(a.updatedAt||'') || b.no.localeCompare(a.no));
+
+  $('rows').innerHTML = list.map(r=>`
+    <tr data-no="${r.no}">
+      <td class="no">${r.no}</td>
+      <td><span class="tag brand">${r.brand}</span></td>
+      <td><b>${esc(r.customer)}</b></td>
+      <td class="model">${esc(r.model)}${r.spec?`<span class="spec">${esc(r.spec)}</span>`:''}</td>
+      <td class="hide-m"><span class="tag">${esc(r.channel)}</span></td>
+      <td>${esc(r.stage)}</td>
+      <td class="hide-m">${dots(r)}</td>
+      <td class="date hide-m">${(r.updatedAt||'').slice(0,10)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#rows tr').forEach(tr=>tr.onclick=()=>openDrawer(tr.dataset.no));
+  $('empty').classList.toggle('hidden', list.length>0);
+  $('meta').textContent = `${list.length}건 표시 · 전체 ${S.rows.length}건`;
+}
+function dots(r){
+  const i = S.stages.indexOf(r.stage);
+  return `<span class="dots">${S.stages.map((s,k)=>`<i class="${k<i?'on':k===i?'cur':''}" title="${s}"></i>`).join('')}</span>`;
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ───── 드로어 ─────
+async function openDrawer(no){
+  const r = S.rows.find(x=>x.no===no); if(!r) return;
+  S.cur = r;
+  $('dTitle').textContent = `${r.customer} · ${r.model}`;
+  $('dSub').textContent = `${r.no} / ${r.brand} / ${r.channel}${r.spec?' / '+r.spec:''}`;
+  const i = S.stages.indexOf(r.stage);
+  $('dTimeline').innerHTML = S.stages.map((s,k)=>`<div class="tl ${k<i?'on':''} ${k===i?'cur':''}">${s}<div class="d">${r[s]||'–'}</div></div>`).join('');
+  $('dInfo').innerHTML = [['담당자',r.manager],['메모',r.memo],['최근 업데이트',r.updatedAt]].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)||'–'}</dd>`).join('');
+  $('dFolder').href = r.folderUrl||'#'; $('dFolder').classList.toggle('hidden', !r.folderUrl);
+  $('dLog').href = r.logSheetId?`https://docs.google.com/spreadsheets/d/${r.logSheetId}/edit`:'#'; $('dLog').classList.toggle('hidden', !r.logSheetId);
+  $('cManager').value = r.manager||''; $('cNote').value='';
+  $('sStage').innerHTML = S.stages.map((s,k)=>`<option ${k===i+1?'selected':''}>${s}</option>`).join('');
+  $('sDate').value = today(); $('sAmount').value=''; $('sMethod').value=''; $('sNote').value=''; $('dMsg').textContent='';
+  $('dConsults').innerHTML = '<div class="msg">불러오는 중…</div>';
+  $('drawerWrap').classList.remove('hidden');
+  try{
+    const j = await apiGet({action:'consults', no});
+    $('dConsults').innerHTML = j.rows.length ? j.rows.map(c=>`
+      <div class="c"><div class="m">${c.at} · ${esc(c.stage)}${c.manager?' · '+esc(c.manager):''}</div>
+      <div class="t">${esc(c.note)}</div>${c.amount?`<div class="a">${fmtWon(c.amount)} ${esc(c.method)}</div>`:''}</div>`).join('')
+      : '<div class="msg">기록 없음</div>';
+  }catch(e){ $('dConsults').innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+function closeDrawer(){ $('drawerWrap').classList.add('hidden'); S.cur=null; }
+
+$('cSave').onclick = async ()=>{
+  const note = $('cNote').value.trim(); if(!note) return;
+  await run($('cSave'), $('dMsg'), async ()=>{
+    const j = await apiPost({action:'consult', no:S.cur.no, note, manager:$('cManager').value});
+    patchRow(j.row); await openDrawer(S.cur.no);
+  });
+};
+$('sSave').onclick = async ()=>{
+  const stage = $('sStage').value, amount = $('sAmount').value.replace(/[^\d]/g,'');
+  if(!confirm(`${S.cur.customer} 건을 '${stage}' 단계로 진행하고 Drive에 기록합니다.`)) return;
+  await run($('sSave'), $('dMsg'), async ()=>{
+    const j = await apiPost({action:'stage', no:S.cur.no, stage, date:$('sDate').value, amount, method:$('sMethod').value, note:$('sNote').value, manager:$('cManager').value});
+    patchRow(j.row); await openDrawer(S.cur.no);
+  });
+};
+function patchRow(row){ const i=S.rows.findIndex(x=>x.no===row.no); if(i>=0) S.rows[i]=row; else S.rows.push(row); render(); }
+async function run(btn, msgEl, fn){
+  btn.disabled=true; msgEl.className='msg'; msgEl.textContent='저장 중…';
+  try{ await fn(); msgEl.className='msg ok'; msgEl.textContent='저장되었습니다'; }
+  catch(e){ msgEl.className='msg err'; msgEl.textContent=e.message; }
+  finally{ btn.disabled=false; }
+}
+
+// ───── 신규 ─────
+$('btnNew').onclick = ()=>{ $('nDate').value=today(); $('nMsg').textContent=''; $('newWrap').classList.remove('hidden'); $('nCustomer').focus(); };
+function closeNew(){ $('newWrap').classList.add('hidden'); }
+$('nSave').onclick = async ()=>{
+  const body = { action:'create', brand:$('nBrand').value, channel:$('nChannel').value, customer:$('nCustomer').value.trim(), manager:$('nManager').value.trim(),
+    model:$('nModel').value.trim(), spec:$('nSpec').value.trim(), stage:$('nStage').value, date:$('nDate').value, memo:$('nMemo').value.trim(), createFolder:$('nFolder').checked };
+  if(!body.customer||!body.model){ $('nMsg').className='msg err'; $('nMsg').textContent='고객명과 모델은 필수입니다'; return; }
+  await run($('nSave'), $('nMsg'), async ()=>{
+    const j = await apiPost(body); patchRow(j.row);
+    ['nCustomer','nManager','nModel','nSpec','nMemo'].forEach(id=>$(id).value='');
+    setTimeout(()=>{ closeNew(); openDrawer(j.row.no); }, 400);
+  });
+};
+
+// ───── 설정 ─────
+function openSettings(){ $('setUrl').value=S.url; $('setKey').value=S.key; $('setWrap').classList.remove('hidden'); }
+function closeSettings(){ $('setWrap').classList.add('hidden'); }
+$('btnSettings').onclick = openSettings;
+$('setSave').onclick = ()=>{ S.url=$('setUrl').value.trim(); S.key=$('setKey').value.trim();
+  try{ localStorage.setItem('myrubi.url',S.url); localStorage.setItem('myrubi.key',S.key);}catch(e){}
+  closeSettings(); load(); };
+$('btnRefresh').onclick = load;
+['q','fBrand','fChannel','fOpen'].forEach(id=>$(id).addEventListener('input', render));
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeDrawer(); closeNew(); closeSettings(); } });
+
+load();
+</script>
+</body>
+</html>
