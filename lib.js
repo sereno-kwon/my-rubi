@@ -19,14 +19,18 @@
       const base = MR.url(); if (!base) throw new Error('서버 주소가 설정되지 않았습니다');
       const u = new URL(base);
       Object.entries(Object.assign({}, params, { token: MR.token() || '' })).forEach(([k, v]) => u.searchParams.set(k, v));
-      return MR._handle(await fetch(u, { redirect: 'follow' }));
+      return MR._handle(await MR._fetch(u, { redirect: 'follow' }));
     },
     async post(body) {
       const base = MR.url(); if (!base) throw new Error('서버 주소가 설정되지 않았습니다');
       // text/plain 이면 CORS preflight 없이 Apps Script에 도달함
-      const r = await fetch(base, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      const r = await MR._fetch(base, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(Object.assign({}, body, { token: MR.token() || '' })) });
       return MR._handle(r);
+    },
+    async _fetch(u, opt) {
+      try { return await fetch(u, opt); }
+      catch (e) { throw new Error('서버에 연결할 수 없습니다. Apps Script 배포의 액세스 권한이 "모든 사용자"인지 확인해 주세요.'); }
     },
     async _handle(r) {
       let j; try { j = await r.json(); } catch (e) { throw new Error('서버 응답을 읽을 수 없습니다'); }
