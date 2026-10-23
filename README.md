@@ -13,7 +13,7 @@
    - 실행 사용자: **나**
    - 액세스 권한: **모든 사용자** ("rubiworkshop.com 내 모든 사용자"로 하면 포털에서 Load failed가 납니다. 데이터는 접속 키로 보호됩니다)
    - 배포 후 나오는 `https://script.google.com/macros/s/…/exec` URL을 복사합니다.
-5. 리포지토리의 `config.js` 에 그 URL을 넣고 커밋합니다. (`API_URL: 'https://script.google.com/macros/s/…/exec'`) 이렇게 하면 직원은 서버 주소 없이 로그인만 하면 됩니다.
+5. 리포지토리의 `config.js` 에 그 URL을 넣고 커밋합니다. (`API_URL: 'https://script.google.com/macros/s/…/exec'`) 이렇게 하면 직원은 서버 주소 없이 접속 키만 넣으면 됩니다.
 
 > 코드를 고친 뒤에는 **배포 → 배포 관리 → (연필) → 버전: 새 버전 → 배포** 로 올려야 같은 URL에 반영됩니다.
 
