@@ -77,7 +77,7 @@ button{font:inherit;cursor:pointer}
 .dock .mini.blue{background:linear-gradient(145deg,#4a6fa5,#2f4a73);color:#fff}
 
 
-/* 사용자 메뉴 */
+/* 이름 메뉴 */
 .topbar .user{position:relative}
 .topbar .user>button{height:22px;border:none;background:transparent;color:var(--ink);font-size:12px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px}
 .topbar .user>button:hover{background:var(--glass)}
@@ -88,7 +88,7 @@ button{font:inherit;cursor:pointer}
 .menu .who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12px;color:var(--ink-2)}
 .menu .who b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
 
-/* 로그인 화면 */
+/* 접속 키 화면 */
 .lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(1200px 700px at 15% 0%, #3a3d44 0%, transparent 60%),radial-gradient(900px 600px at 95% 100%, #35302c 0%, transparent 55%),linear-gradient(160deg,var(--desk-1),var(--desk-2))}
 .lock .clockbig{position:absolute;top:12vh;left:0;right:0;text-align:center}
@@ -130,43 +130,25 @@ button{font:inherit;cursor:pointer}
 
 <div class="dock" id="dock"></div>
 
-<!-- 로그인 화면 -->
+<!-- 접속 키 입력 (기기마다 처음 한 번) -->
 <div class="lock hidden" id="lock">
   <div class="clockbig"><div class="t" id="lockTime"></div><div class="d" id="lockDate"></div></div>
-  <form class="card" id="loginForm" autocomplete="on">
+  <form class="card" id="keyForm" autocomplete="on">
     <div class="logo">MY RUBI</div>
-    <div class="sub">Rubi Workshop 직원 로그인</div>
-    <label for="lgId">아이디</label>
-    <input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
-    <label for="lgPw">비밀번호</label>
-    <input type="password" id="lgPw" name="password" autocomplete="current-password">
-    <div class="row">
-      <label><input type="checkbox" id="lgRemember" checked> 로그인 상태 유지</label>
-      <button type="button" class="lnk" id="lgServerBtn">서버 설정</button>
+    <div class="sub">이 기기에서 처음 한 번만 입력합니다</div>
+    <label for="kKey">접속 키</label>
+    <input type="password" id="kKey" name="password" autocomplete="current-password" autocapitalize="off" spellcheck="false">
+    <label for="kWho">이름 (상담 기록 담당자로 들어갑니다)</label>
+    <input type="text" id="kWho" name="username" autocomplete="username" spellcheck="false">
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="lnk" id="kServerBtn">서버 설정</button>
     </div>
-    <div id="lgServer" class="hidden">
-      <label for="lgUrl">서버 주소 (Apps Script 웹앱 URL)</label>
-      <input type="url" id="lgUrl" placeholder="https://script.google.com/macros/s/…/exec">
+    <div id="kServer" class="hidden">
+      <label for="kUrl">서버 주소 (Apps Script 웹앱 URL)</label>
+      <input type="url" id="kUrl" placeholder="https://script.google.com/macros/s/…/exec">
     </div>
-    <button class="go" id="lgGo" type="submit">로그인</button>
-    <div class="err" id="lgErr"></div>
-  </form>
-
-  <!-- 비밀번호 변경 (첫 로그인 / 메뉴) -->
-  <form class="card hidden" id="pwForm" autocomplete="off">
-    <div class="logo">비밀번호 변경</div>
-    <div class="sub" id="pwSub">새 비밀번호를 정해 주세요</div>
-    <div id="pwCurWrap">
-      <label for="pwCur">현재 비밀번호</label>
-      <input type="password" id="pwCur" autocomplete="current-password">
-    </div>
-    <label for="pwNew">새 비밀번호 (8자 이상)</label>
-    <input type="password" id="pwNew" autocomplete="new-password">
-    <label for="pwNew2">새 비밀번호 확인</label>
-    <input type="password" id="pwNew2" autocomplete="new-password">
-    <button class="go" id="pwGo" type="submit">변경</button>
-    <div class="row" style="justify-content:center;margin:12px 0 0"><button type="button" class="lnk" id="pwCancel">취소</button></div>
-    <div class="err" id="pwErr"></div>
+    <button class="go" id="kGo" type="submit">시작</button>
+    <div class="err" id="kErr"></div>
   </form>
 </div>
 
@@ -187,7 +169,7 @@ button{font:inherit;cursor:pointer}
 <script src="/lib.js"></script>
 <script>
 // ─────────── 앱 목록: 여기에 한 줄 추가하면 바탕화면과 독에 아이콘이 생김 ───────────
-// type: 'window' = 바탕화면 안에서 창으로 열림 / 'link' = 새 탭으로 열림 / admin:true = 관리자에게만 보임
+// type: 'window' = 바탕화면 안에서 창으로 열림 / 'link' = 새 탭으로 열림
 const APPS = [
   { id:'consult',  title:'상담 현황',      icon:'i-chat',   color:'dark',  type:'window', url:'/consult/',            dock:true },
   { id:'new',      title:'신규 상담',      icon:'i-plus',   color:'red',   type:'window', url:'/consult/?new=1',      dock:true },
@@ -196,7 +178,6 @@ const APPS = [
   { id:'bikes',    title:'출고 자전거',    icon:'i-bike',   color:'',      type:'window', url:'', disabled:true },
   { id:'care',     title:'루비케어',       icon:'i-shield', color:'',      type:'window', url:'', disabled:true },
   { id:'garage',   title:'루비개러지',     icon:'i-store',  color:'',      type:'window', url:'', disabled:true },
-  { id:'users',    title:'사용자 관리',    icon:'i-users',  color:'',      type:'window', url:'/users/', admin:true },
 ];
 
 const $ = s => document.querySelector(s);
@@ -204,7 +185,7 @@ const wins = new Map(); // id → element
 
 // ─────────── 바탕화면 아이콘 / 독 ───────────
 function svg(id){ return `<svg><use href="#${id}"/></svg>`; }
-function visibleApps(){ const u = MR.user() || {}; return APPS.filter(a => !a.admin || u.role === 'admin'); }
+function visibleApps(){ return APPS; }
 function renderDesktop(){
   $('#desktop').innerHTML = visibleApps().map(a => `
     <button class="icon ${a.disabled?'off':''}" data-id="${a.id}" ${a.disabled?'disabled':''}>
@@ -301,25 +282,16 @@ function tick(){
 }
 setInterval(tick, 15000); tick();
 
-// ─────────── 로그인 ───────────
+// ─────────── 접속 키 ───────────
 const show = (el, on) => $(el).classList.toggle('hidden', !on);
-let pwForced = false;
 
-function showLogin(msg){
-  closeAll();
-  show('#lock', true); show('#loginForm', true); show('#pwForm', false);
-  $('#lgErr').textContent = msg || '';
-  $('#lgPw').value = '';
-  if(!MR.url()) { show('#lgServer', true); }
-  setTimeout(() => ($('#lgId').value ? $('#lgPw') : $('#lgId')).focus(), 50);
-}
-function showPasswordChange(forced){
-  pwForced = !!forced;
-  show('#lock', true); show('#loginForm', false); show('#pwForm', true);
-  show('#pwCurWrap', !forced); show('#pwCancel', !forced);
-  $('#pwSub').textContent = forced ? '처음 로그인하셨습니다. 새 비밀번호를 정해 주세요' : '현재 비밀번호를 확인한 뒤 바꿉니다';
-  ['#pwCur','#pwNew','#pwNew2'].forEach(i => $(i).value = ''); $('#pwErr').textContent = '';
-  setTimeout(() => $(forced ? '#pwNew' : '#pwCur').focus(), 50);
+function showKey(msg){
+  closeAll(); $('#user').innerHTML = '';
+  show('#lock', true);
+  $('#kErr').textContent = msg || '';
+  $('#kKey').value = ''; $('#kWho').value = MR.who();
+  if(!MR.url()) show('#kServer', true);
+  setTimeout(() => $('#kKey').focus(), 50);
 }
 function enterDesktop(){
   show('#lock', false);
@@ -331,82 +303,47 @@ function enterDesktop(){
 function closeAll(){ wins.forEach(w => w.remove()); wins.clear(); syncDock(); }
 
 function renderUser(){
-  const u = MR.user(); if(!u){ $('#user').innerHTML=''; return; }
-  $('#user').innerHTML = `<button id="userBtn">${u.name}${u.role==='admin'?'<span class="role">관리자</span>':''} ▾</button>
+  const name = MR.who() || '이름 없음';
+  $('#user').innerHTML = `<button id="userBtn">${esc(name)} ▾</button>
     <div class="menu hidden" id="userMenu">
-      <div class="who"><b>${u.name}</b>${u.id}</div>
-      <button data-m="pw">비밀번호 변경</button>
-      ${u.role==='admin' ? '<button data-m="users">사용자 관리</button><button data-m="server">서버 주소 설정</button>' : ''}
-      <button data-m="logout">로그아웃</button>
+      <button data-m="name">이름 바꾸기</button>
+      <button data-m="key">접속 키 다시 입력</button>
+      <button data-m="server">서버 주소 설정</button>
     </div>`;
   $('#userBtn').onclick = e => { e.stopPropagation(); $('#userMenu').classList.toggle('hidden'); };
   $('#userMenu').onclick = e => {
     const m = e.target.dataset.m; if(!m) return; $('#userMenu').classList.add('hidden');
-    if(m === 'pw') showPasswordChange(false);
-    if(m === 'users') openApp('users');
+    if(m === 'name'){ const v = prompt('상담 기록에 담당자로 들어갈 이름', MR.who()); if(v !== null && v.trim()){ MR.setWho(v.trim()); renderUser(); } }
+    if(m === 'key'){ MR.clear(); showKey(); }
     if(m === 'server'){ const v = prompt('Apps Script 웹앱 URL (비우면 config.js 기본값)', MR.url()); if(v !== null) MR.setUrl(v.trim()); }
-    if(m === 'logout') logout();
   };
 }
+function esc(t){ return String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 document.addEventListener('click', () => { const m = $('#userMenu'); if(m) m.classList.add('hidden'); });
 
-async function logout(){
-  try { await MR.post({ action:'logout' }); } catch(e) {}
-  MR.clear(); $('#user').innerHTML=''; showLogin();
-}
-
-$('#lgServerBtn').onclick = () => { $('#lgUrl').value = MR.url(); $('#lgServer').classList.toggle('hidden'); };
-$('#loginForm').onsubmit = async e => {
+$('#kServerBtn').onclick = () => { $('#kUrl').value = MR.url(); $('#kServer').classList.toggle('hidden'); };
+$('#keyForm').onsubmit = async e => {
   e.preventDefault();
-  const url = $('#lgUrl').value.trim();
-  if(!$('#lgServer').classList.contains('hidden')) MR.setUrl(url && url !== (window.MYRUBI_CONFIG||{}).API_URL ? url : '');
-  const id = $('#lgId').value.trim(), pw = $('#lgPw').value;
-  if(!id || !pw){ $('#lgErr').textContent = '아이디와 비밀번호를 입력하세요'; return; }
-  $('#lgGo').disabled = true; $('#lgErr').textContent = '';
-  try {
-    MR.clear();
-    const j = await MR.post({ action:'login', id, password:pw, remember:$('#lgRemember').checked });
-    MR.setSession(j.token, j.user);
-    if(j.user.mustChange) showPasswordChange(true); else enterDesktop();
-  } catch(err){ $('#lgErr').textContent = err.message; $('#lgPw').select(); }
-  finally { $('#lgGo').disabled = false; }
+  if(!$('#kServer').classList.contains('hidden')){ const url = $('#kUrl').value.trim(); MR.setUrl(url && url !== (window.MYRUBI_CONFIG||{}).API_URL ? url : ''); }
+  const key = $('#kKey').value.trim(), who = $('#kWho').value.trim();
+  if(!key){ $('#kErr').textContent = '접속 키를 입력하세요'; return; }
+  if(!who){ $('#kErr').textContent = '이름을 입력하세요'; return; }
+  $('#kGo').disabled = true; $('#kErr').textContent = '';
+  MR.setAccess(key, who);
+  const prevKick = MR.onKick; MR.onKick = () => {};
+  try { await MR.get({ action:'ping' }); MR.onKick = prevKick; enterDesktop(); }
+  catch(err){ MR.onKick = prevKick; MR.clear(); $('#kErr').textContent = err.message; $('#kKey').select(); }
+  finally { $('#kGo').disabled = false; }
 };
-$('#pwCancel').onclick = () => { if(!pwForced) show('#lock', false); };
-$('#pwForm').onsubmit = async e => {
-  e.preventDefault();
-  const cur = $('#pwCur').value, nw = $('#pwNew').value, nw2 = $('#pwNew2').value;
-  if(nw.length < 8){ $('#pwErr').textContent = '새 비밀번호는 8자 이상이어야 합니다'; return; }
-  if(nw !== nw2){ $('#pwErr').textContent = '새 비밀번호가 서로 다릅니다'; return; }
-  $('#pwGo').disabled = true; $('#pwErr').textContent = '';
-  try {
-    const j = await MR.post({ action:'password', current:cur, next:nw });
-    MR.setSession(MR.token(), j.user);
-    if(pwForced) enterDesktop(); else { show('#lock', false); alertToast('비밀번호를 바꿨습니다'); }
-  } catch(err){ $('#pwErr').textContent = err.message; }
-  finally { $('#pwGo').disabled = false; }
-};
-function alertToast(t){
-  const d = document.createElement('div');
-  d.textContent = t;
-  d.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;z-index:200';
-  document.body.appendChild(d); setTimeout(() => d.remove(), 2200);
-}
 
-// 창 안의 앱에서 세션 만료를 알리면 로그인 화면으로
+// 창 안의 앱에서 키가 틀렸다고 알리면 키 입력 화면으로
 window.addEventListener('message', e => {
-  if(e.origin === location.origin && e.data && e.data.type === 'myrubi:logout') showLogin('세션이 만료되었습니다. 다시 로그인해 주세요');
+  if(e.origin === location.origin && e.data && e.data.type === 'myrubi:nokey') showKey('접속 키가 바뀌었습니다. 다시 입력해 주세요');
 });
-MR.onKick = () => showLogin('세션이 만료되었습니다. 다시 로그인해 주세요');
+MR.onKick = () => showKey('접속 키가 바뀌었습니다. 다시 입력해 주세요');
 
-// 시작: 저장된 세션이 있으면 서버에 확인
-(async function boot(){
-  if(!MR.token()){ showLogin(); return; }
-  try {
-    const j = await MR.get({ action:'me' });
-    MR.setSession(MR.token(), j.user);
-    if(j.user.mustChange) showPasswordChange(true); else enterDesktop();
-  } catch(e){ showLogin(e.message === '로그인이 필요합니다' ? '' : e.message); }
-})();
+// 시작: 저장된 키가 있으면 바로 바탕화면 (키 확인은 앱이 서버를 부를 때 함께 됨)
+if(MR.key()) enterDesktop(); else showKey();
 </script>
 </body>
 </html>
