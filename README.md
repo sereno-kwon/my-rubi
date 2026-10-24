@@ -34,6 +34,10 @@
 - 지금 로그인된 사람 목록: `listSessions` 실행 후 실행 로그 확인
 - 로그인이 지키는 것은 Apps Script 데이터(상담 기록 등)입니다. 바탕화면 HTML과 링크 목록 자체는 GitHub Pages라서 주소를 알면 받아볼 수 있습니다.
 
+## NAS (Synology)
+
+바탕화면의 **NAS** 앱에서 공유 폴더를 보고, 파일 이름으로 검색하고, 파일을 열거나 내려받을 수 있습니다. 시작 메뉴 검색창에 단어를 넣으면 "NAS에서 파일 찾기" 줄이 함께 나옵니다. 직원마다 자기 NAS 계정으로 로그인하고, 비밀번호는 저장하지 않습니다. NAS 쪽 설치는 [`nas/README.md`](nas/README.md), 다 되면 `config.js` 의 `NAS_API`, `NAS_WEB` 을 채웁니다.
+
 ## 앱 추가하기
 
 `apps.js` 에 한 줄을 넣으면 시작 메뉴에 생기고, 폴더에 속하지 않은 앱은 바탕화면에도 놓입니다(이미 쓰던 기기에도 다음 접속 때 추가됨).
@@ -53,6 +57,8 @@
 - `index.html` 바탕화면 뼈대와 아이콘 모양
 - `assets/desktop.css`, `assets/desktop.js` 바탕화면·창·작업 표시줄·시작 메뉴
 - `apps.js` 앱 목록
+- `assets/nas.js` NAS 앱 (DSM File Station API)
+- `nas/proxy/index.php` NAS Web Station에 올리는 연결 파일, `nas/README.md` 설치 안내
 - `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID
 - `lib.js` 로그인 세션과 API 호출 (바탕화면과 앱이 같이 씀)
 - `apps-script/Code.gs` 백엔드: 구글 로그인 확인, 세션, 구글 드라이브·`00_My Rubi Index` 시트

@@ -209,7 +209,7 @@ function autoArrange() { S.pos = {}; save(); renderDesk(); }
 
 // ─────────── 창 ───────────
 const wins = new Map(); // id → { el, a, prev }
-let zTop = 100, cascade = 0;
+let zTop = 100, cascade = 0, pendingNasQ = null;
 const winRoot = $('#windows'), snapHint = $('#snapHint');
 
 function openApp(id) {
@@ -220,7 +220,7 @@ function openApp(id) {
   createWin(a);
 }
 
-const SIZE_FOR = { folder: [640, 420], memo: [560, 460], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
+const SIZE_FOR = { folder: [640, 420], nas: [920, 620], memo: [560, 460], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
 function createWin(a) {
   const kind = a.kind === 'builtin' ? a.id : a.kind;
   // 항목이 많은 폴더(BRAND 등)는 창을 크게 연다
@@ -242,7 +242,8 @@ function createWin(a) {
     <div class="body"></div>
     <i class="rz e" data-d="e"></i><i class="rz w" data-d="w"></i><i class="rz s" data-d="s"></i><i class="rz se" data-d="se"></i><i class="rz sw" data-d="sw"></i>`;
   winRoot.appendChild(el);
-  const w = { el, a, prev: null };
+  const w = { el, a, prev: null, nasQ: a.id === 'nas' ? pendingNasQ : null };
+  pendingNasQ = null;
   wins.set(a.id, w);
   el.querySelector('[data-c=min]').onclick = () => minimize(a.id);
   el.querySelector('[data-c=max]').onclick = () => toggleMax(a.id);
@@ -262,6 +263,7 @@ function fillWin(w) {
   else if (a.id === 'memo') body.innerHTML = memoView();
   else if (a.id === 'settings') body.innerHTML = settingsView();
   else if (a.id === 'trash') body.innerHTML = trashView();
+  else if (a.id === 'nas') { if (window.MYRUBI_NAS) window.MYRUBI_NAS.mount(body, w.nasQ); w.nasQ = null; return; }
   bindWinBody(w);
 }
 function refreshWin(id) { const w = wins.get(id); if (w) fillWin(w); }
@@ -284,6 +286,7 @@ function minimize(id) {
 }
 function closeWin(id) {
   const w = wins.get(id); if (!w) return;
+  if (id === 'nas' && window.MYRUBI_NAS) window.MYRUBI_NAS.unmount();
   w.el.remove(); wins.delete(id);
   const t = topWin(); if (t) focusWin(t); else renderTaskbar();
 }
@@ -474,9 +477,16 @@ function sections(q) {
 function renderStart() {
   const q = startQ.value.trim().toLowerCase();
   const secs = sections(q);
-  if (!secs.length) { startBody.innerHTML = `<div class="s-empty">"${esc(startQ.value)}"와 맞는 앱이 없습니다.</div>`; return; }
-  startBody.innerHTML = secs.map((s, si) => `<h3>${esc(s.title)}</h3><div class="start-grid">${s.items.map((a, i) =>
+  const nasRow = q && byId.nas && window.MYRUBI_NAS && window.MYRUBI_NAS.configured()
+    ? `<h3>NAS</h3><button class="s-nas" id="sNas">${glyph(byId.nas)}<span>NAS에서 "<b>${esc(startQ.value.trim())}</b>" 파일 찾기</span><kbd>${secs.length ? '' : 'Enter'}</kbd></button>` : '';
+  if (!secs.length) {
+    startBody.innerHTML = nasRow || `<div class="s-empty">"${esc(startQ.value)}"와 맞는 앱이 없습니다.</div>`;
+    if (nasRow) $('#sNas').onclick = () => openNas(startQ.value.trim());
+    return;
+  }
+  startBody.innerHTML = nasRow + secs.map((s, si) => `<h3>${esc(s.title)}</h3><div class="start-grid">${s.items.map((a, i) =>
     `<button class="s-item${q && si === 0 && i === 0 ? ' hit' : ''}" data-id="${a.id}" title="${esc(a.title)}">${glyph(a)}<span class="n">${esc(a.title)}</span></button>`).join('')}</div>`).join('');
+  if (nasRow) $('#sNas').onclick = () => openNas(startQ.value.trim());
   startBody.querySelectorAll('.s-item').forEach(b => {
     b.onclick = () => openApp(b.dataset.id);
     b.oncontextmenu = e => { e.preventDefault(); iconMenu(b.dataset.id, e.clientX, e.clientY, 'start'); };
@@ -492,10 +502,24 @@ $('#startBtn').onclick = e => { e.stopPropagation(); toggleStart(); };
 $('#tbSearch').onclick = e => { e.stopPropagation(); toggleStart(true); };
 startQ.addEventListener('input', renderStart);
 startQ.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { const hit = startBody.querySelector('.s-item'); if (hit) openApp(hit.dataset.id); }
+  if (e.key === 'Enter') {
+    const hit = startBody.querySelector('.s-item');
+    if (hit) openApp(hit.dataset.id); else if ($('#sNas')) openNas(startQ.value.trim());
+  }
 });
 $('#startSettings').onclick = () => openApp('settings');
 start.addEventListener('pointerdown', e => e.stopPropagation());
+
+/** NAS 창을 열고 검색 (이미 열려 있으면 그 창에서 검색) */
+function openNas(q) {
+  closeFlyouts();
+  const w = wins.get('nas');
+  if (w) { w.el.classList.remove('min'); focusWin('nas'); if (q && window.MYRUBI_NAS) window.MYRUBI_NAS.search(q); return; }
+  if (!byId.nas) return;
+  createWinWith(byId.nas, q);
+}
+function createWinWith(a, q) { pendingNasQ = q || null; createWin(a); }
+window.MYRUBI_DESK = { menu: (x, y, items) => showMenu(x, y, items), openNas };
 
 // ─────────── 시계·달력 ───────────
 const cal = $('#cal'); let calMonth = null;

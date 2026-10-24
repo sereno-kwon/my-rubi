@@ -215,6 +215,73 @@ body[data-wall="stone"] .ico:hover{background:rgba(0,0,0,.05)}
 .trash-list .btn{margin:0}
 
 
+/* 시작 메뉴: NAS 검색 줄 */
+.s-nas{display:flex;align-items:center;gap:12px;width:100%;border:none;background:rgba(255,255,255,.6);border-radius:6px;padding:10px 12px;font-size:13px;text-align:left;margin-bottom:4px}
+.s-nas:hover{background:#fff}
+.s-nas .glyph{--s:28px;flex:none}
+.s-nas > span:not(.glyph){flex:1}
+.s-nas kbd{font:inherit;font-size:11px;color:var(--ink-3)}
+
+/* NAS 창 */
+.nas{display:flex;flex-direction:column;height:100%;background:#fff;user-select:none}
+.nas-bar{height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line)}
+.nas-btn{width:30px;height:30px;border:none;background:transparent;border-radius:5px;display:flex;align-items:center;justify-content:center}
+.nas-btn:hover{background:#eef0f2}
+.nas-path{flex:1;min-width:0;display:flex;align-items:center;gap:2px;font-size:13px;color:var(--ink-2);overflow:hidden;white-space:nowrap}
+.nas-path button{border:none;background:transparent;border-radius:4px;padding:4px 6px;font-size:13px;color:var(--ink-2);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.nas-path button:last-child{color:var(--ink);font-weight:600}
+.nas-path button:hover{background:#eef0f2}
+.nas-path b{color:var(--ink);font-weight:600;padding:0 6px}
+.nas-path .in{color:var(--ink-3);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.nas-q{width:min(280px,40%);height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line);border-radius:16px;background:#f7f7f5;color:var(--ink-3)}
+.nas-q:focus-within{border-color:var(--ruby);background:#fff}
+.nas-q input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:var(--ink);user-select:text}
+.nas-head,.nas-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 80px;gap:12px;align-items:center;padding:0 16px}
+.nas-head{height:30px;flex:none;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--line)}
+.nas-head span:last-child,.nas-row .sz{text-align:right}
+.nas-list{flex:1;overflow:auto;outline:none;padding:4px 0}
+.nas-row{min-height:36px;padding-top:3px;padding-bottom:3px;font-size:13px;border-radius:4px;margin:0 6px;cursor:default}
+.nas-row:hover{background:#f1f4f7}
+.nas-row.sel{background:#dde6f1}
+.nas-row .nm{display:flex;align-items:center;gap:10px;min-width:0}
+.nas-row .t{display:flex;flex-direction:column;min-width:0}
+.nas-row .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nas-row .p{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nas-row .tm,.nas-row .sz{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nas-empty{padding:60px 20px;text-align:center;color:var(--ink-3);font-size:13px}
+.nas-status{height:30px;flex:none;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:12px;color:var(--ink-3);background:#fbfbfa}
+.nas-status .who{display:flex;align-items:center;gap:10px}
+.lnk{border:none;background:none;padding:0;color:var(--ink-2);text-decoration:underline;font-size:12px}
+.lnk:hover{color:var(--ink)}
+/* 파일 종류 표시 */
+.nf{width:22px;height:22px;flex:none;border-radius:4px;position:relative;background:#e9ebee}
+.nf::after{content:"";position:absolute;inset:6px 5px;border-radius:1px;background:rgba(0,0,0,.18)}
+.nf-dir{background:none}
+.nf-dir::after{inset:0;border-radius:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M4 12a3 3 0 0 1 3-3h11l4 4h19a3 3 0 0 1 3 3v3H4z' fill='%23c9952f'/%3E%3Cpath d='M4 17h40v20a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z' fill='%23e7b549'/%3E%3C/svg%3E") center/contain no-repeat}
+.nf-img{background:#e3eef8}.nf-img::after{background:#5b8fc7;clip-path:polygon(0 100%,35% 40%,60% 75%,75% 55%,100% 100%)}
+.nf-vid{background:#efe6f6}.nf-vid::after{background:#8a5bb5;clip-path:polygon(25% 10%,90% 50%,25% 90%)}
+.nf-pdf{background:#f8e3e3}.nf-pdf::after{background:#c0392b}
+.nf-xls{background:#e2f2e8}.nf-xls::after{background:#2f7a52}
+.nf-doc{background:#e3eaf8}.nf-doc::after{background:#2f5f9e}
+.nf-ppt{background:#fbe9de}.nf-ppt::after{background:#c9622f}
+.nf-zip{background:#efece6}.nf-zip::after{background:#8b7d62}
+.nf-art{background:#f8e7ef}.nf-art::after{background:#b84a7a}
+.nf-nas{background:none}
+.nf-nas.big{width:52px;height:52px;border-radius:12px;background:linear-gradient(160deg,#5c6670,#3a4148)}
+.nf-nas.big::after{inset:12px 11px;border-radius:3px;background:repeating-linear-gradient(#fff 0 9px,transparent 9px 14px);opacity:.85}
+/* NAS 로그인 */
+.nas-login{max-width:320px;margin:0 auto;padding:44px 20px;display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center}
+.nas-login .nf{align-self:center;margin-bottom:6px}
+.nas-login h2{font-size:19px;font-weight:650;margin:0}
+.nas-login p{margin:0 0 6px;color:var(--ink-2);font-size:13px;line-height:1.55;word-break:keep-all}
+.nas-login label{display:flex;flex-direction:column;gap:5px;text-align:left;font-size:12px;color:var(--ink-2)}
+.nas-login input{height:38px;border:1px solid rgba(0,0,0,.16);border-radius:6px;padding:0 12px;font-size:14px;user-select:text;background:#fff}
+.nas-login input:focus{outline:none;border-color:var(--ruby);box-shadow:0 0 0 3px rgba(155,35,53,.12)}
+.nas-login .btn{margin:6px 0 0;height:40px}
+.nas-msg{min-height:18px;font-size:12.5px;color:#b0303f;word-break:keep-all}
+.nas-msg.ok{color:var(--ink-3)}
+.pane code{font-size:12.5px;background:#f1f1ee;border-radius:4px;padding:1px 5px}
+
 /* 잠금 화면 */
 body.locked .desk,body.locked .taskbar,body.locked #windows{display:none}
 .lock{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9vh;color:#fff;padding:24px;
@@ -247,6 +314,9 @@ body.locked .desk,body.locked .taskbar,body.locked #windows{display:none}
   .win{border-radius:0;border-width:0}
   .win .rz{display:none}
   .win .ctl [data-c=max]{display:none}
+  .nas-head,.nas-row{grid-template-columns:minmax(0,1fr) 64px}
+  .nas-head span:nth-child(2),.nas-row .tm{display:none}
+  .nas-q{width:46%}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}

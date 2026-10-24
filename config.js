@@ -10,4 +10,10 @@ window.MYRUBI_CONFIG = {
 
   // 계정 선택 창에 이 워크스페이스의 계정만 보이게 함 (기본 도메인). 실제 허용 여부는 Apps Script에서 확인
   ALLOWED_DOMAIN: 'rubiworkshop.com',
+
+  // Synology NAS 연결 (nas/README.md 참고)
+  // NAS_API: NAS Web Station에 올린 연결 파일 주소 (예: 'https://nas-api.rubiworkshop.com/'). 비워두면 NAS 창에 설치 안내가 보임
+  // NAS_WEB: DSM 접속 주소 (예: 'https://nas.rubiworkshop.com:5001'). 'File Station에서 열기' 메뉴에 씀
+  NAS_API: '',
+  NAS_WEB: '',
 };

@@ -1,0 +1,53 @@
+# My Rubi × Synology NAS 연결
+
+포털의 **NAS** 앱에서 공유 폴더를 보고, 파일 이름으로 검색하고, 파일을 열거나 내려받을 수 있게 하는 설정입니다. 시작 메뉴 검색창에 단어를 넣으면 "NAS에서 파일 찾기" 줄도 함께 나옵니다.
+
+```
+포털(my.rubiworkshop.com) ──HTTPS──▶ NAS Web Station: nas/proxy/index.php ──▶ DSM File Station API
+```
+
+- 직원마다 **자기 NAS 계정**으로 로그인합니다. NAS에서 그 계정이 볼 수 있는 공유 폴더만 보입니다.
+- 비밀번호는 저장하지 않습니다. 로그인 후 NAS가 발급한 세션만 그 브라우저에 남고, 포털의 로그아웃 버튼이나 DSM 세션 만료로 끝납니다.
+- 연결 파일은 **로그인, 폴더 목록, 검색, 내려받기**만 통과시킵니다. 삭제, 이동, 이름 바꾸기, 공유 링크 만들기는 포털에서 할 수 없습니다.
+- my.rubiworkshop.com 이 아닌 곳에서 온 요청은 거절합니다.
+
+## 준비물
+
+- NAS 연결용 주소 하나. 예: `nas-api.rubiworkshop.com`
+  - 도메인 관리 화면(rubiworkshop.com DNS)에서 이 이름을 사무실 공인 IP(A 레코드) 또는 NAS의 DDNS 주소(CNAME, 예: `rubi.synology.me`)로 연결합니다.
+- 공유기 포트 포워딩: **443**(HTTPS)과 **80**(인증서 발급 확인용)을 NAS로 보냅니다.
+
+## NAS 설정 (DSM 7 기준, 20분)
+
+1. **Web Station 설치**: 패키지 센터에서 Web Station과 PHP 8.2(또는 최신 PHP)를 설치합니다.
+2. **PHP 프로필**: Web Station → 스크립트 언어 설정 → PHP → 생성. 이름 `myrubi`, 버전 PHP 8.x, 확장 목록에서 **curl** 을 켭니다.
+3. **파일 올리기**: File Station에서 `web` 공유 폴더 안에 `myrubi-nas` 폴더를 만들고, 이 저장소의 `nas/proxy/index.php` 를 올립니다.
+4. **웹 서비스**: Web Station → 웹 서비스 → 생성 → 기본 서비스(PHP), 문서 루트 `web/myrubi-nas`, PHP 프로필 `myrubi`.
+5. **웹 포털**: Web Station → 웹 포털 → 생성 → 방금 만든 서비스, 포털 유형 **이름 기반**, 호스트 이름 `nas-api.rubiworkshop.com`, 포트 HTTPS **443** 체크.
+6. **인증서**: 제어판 → 보안 → 인증서 → 추가 → Let's Encrypt, 도메인 `nas-api.rubiworkshop.com`. 발급되면 같은 화면의 **설정**에서 이 웹 포털에 새 인증서를 지정합니다.
+7. **확인**: 브라우저로 `https://nas-api.rubiworkshop.com/` 을 열었을 때 `{"success":false,"error":{"code":"method_not_allowed"}}` 가 보이면 정상입니다. 자물쇠(HTTPS)가 경고 없이 떠야 합니다.
+
+## 포털 설정
+
+`config.js` 에 두 줄을 넣고 커밋합니다.
+
+```js
+NAS_API: 'https://nas-api.rubiworkshop.com/',
+NAS_WEB: 'https://(평소 DSM에 접속하는 주소)',   // 'File Station에서 열기' 메뉴용, 비워도 됨
+```
+
+## 직원 계정
+
+- 제어판 → 사용자 및 그룹에서 직원마다 계정이 있어야 하고, 응용 프로그램 권한에서 **File Station** 이 허용되어 있어야 합니다.
+- 보이는 폴더는 공유 폴더 권한 그대로입니다. 고객 사진처럼 일부만 보여야 하는 폴더는 NAS에서 권한을 나눠 주세요.
+- 2단계 인증을 쓰는 계정은 로그인 화면에 인증 코드 칸이 자동으로 나옵니다.
+
+## 문제가 생기면
+
+| 증상 | 확인할 것 |
+|---|---|
+| NAS 창에 "NAS에 연결할 수 없습니다" | 7번 확인 주소가 열리는지, 443 포트 포워딩, 인증서 경고가 없는지 |
+| 확인 주소에 `php_curl_missing` | 2번 PHP 프로필에서 curl 확장 켜기 |
+| 확인 주소에 `dsm_unreachable` | DSM HTTPS 포트가 5001이 아니면 `index.php` 위쪽 `DSM_ENDPOINT` 의 포트를 바꾸기 |
+| 한 명이 비밀번호를 여러 번 틀린 뒤 모두 로그인이 안 됨 | 제어판 → 보안 → 보호 → 자동 차단 목록에 `127.0.0.1` 이 들어갔는지 확인하고 지우기 |
+| 검색이 느림 | 파일 이름 검색은 NAS가 폴더를 직접 훑습니다. 폴더 안에 들어가서 검색하면 그 폴더만 찾아서 빠릅니다 |
