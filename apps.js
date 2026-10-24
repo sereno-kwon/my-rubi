@@ -31,6 +31,7 @@ window.MYRUBI_APPS = [
   { id: 'shops',     title: 'PLATFORM',      kind: 'folder' },
   { id: 'brands',    title: 'BRAND',         kind: 'folder' },
   { id: 'management', title: 'MANAGEMENT',  kind: 'folder' },
+  { id: 'logistics',  title: 'LOGISTICS',   kind: 'folder' },
 
   // 내장
   { id: 'memo',      title: '메모장',        icon: 'note', tint: 'paper', kind: 'builtin' },
@@ -53,6 +54,9 @@ window.MYRUBI_APPS = [
   { id: 'm-import',      folder: 'management', title: '수입 2026',                 icon: 'sheet', tint: 'green',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/10k5Tfv2uCpOPzf7YnQrddEsbWQb9zm9psDedX-X-dxU/edit' },
   { id: 'm-export',      folder: 'management', title: '수출 2026',                 icon: 'sheet', tint: 'teal',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/19ortty3Wtoqvi_Jm_UhKIibVyBwpzX6wMWqOu_0sQW4/edit' },
   { id: 'm-supply',      folder: 'management', title: '루비서플라이 2026',             icon: 'sheet', tint: 'slate',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1o7IZPhKGQEj1NVSsgmZxQXlDk_Uxj78zqjhqrxEbkCo/edit' },
+
+  // LOGISTICS
+  { id: 'l-package',     folder: 'logistics', title: '패키지 데이터베이스',          icon: 'box',   tint: 'amber',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1u-jDQnshR2zXRjpcBt77eXSWQ885G-JjJkdfyWK_xLo/edit?gid=1261343604#gid=1261343604' },
 
   // BRAND (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비 운영 한국 사이트
