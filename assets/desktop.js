@@ -59,9 +59,11 @@ let sel = null;
 
 function grid() {
   const c = CELL[S.size] || CELL.m;
-  return { w: c.w, h: c.h,
-    cols: Math.max(1, Math.floor((innerWidth - PAD * 2) / c.w)),
-    rows: Math.max(1, Math.floor((innerHeight - TB_H - PAD * 2) / c.h)) };
+  // 오른쪽 위 포스트잇(assets/board.js) 자리는 비워둠
+  const rv = window.MYRUBI_BOARD ? window.MYRUBI_BOARD.reserve() : { right: 0, top: 0 };
+  return { w: c.w, h: c.h, oy: PAD + rv.top,
+    cols: Math.max(1, Math.floor((innerWidth - PAD * 2 - rv.right) / c.w)),
+    rows: Math.max(1, Math.floor((innerHeight - TB_H - PAD * 2 - rv.top) / c.h)) };
 }
 /** 저장된 위치를 쓰되, 화면 밖이거나 겹치면 위에서 아래, 왼쪽에서 오른쪽으로 빈칸에 놓음 */
 function layout() {
@@ -88,7 +90,7 @@ function renderDesk() {
   desk.innerHTML = S.desk.map(id => {
     const a = byId[id], [c, r] = out[id];
     return `<button class="ico${sel === id ? ' sel' : ''}" role="option" data-id="${id}" aria-selected="${sel === id}"
-      style="left:${PAD + c * g.w}px;top:${PAD + r * g.h}px;width:${g.w - 4}px;min-height:${g.h - 6}px">${glyph(a)}<span class="lbl${/^[A-Z0-9 ]{9,}$/.test(a.title) ? ' caps' : ''}">${esc(a.title)}</span></button>`;
+      style="left:${PAD + c * g.w}px;top:${g.oy + r * g.h}px;width:${g.w - 4}px;min-height:${g.h - 6}px">${glyph(a)}<span class="lbl${/^[A-Z0-9 ]{9,}$/.test(a.title) ? ' caps' : ''}">${esc(a.title)}</span></button>`;
   }).join('');
   desk.querySelectorAll('.ico').forEach(bindIcon);
 }
@@ -113,11 +115,11 @@ function bindIcon(el) {
       moved = true; el.classList.add('dragging');
       el.style.left = ox + dx + 'px'; el.style.top = oy + dy + 'px';
       const c = Math.min(g.cols - 1, Math.max(0, Math.round((ox + dx - PAD) / g.w)));
-      const r = Math.min(g.rows - 1, Math.max(0, Math.round((oy + dy - PAD) / g.h)));
+      const r = Math.min(g.rows - 1, Math.max(0, Math.round((oy + dy - g.oy) / g.h)));
       target = [c, r];
       const occ = occupant(c, r);
       dropCell.className = 'drop-cell on' + (occ === 'trash' && id !== 'trash' ? ' trash' : '');
-      Object.assign(dropCell.style, { left: PAD + c * g.w + 'px', top: PAD + r * g.h + 'px', width: g.w - 4 + 'px', height: g.h - 6 + 'px' });
+      Object.assign(dropCell.style, { left: PAD + c * g.w + 'px', top: g.oy + r * g.h + 'px', width: g.w - 4 + 'px', height: g.h - 6 + 'px' });
     };
     const up = () => {
       el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
@@ -520,6 +522,7 @@ function openNas(q) {
 }
 function createWinWith(a, q) { pendingNasQ = q || null; createWin(a); }
 window.MYRUBI_DESK = { menu: (x, y, items) => showMenu(x, y, items), openNas };
+if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.onLayout = () => renderDesk();
 
 // ─────────── 시계·달력 ───────────
 const cal = $('#cal'); let calMonth = null;
@@ -533,7 +536,8 @@ function tick() {
 function renderCal() {
   const now = new Date(), m = calMonth;
   const first = new Date(m.getFullYear(), m.getMonth(), 1), startDay = first.getDay();
-  const days = [];
+  const days = [], ev = window.MYRUBI_BOARD ? window.MYRUBI_BOARD.eventDates() : new Set();
+  const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   for (let i = 0; i < 42; i++) days.push(new Date(m.getFullYear(), m.getMonth(), 1 - startDay + i));
   cal.innerHTML = `
     <div class="today">${now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}</div>
@@ -541,8 +545,8 @@ function renderCal() {
       <button data-m="-1" aria-label="이전 달">‹</button><button data-m="1" aria-label="다음 달">›</button></span></div>
     <div class="grid">${['일', '월', '화', '수', '목', '금', '토'].map(w => `<span class="w">${w}</span>`).join('')}
       ${days.map(d => {
-        const c = [d.getMonth() !== m.getMonth() ? 'o' : '', d.getDay() === 0 ? 'sun' : '', d.toDateString() === now.toDateString() ? 'now' : ''].join(' ');
-        return `<span class="${c}">${d.getDate()}</span>`;
+        const c = [d.getMonth() !== m.getMonth() ? 'o' : '', d.getDay() === 0 ? 'sun' : '', d.toDateString() === now.toDateString() ? 'now' : '', ev.has(key(d)) ? 'ev' : ''].join(' ');
+        return `<span class="${c}"${ev.has(key(d)) ? ' title="일정 있음"' : ''}>${d.getDate()}</span>`;
       }).join('')}</div>
     <div class="hours">쇼룸·고객센터 월~금 12:00~18:00</div>`;
   cal.querySelectorAll('[data-m]').forEach(b => b.onclick = e => { e.stopPropagation(); calMonth = new Date(m.getFullYear(), m.getMonth() + +b.dataset.m, 1); renderCal(); });
@@ -638,6 +642,7 @@ function unlock(animate) {
   document.body.classList.remove('locked');
   if (animate) { lock.classList.add('leaving'); setTimeout(() => lock.classList.add('hidden'), 350); }
   else lock.classList.add('hidden');
+  if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.start();
   renderDesk(); renderTaskbar(); renderWho(); openFromUrl();
 }
 function renderWho() {

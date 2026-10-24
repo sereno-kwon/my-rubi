@@ -4,6 +4,7 @@
  * 역할
  *  - 00_My Rubi Index 시트를 읽어 포털에 상담 현황을 돌려줌 (GET)
  *  - 포털에서 들어온 상담 입력을 Drive 고객 폴더 + Log 시트 + Index 시트에 기록함 (POST)
+ *  - 바탕화면 오른쪽 위 포스트잇(공지·일정)을 Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *
  * Drive 구조 (기존 그대로 유지)
  *  루트 / 브랜드 폴더 / Customer History_브랜드 / NNNN_[BRAND] MODEL (SPEC)_채널_고객명_YYYYMMDD /
@@ -82,6 +83,11 @@ const INDEX_HEADERS = [
 // 상담 기록 탭 컬럼
 const CONSULT_HEADERS = ['일시', 'No', '고객명', '브랜드', '단계', '내용', '금액', '결제수단', '담당자'];
 
+// 공지 탭 컬럼 (바탕화면 포스트잇)
+const NOTE_COLS = ['id', 'type', 'text', 'date', 'time', 'color', 'author', 'email', 'createdAt', 'updatedAt'];
+const NOTE_HEADERS = ['ID', '종류(notice/event)', '내용', '날짜', '시간', '색', '작성자', '이메일', '작성일시', '수정일시'];
+const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'];
+
 // ───────────────────────────── HTTP ─────────────────────────────
 
 function doGet(e) {
@@ -95,6 +101,7 @@ function doGet(e) {
       case 'list':     return json_({ ok: true, stages: CONFIG.STAGES, channels: CONFIG.CHANNELS, brands: Object.keys(CONFIG.BRANDS), rows: listIndex_() });
       case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
+      case 'notes':    return json_({ ok: true, notes: listNotes_() });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -118,6 +125,7 @@ function doPost(e) {
       case 'stage':    return json_({ ok: true, row: advanceStage_(body) });
       case 'consult':  return json_({ ok: true, row: addConsult_(body) });
       case 'update':   return json_({ ok: true, row: updateRow_(body) });
+      case 'note':     return json_({ ok: true, notes: saveNote_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -710,4 +718,86 @@ function inferStagesFromLog_(logSheetId) {
 
 function test_list() {
   Logger.log(JSON.stringify(listIndex_().slice(0, 3), null, 2));
+}
+
+// ───────────────────────────── 공지 (바탕화면 포스트잇) ─────────────────────────────
+
+function noteSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('공지');
+  if (!sh) {
+    sh = ss.insertSheet('공지');
+    sh.getRange(1, 1, 1, NOTE_HEADERS.length).setValues([NOTE_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    // 날짜·시간이 자동으로 날짜 형식으로 바뀌지 않게 글자 그대로 저장
+    sh.getRange(1, 1, sh.getMaxRows(), NOTE_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+/** 시트 값 → 문자열 (예전에 날짜 형식으로 바뀐 칸도 처리) */
+function noteCell_(v, col) {
+  if (v instanceof Date) {
+    if (col === 'time') return Utilities.formatDate(v, CONFIG.TZ, 'HH:mm');
+    if (col === 'date') return Utilities.formatDate(v, CONFIG.TZ, 'yyyy-MM-dd');
+    return Utilities.formatDate(v, CONFIG.TZ, 'yyyy-MM-dd HH:mm');
+  }
+  return v == null ? '' : String(v);
+}
+
+/** 공지 목록. 지난 지 30일이 넘은 일정은 빼고 돌려줌 (시트에는 남음) */
+function listNotes_() {
+  const sh = noteSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const cutoff = Utilities.formatDate(new Date(Date.now() - 30 * 86400000), CONFIG.TZ, 'yyyy-MM-dd');
+  return sh.getRange(2, 1, last - 1, NOTE_COLS.length).getValues()
+    .map(r => { const o = {}; NOTE_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); delete o.email; return o; })
+    .filter(o => o.id && o.text && !(o.type === 'event' && o.date && o.date < cutoff));
+}
+
+/** op: add / update / delete. 저장 후 전체 목록을 돌려줌 */
+function saveNote_(b, user) {
+  const sh = noteSheet_();
+  const op = String(b.op || '');
+  const findRow = id => {
+    const last = sh.getLastRow();
+    if (!id || last < 2) return -1;
+    const ids = sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+    const i = ids.indexOf(String(id));
+    return i < 0 ? -1 : i + 2;
+  };
+
+  if (op === 'delete') {
+    const row = findRow(b.id);
+    if (row > 0) sh.deleteRow(row);
+    return listNotes_();
+  }
+
+  const type = b.type === 'event' ? 'event' : 'notice';
+  const text = String(b.text || '').trim().slice(0, 500);
+  const date = type === 'event' ? String(b.date || '') : '';
+  const time = type === 'event' ? String(b.time || '') : '';
+  const color = NOTE_COLORS.indexOf(b.color) >= 0 ? b.color : (type === 'event' ? 'blue' : 'yellow');
+  if (!text) throw new Error('내용을 적어 주세요');
+  if (type === 'event' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('일정 날짜가 필요합니다');
+  if (time && !/^\d{2}:\d{2}$/.test(time)) throw new Error('시간 형식이 맞지 않습니다');
+
+  if (op === 'add') {
+    const o = { id: Utilities.getUuid().slice(0, 8), type, text, date, time, color,
+      author: user.name || user.email, email: user.email, createdAt: now_(), updatedAt: '' };
+    const row = sh.getLastRow() + 1;
+    sh.getRange(row, 1, 1, NOTE_COLS.length).setNumberFormat('@').setValues([NOTE_COLS.map(k => o[k])]);
+    return listNotes_();
+  }
+  if (op === 'update') {
+    const row = findRow(b.id);
+    if (row < 0) throw new Error('이미 떼어진 포스트잇입니다. 새로 고침해 주세요');
+    const cur = sh.getRange(row, 1, 1, NOTE_COLS.length).getValues()[0];
+    const o = {}; NOTE_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k));
+    Object.assign(o, { type, text, date, time, color, updatedAt: now_() });
+    sh.getRange(row, 1, 1, NOTE_COLS.length).setNumberFormat('@').setValues([NOTE_COLS.map(k => o[k])]);
+    return listNotes_();
+  }
+  throw new Error('unknown op');
 }
