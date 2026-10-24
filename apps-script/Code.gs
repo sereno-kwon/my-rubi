@@ -35,7 +35,7 @@ const CONFIG = {
   LOG_TEMPLATE_ID: '1Nvo-wZvNcwV0mDnD_0ryyS-2luQIIuw06TiB6F2R5u4',
 
   // 구글 로그인: Google Cloud 콘솔에서 만든 OAuth 클라이언트 ID (포털 config.js 의 값과 같아야 함)
-  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_ID: '170788190959-st694dptpqurkm17fglb21bmhph2ui53.apps.googleusercontent.com',
   // 이 도메인의 구글 워크스페이스 계정만 로그인 허용
   ALLOWED_DOMAIN: 'rubi.kr',
   // 도메인 밖이지만 예외로 허용할 계정 (예: ['someone@gmail.com'])
