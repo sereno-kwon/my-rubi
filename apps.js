@@ -14,12 +14,6 @@
 // group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
 
 window.MYRUBI_APPS = [
-  // 루비 업무 앱
-  { id: 'consult',   title: '상담 현황',   icon: 'chat',   tint: 'ruby',  kind: 'soon', note: '자전거 상담 접수부터 출고까지 단계별로 관리합니다.' },
-  { id: 'bikes',     title: '출고 자전거', icon: 'bike',   tint: 'slate', kind: 'soon', note: '루비워크샵에서 출고한 고객 자전거의 사양과 이력을 모아 봅니다.' },
-  { id: 'care',      title: '루비케어',    icon: 'shield', tint: 'teal',  kind: 'soon', note: '출고 이후 점검, 보증, 수리 이력을 관리합니다.' },
-  { id: 'garage',    title: '루비개러지',  icon: 'wrench', tint: 'amber', kind: 'soon', note: '루비개러지 입고와 작업 현황을 관리합니다.' },
-
   // 자주 여는 곳
   { id: 'index',     title: 'Index 시트',  icon: 'sheet',  tint: 'green', kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1wkogYTTI26ha1YsYu35pOLSBFSxIRok58qYRqRw18mA/edit' },
   { id: 'customers', title: '고객 폴더',   icon: 'folder', tint: 'amber', kind: 'link', url: 'https://drive.google.com/drive/folders/1nNNZEw7Pn7a186FraNtmodHsIwtncfH4' },

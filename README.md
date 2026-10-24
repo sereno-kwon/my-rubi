@@ -45,7 +45,7 @@
 - `kind`: `link` 새 탭 / `frame` 포털 안의 창(같은 도메인 페이지, 예 `url: '/consult/'`) / `folder` 아이콘 모음 / `builtin` 내장 / `soon` 준비 중
 - 폴더에 넣으려면 `folder: 'brands'` 처럼 폴더 id를 적음
 - 아이콘 이름과 색 목록은 `apps.js` 맨 위 주석 참고. 브랜드처럼 글자로 표시하려면 `mono: 'Mo'`
-- 준비 중인 앱(상담 현황, 출고 자전거, 루비케어, 루비개러지)은 완성되면 `kind` 를 `frame` 으로 바꾸고 `url` 을 넣으면 됨
+- 상담 현황 같은 업무 앱이 완성되면 `kind: 'frame'` 과 `url` 로 한 줄 추가하면 됨
 - 처음 쓰는 기기의 작업 표시줄 고정 앱은 `MYRUBI_PINNED`
 
 ## 파일
