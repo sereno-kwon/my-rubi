@@ -2,348 +2,111 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Rubi</title>
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#2c3136">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3Cpath d='M3 13h26M9 5l7 23 7-23' fill='none' stroke='%23fff' stroke-opacity='.45' stroke-width='1.4'/%3E%3C/svg%3E">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<style>
-:root{
-  --desk-1:#2b2d31; --desk-2:#1b1c1f; --ink:#f2f2f0; --ink-2:rgba(255,255,255,.62); --ink-3:rgba(255,255,255,.38);
-  --glass:rgba(255,255,255,.08); --glass-2:rgba(255,255,255,.14); --line:rgba(255,255,255,.12);
-  --win-bg:#f4f4f2; --win-head:#2f3136; --accent:#b8402e;
-  --mono:"SF Mono",ui-monospace,Menlo,monospace;
-}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0;overflow:hidden}
-body{font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;color:var(--ink);font-size:14px;
-  background:
-    radial-gradient(1200px 700px at 15% 0%, #3a3d44 0%, transparent 60%),
-    radial-gradient(900px 600px at 95% 100%, #35302c 0%, transparent 55%),
-    linear-gradient(160deg,var(--desk-1),var(--desk-2));
-  -webkit-font-smoothing:antialiased;user-select:none}
-button{font:inherit;cursor:pointer}
-
-/* 상단 바 */
-.topbar{position:fixed;top:0;left:0;right:0;height:30px;display:flex;align-items:center;padding:0 14px;gap:14px;
-  background:rgba(0,0,0,.28);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);font-size:12px;z-index:50}
-.topbar .brand{font-weight:700;letter-spacing:.1em}
-.topbar .brand small{font-weight:400;color:var(--ink-3);margin-left:8px;letter-spacing:.02em}
-.topbar .sp{flex:1}
-.topbar .clock{font-family:var(--mono);color:var(--ink-2);letter-spacing:.02em}
-
-/* 바탕화면 아이콘 */
-.desktop{position:fixed;inset:30px 0 64px 0;padding:28px 24px;display:grid;grid-template-columns:repeat(auto-fill,96px);grid-auto-rows:104px;gap:10px 8px;align-content:start}
-.icon{width:96px;height:104px;border-radius:10px;border:none;background:transparent;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 4px;transition:.12s}
-.icon:hover{background:var(--glass)}
-.icon:active{background:var(--glass-2)}
-.icon .g{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#f4f4f2,#d9d9d6);color:#222;box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.7)}
-.icon .g svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.icon .g.dark{background:linear-gradient(145deg,#3b3d42,#1f2023);color:#f2f2f0}
-.icon .g.red{background:linear-gradient(145deg,#c94a38,#8f2d1f);color:#fff}
-.icon .g.green{background:linear-gradient(145deg,#3f8c5e,#285f3f);color:#fff}
-.icon .g.blue{background:linear-gradient(145deg,#4a6fa5,#2f4a73);color:#fff}
-.icon .t{font-size:12px;line-height:1.25;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.icon.off{opacity:.45}
-.icon.off .t::after{content:"준비 중";display:block;font-size:10px;color:var(--ink-3);margin-top:2px}
-.icon .ext{position:absolute}
-
-/* 창 */
-.win{position:fixed;background:var(--win-bg);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.4);display:flex;flex-direction:column;min-width:420px;min-height:280px;z-index:10}
-.win.active{z-index:20}
-.win.max{inset:30px 0 64px 0!important;width:auto!important;height:auto!important;border-radius:0}
-.win .head{height:38px;background:var(--win-head);color:#fff;display:flex;align-items:center;padding:0 10px 0 14px;gap:10px;cursor:default;flex:none}
-.win .head .title{font-size:12px;font-weight:600;letter-spacing:.04em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.win .head .ctl{display:flex;gap:6px}
-.win .head .ctl button{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:rgba(255,255,255,.7);font-size:14px;line-height:1}
-.win .head .ctl button:hover{background:rgba(255,255,255,.12);color:#fff}
-.win .head .ctl button.x:hover{background:var(--accent)}
-.win iframe{flex:1;border:none;width:100%;background:var(--win-bg)}
-.win .rs{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize}
-.win.dragging iframe,.win.resizing iframe{pointer-events:none}
-
-/* 독 */
-.dock{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);height:52px;padding:6px 10px;display:flex;gap:6px;align-items:center;
-  background:rgba(0,0,0,.35);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;z-index:40}
-.dock button{height:40px;padding:0 12px;border-radius:10px;border:none;background:transparent;color:var(--ink);font-size:12px;display:flex;align-items:center;gap:8px;position:relative}
-.dock button:hover{background:var(--glass)}
-.dock button.run::after{content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;border-radius:50%;background:#fff;transform:translateX(-50%)}
-.dock button.active{background:var(--glass-2)}
-.dock .sep{width:1px;height:26px;background:var(--line);margin:0 4px}
-.dock .mini{width:22px;height:22px;border-radius:7px;background:linear-gradient(145deg,#f4f4f2,#d9d9d6);color:#222;display:flex;align-items:center;justify-content:center}
-.dock .mini svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.dock .mini.dark{background:linear-gradient(145deg,#3b3d42,#1f2023);color:#fff}
-.dock .mini.red{background:linear-gradient(145deg,#c94a38,#8f2d1f);color:#fff}
-.dock .mini.green{background:linear-gradient(145deg,#3f8c5e,#285f3f);color:#fff}
-.dock .mini.blue{background:linear-gradient(145deg,#4a6fa5,#2f4a73);color:#fff}
-
-
-/* 이름 메뉴 */
-.topbar .user{position:relative}
-.topbar .user>button{height:22px;border:none;background:transparent;color:var(--ink);font-size:12px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px}
-.topbar .user>button:hover{background:var(--glass)}
-.topbar .user .role{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:0 4px}
-.menu{position:absolute;right:0;top:26px;min-width:180px;background:rgba(32,33,36,.96);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5);z-index:60}
-.menu button{display:block;width:100%;text-align:left;border:none;background:transparent;color:var(--ink);padding:8px 10px;border-radius:6px;font-size:13px}
-.menu button:hover{background:var(--glass-2)}
-.menu .who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12px;color:var(--ink-2)}
-.menu .who b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
-
-/* 접속 키 화면 */
-.lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(1200px 700px at 15% 0%, #3a3d44 0%, transparent 60%),radial-gradient(900px 600px at 95% 100%, #35302c 0%, transparent 55%),linear-gradient(160deg,var(--desk-1),var(--desk-2))}
-.lock .clockbig{position:absolute;top:12vh;left:0;right:0;text-align:center}
-.lock .clockbig .t{font-size:64px;font-weight:200;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.lock .clockbig .d{font-size:15px;color:var(--ink-2);margin-top:4px}
-.card{width:min(340px,calc(100% - 32px));background:rgba(0,0,0,.32);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:16px;padding:26px 24px 22px;margin-top:10vh}
-.card .logo{font-weight:700;letter-spacing:.16em;font-size:15px;text-align:center}
-.card .sub{font-size:12px;color:var(--ink-3);text-align:center;margin:6px 0 20px}
-.card label{display:block;font-size:11px;color:var(--ink-2);margin:0 0 5px}
-.card input[type=text],.card input[type=password],.card input[type=url]{width:100%;height:40px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--ink);padding:0 12px;font:inherit;margin-bottom:12px;user-select:text}
-.card input:focus{outline:none;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
-.card .row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--ink-2);margin:2px 0 16px}
-.card .row label{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;cursor:pointer}
-.card .go{width:100%;height:42px;border:none;border-radius:9px;background:#f2f2f0;color:#1c1c1c;font-weight:600}
-.card .go:disabled{opacity:.5}
-.card .err{min-height:18px;font-size:12px;color:#ff9b8a;margin-top:10px;text-align:center}
-.card .lnk{border:none;background:none;color:var(--ink-3);font-size:11px;text-decoration:underline;padding:0}
-.card .lnk:hover{color:var(--ink-2)}
-.card .note{font-size:12px;color:var(--ink-2);line-height:1.55;margin:-6px 0 16px}
-.hidden{display:none!important}
-
-@media (max-width:720px){
-  .desktop{grid-template-columns:repeat(auto-fill,84px);padding:18px 12px}
-  .win{inset:30px 0 64px 0!important;width:auto!important;height:auto!important;border-radius:0;min-width:0}
-  .dock{left:8px;right:8px;transform:none;overflow-x:auto}
-}
-</style>
+<link rel="stylesheet" href="/assets/desktop.css">
 </head>
-<body>
+<body data-wall="geometry">
 
-<div class="topbar">
-  <div class="brand">MY RUBI<small>Rubi Workshop · internal</small></div>
-  <div class="sp"></div>
-  <div class="user" id="user"></div>
-  <div class="clock" id="clock"></div>
-</div>
-
-<div class="desktop" id="desktop"></div>
-
-<div class="dock" id="dock"></div>
-
-<!-- 접속 키 입력 (기기마다 처음 한 번) -->
-<div class="lock hidden" id="lock">
-  <div class="clockbig"><div class="t" id="lockTime"></div><div class="d" id="lockDate"></div></div>
-  <form class="card" id="keyForm" autocomplete="on">
-    <div class="logo">MY RUBI</div>
-    <div class="sub">이 기기에서 처음 한 번만 입력합니다</div>
-    <label for="kKey">접속 키</label>
-    <input type="password" id="kKey" name="password" autocomplete="current-password" autocapitalize="off" spellcheck="false">
-    <label for="kWho">이름 (상담 기록 담당자로 들어갑니다)</label>
-    <input type="text" id="kWho" name="username" autocomplete="username" spellcheck="false">
-    <div class="row" style="justify-content:flex-end">
-      <button type="button" class="lnk" id="kServerBtn">서버 설정</button>
-    </div>
-    <div id="kServer" class="hidden">
-      <label for="kUrl">서버 주소 (Apps Script 웹앱 URL)</label>
-      <input type="url" id="kUrl" placeholder="https://script.google.com/macros/s/…/exec">
-    </div>
-    <button class="go" id="kGo" type="submit">시작</button>
-    <div class="err" id="kErr"></div>
-  </form>
-</div>
-
-
-<svg width="0" height="0" style="position:absolute">
-  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/></symbol>
-  <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
-  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></symbol>
-  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
-  <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3h3M15 9l-2 4h-5"/></symbol>
-  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
-  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
-  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.8-.2 4.9 1.4 5.5 4.4"/></symbol>
-  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM9 20v-6h6v6"/></symbol>
+<!-- 바탕화면 배경: 자전거 지오메트리 도면 -->
+<svg class="wall" viewBox="0 0 1600 1000" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+  <g class="wl" fill="none">
+    <circle cx="560" cy="700" r="340"/>
+    <circle cx="1560" cy="700" r="340"/>
+    <circle cx="560" cy="700" r="300" class="thin"/>
+    <circle cx="1560" cy="700" r="300" class="thin"/>
+    <path d="M560 700 L905 725 L795 248 Z"/>
+    <path d="M795 248 L1338 262 L1384 418 L905 725"/>
+    <path d="M1338 262 L1384 418"/>
+    <path d="M1384 418 Q1440 560 1560 700"/>
+    <path d="M795 248 L782 170 M752 168 H842"/>
+    <path d="M1338 262 L1322 214 L1255 205 M1322 214 L1300 140 Q1290 118 1240 128"/>
+    <circle cx="905" cy="725" r="22"/>
+    <circle cx="905" cy="725" r="70" class="thin"/>
+  </g>
+  <g class="wl dim" fill="none">
+    <path d="M560 740 V990 M1560 740 V990 M560 975 H1560" class="thin"/>
+    <path d="M905 725 V140 M905 140 H1338 M905 160 V120 M1338 160 V120"/>
+    <path d="M1420 262 H1470 M1420 725 H1470 M1450 262 V725"/>
+    <path d="M905 725 m-90 0 a90 90 0 0 1 -21 -58" />
+    <path d="M1384 418 m0 -80 a80 80 0 0 1 22 3"/>
+    <path d="M330 725 H1140" class="thin"/>
+  </g>
+  <g class="wt">
+    <text x="980" y="962">WHEELBASE 1,000</text>
+    <text x="1080" y="112">REACH 433</text>
+    <text x="1480" y="500">STACK 463</text>
+    <text x="760" y="652">73.0°</text>
+    <text x="1412" y="320">71.5°</text>
+    <text x="920" y="770">BB DROP 25</text>
+  </g>
 </svg>
 
-<script src="/config.js"></script>
-<script src="/lib.js"></script>
-<script>
-// ─────────── 앱 목록: 여기에 한 줄 추가하면 바탕화면과 독에 아이콘이 생김 ───────────
-// type: 'window' = 바탕화면 안에서 창으로 열림 / 'link' = 새 탭으로 열림
-const APPS = [
-  { id:'consult',  title:'상담 현황',      icon:'i-chat',   color:'dark',  type:'window', url:'/consult/',            dock:true },
-  { id:'new',      title:'신규 상담',      icon:'i-plus',   color:'red',   type:'window', url:'/consult/?new=1',      dock:true },
-  { id:'index',    title:'Index 시트',     icon:'i-sheet',  color:'green', type:'link',   url:'https://docs.google.com/spreadsheets/d/1wkogYTTI26ha1YsYu35pOLSBFSxIRok58qYRqRw18mA/edit', dock:true },
-  { id:'drive',    title:'고객 폴더',      icon:'i-folder', color:'blue',  type:'link',   url:'https://drive.google.com/drive/folders/1nNNZEw7Pn7a186FraNtmodHsIwtncfH4', dock:true },
-  { id:'bikes',    title:'출고 자전거',    icon:'i-bike',   color:'',      type:'window', url:'', disabled:true },
-  { id:'care',     title:'루비케어',       icon:'i-shield', color:'',      type:'window', url:'', disabled:true },
-  { id:'garage',   title:'루비개러지',     icon:'i-store',  color:'',      type:'window', url:'', disabled:true },
-];
+<main class="desk" id="desk" role="listbox" aria-label="바탕화면" tabindex="-1"></main>
+<div class="drop-cell" id="dropCell"></div>
+<div class="snap-hint" id="snapHint"></div>
+<div id="windows"></div>
 
-const $ = s => document.querySelector(s);
-const wins = new Map(); // id → element
+<!-- 시작 메뉴 -->
+<div class="start hidden" id="start" role="dialog" aria-label="시작 메뉴">
+  <div class="start-search">
+    <svg class="i"><use href="#i-search"/></svg>
+    <input id="startQ" type="search" placeholder="앱 검색" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="start-body" id="startBody"></div>
+  <div class="start-foot">
+    <div class="who"><span class="gem small"></span>Rubi Workshop</div>
+    <button class="foot-btn" id="startSettings"><svg class="i"><use href="#i-gear"/></svg>바탕화면 설정</button>
+  </div>
+</div>
 
-// ─────────── 바탕화면 아이콘 / 독 ───────────
-function svg(id){ return `<svg><use href="#${id}"/></svg>`; }
-function visibleApps(){ return APPS; }
-function renderDesktop(){
-  $('#desktop').innerHTML = visibleApps().map(a => `
-    <button class="icon ${a.disabled?'off':''}" data-id="${a.id}" ${a.disabled?'disabled':''}>
-      <div class="g ${a.color}">${svg(a.icon)}</div>
-      <div class="t">${a.title}</div>
-    </button>`).join('');
-  $('#dock').innerHTML = visibleApps().filter(a=>a.dock).map(a => `
-    <button data-id="${a.id}"><span class="mini ${a.color}">${svg(a.icon)}</span>${a.title}</button>`).join('');
-  document.querySelectorAll('.icon,.dock button').forEach(b => b.onclick = () => openApp(b.dataset.id));
-}
+<!-- 작업 표시줄 -->
+<nav class="taskbar" aria-label="작업 표시줄">
+  <div class="tb-apps">
+    <button class="tb start-btn" id="startBtn" title="시작" aria-label="시작"><span class="gem"></span></button>
+    <button class="tb-search" id="tbSearch"><svg class="i"><use href="#i-search"/></svg><span>검색</span></button>
+    <div class="tb-list" id="tbList"></div>
+  </div>
+  <button class="tray" id="tray" title="오늘">
+    <span class="t" id="clockT"></span>
+    <span class="d" id="clockD"></span>
+  </button>
+</nav>
 
-function openApp(id){
-  const a = visibleApps().find(x => x.id === id); if(!a || a.disabled) return;
-  if(a.type === 'link'){ window.open(a.url, '_blank', 'noopener'); return; }
-  // 같은 창이 이미 있으면 앞으로 가져오기 (신규 상담은 상담 현황 창과 같은 페이지이므로 공유)
-  const key = a.url.startsWith('/consult/') ? 'consult' : a.id;
-  if(wins.has(key)){
-    const w = wins.get(key); focus(w);
-    if(a.id !== 'consult'){ w.querySelector('iframe').src = a.url; }
-    return;
-  }
-  createWindow(key, a);
-}
+<div class="cal hidden" id="cal"></div>
+<div class="ctx hidden" id="ctx" role="menu"></div>
 
-// ─────────── 창 ───────────
-let zTop = 20, offset = 0;
-function createWindow(key, a){
-  const w = document.createElement('div');
-  w.className = 'win';
-  const W = Math.min(1180, innerWidth - 80), H = Math.min(760, innerHeight - 140);
-  const left = (innerWidth - W)/2 + (offset%5)*24, top = 60 + (offset%5)*24; offset++;
-  w.style.cssText = `width:${W}px;height:${H}px;left:${left}px;top:${top}px`;
-  w.innerHTML = `
-    <div class="head">
-      <span class="title">${a.id==='consult'?'상담 현황':a.title} · My Rubi</span>
-      <div class="ctl">
-        <button title="최소화" data-a="min">–</button>
-        <button title="최대화" data-a="max">▢</button>
-        <button class="x" title="닫기" data-a="close">×</button>
-      </div>
-    </div>
-    <iframe src="${a.url}" title="${a.title}"></iframe>
-    <div class="rs"></div>`;
-  document.body.appendChild(w);
-  wins.set(key, w);
-  w.dataset.key = key;
-  w.querySelector('[data-a=close]').onclick = () => { w.remove(); wins.delete(key); syncDock(); };
-  w.querySelector('[data-a=max]').onclick  = () => w.classList.toggle('max');
-  w.querySelector('[data-a=min]').onclick  = () => { w.style.display='none'; syncDock(); };
-  w.querySelector('.head').ondblclick = () => w.classList.toggle('max');
-  w.addEventListener('mousedown', () => focus(w));
-  drag(w); resize(w); focus(w); syncDock();
-  if(innerWidth <= 720) w.classList.add('max');
-}
-function focus(w){
-  document.querySelectorAll('.win').forEach(x => x.classList.remove('active'));
-  w.classList.add('active'); w.style.display=''; w.style.zIndex = ++zTop; syncDock();
-}
-function syncDock(){
-  document.querySelectorAll('.dock button').forEach(b => {
-    const a = APPS.find(x=>x.id===b.dataset.id); if(!a) return;
-    const key = (a.url||'').startsWith('/consult/') ? 'consult' : a.id;
-    const w = wins.get(key);
-    b.classList.toggle('run', !!w);
-    b.classList.toggle('active', !!w && w.classList.contains('active') && w.style.display!=='none');
-  });
-}
-function drag(w){
-  const head = w.querySelector('.head'); let sx, sy, ox, oy;
-  head.onmousedown = e => {
-    if(e.target.closest('button') || w.classList.contains('max')) return;
-    sx=e.clientX; sy=e.clientY; ox=w.offsetLeft; oy=w.offsetTop; w.classList.add('dragging');
-    const mv = e => { w.style.left = Math.max(-w.offsetWidth+120, ox+e.clientX-sx)+'px'; w.style.top = Math.max(30, oy+e.clientY-sy)+'px'; };
-    const up = () => { w.classList.remove('dragging'); removeEventListener('mousemove',mv); removeEventListener('mouseup',up); };
-    addEventListener('mousemove',mv); addEventListener('mouseup',up);
-  };
-}
-function resize(w){
-  const h = w.querySelector('.rs'); let sx, sy, ow, oh;
-  h.onmousedown = e => {
-    sx=e.clientX; sy=e.clientY; ow=w.offsetWidth; oh=w.offsetHeight; w.classList.add('resizing'); e.preventDefault();
-    const mv = e => { w.style.width = Math.max(420, ow+e.clientX-sx)+'px'; w.style.height = Math.max(280, oh+e.clientY-sy)+'px'; };
-    const up = () => { w.classList.remove('resizing'); removeEventListener('mousemove',mv); removeEventListener('mouseup',up); };
-    addEventListener('mousemove',mv); addEventListener('mouseup',up);
-  };
-}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/></symbol>
+  <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="16" r="3.5"/><circle cx="18.5" cy="16" r="3.5"/><path d="M5.5 16l4-7.5h6.5l2.5 7.5M9.5 8.5L12 16h-6.5M16 8.5l-4 7.5M8 6h3M15 6h2.5l-1.5 2.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 0-2-2z"/><path d="M14.5 6.5L17 4l3 3-2.5 2.5"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9M7.5 5.2l9 4.6"/></symbol>
+  <symbol id="i-bubble" viewBox="0 0 24 24"><path d="M12 4c4.7 0 8 3 8 7s-3.3 7-8 7c-1 0-2-.1-2.8-.4L5 20l1.2-3.6C4.8 15 4 13.1 4 11c0-4 3.3-7 8-7z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5L12 13l8.5-6.5"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8.5 4h7l6 10.5-3.5 6H6l-3.5-6z"/><path d="M8.5 4l6 10.5H21.5M6 20.5l6-10.5M2.5 14.5h7"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM9 20v-6h6v6"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0A2.7 2.7 0 0 0 20 9"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17 7h.01"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+  <symbol id="i-restore" viewBox="0 0 24 24"><rect x="5.5" y="8.5" width="10" height="10" rx="1.5"/><path d="M8.5 8.5V6.5A1 1 0 0 1 9.5 5.5h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
+</svg>
 
-// ─────────── 시계 ───────────
-function tick(){
-  const d = new Date();
-  $('#clock').textContent = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'}) + '  ' + d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-  $('#lockTime').textContent = d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});
-  $('#lockDate').textContent = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
-}
-setInterval(tick, 15000); tick();
-
-// ─────────── 접속 키 ───────────
-const show = (el, on) => $(el).classList.toggle('hidden', !on);
-
-function showKey(msg){
-  closeAll(); $('#user').innerHTML = '';
-  show('#lock', true);
-  $('#kErr').textContent = msg || '';
-  $('#kKey').value = ''; $('#kWho').value = MR.who();
-  if(!MR.url()) show('#kServer', true);
-  setTimeout(() => $('#kKey').focus(), 50);
-}
-function enterDesktop(){
-  show('#lock', false);
-  renderDesktop(); renderUser();
-  const next = new URLSearchParams(location.search).get('next');
-  if(location.hash) openApp(location.hash.slice(1));
-  else if(next){ const a = visibleApps().find(x => x.url && next.startsWith(x.url.split('?')[0])); if(a) openApp(a.id); }
-}
-function closeAll(){ wins.forEach(w => w.remove()); wins.clear(); syncDock(); }
-
-function renderUser(){
-  const name = MR.who() || '이름 없음';
-  $('#user').innerHTML = `<button id="userBtn">${esc(name)} ▾</button>
-    <div class="menu hidden" id="userMenu">
-      <button data-m="name">이름 바꾸기</button>
-      <button data-m="key">접속 키 다시 입력</button>
-      <button data-m="server">서버 주소 설정</button>
-    </div>`;
-  $('#userBtn').onclick = e => { e.stopPropagation(); $('#userMenu').classList.toggle('hidden'); };
-  $('#userMenu').onclick = e => {
-    const m = e.target.dataset.m; if(!m) return; $('#userMenu').classList.add('hidden');
-    if(m === 'name'){ const v = prompt('상담 기록에 담당자로 들어갈 이름', MR.who()); if(v !== null && v.trim()){ MR.setWho(v.trim()); renderUser(); } }
-    if(m === 'key'){ MR.clear(); showKey(); }
-    if(m === 'server'){ const v = prompt('Apps Script 웹앱 URL (비우면 config.js 기본값)', MR.url()); if(v !== null) MR.setUrl(v.trim()); }
-  };
-}
-function esc(t){ return String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-document.addEventListener('click', () => { const m = $('#userMenu'); if(m) m.classList.add('hidden'); });
-
-$('#kServerBtn').onclick = () => { $('#kUrl').value = MR.url(); $('#kServer').classList.toggle('hidden'); };
-$('#keyForm').onsubmit = async e => {
-  e.preventDefault();
-  if(!$('#kServer').classList.contains('hidden')){ const url = $('#kUrl').value.trim(); MR.setUrl(url && url !== (window.MYRUBI_CONFIG||{}).API_URL ? url : ''); }
-  const key = $('#kKey').value.trim(), who = $('#kWho').value.trim();
-  if(!key){ $('#kErr').textContent = '접속 키를 입력하세요'; return; }
-  if(!who){ $('#kErr').textContent = '이름을 입력하세요'; return; }
-  $('#kGo').disabled = true; $('#kErr').textContent = '';
-  MR.setAccess(key, who);
-  const prevKick = MR.onKick; MR.onKick = () => {};
-  try { await MR.get({ action:'ping' }); MR.onKick = prevKick; enterDesktop(); }
-  catch(err){ MR.onKick = prevKick; MR.clear(); $('#kErr').textContent = err.message; $('#kKey').select(); }
-  finally { $('#kGo').disabled = false; }
-};
-
-// 창 안의 앱에서 키가 틀렸다고 알리면 키 입력 화면으로
-window.addEventListener('message', e => {
-  if(e.origin === location.origin && e.data && e.data.type === 'myrubi:nokey') showKey('접속 키가 바뀌었습니다. 다시 입력해 주세요');
-});
-MR.onKick = () => showKey('접속 키가 바뀌었습니다. 다시 입력해 주세요');
-
-// 시작: 저장된 키가 있으면 바로 바탕화면 (키 확인은 앱이 서버를 부를 때 함께 됨)
-if(MR.key()) enterDesktop(); else showKey();
-</script>
+<script src="/apps.js"></script>
+<script src="/assets/desktop.js"></script>
 </body>
 </html>
