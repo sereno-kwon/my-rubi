@@ -16,7 +16,7 @@
  *   실행 사용자: 나 / 액세스: 모든 사용자 (구글 로그인 세션으로 보호)
  *
  * 로그인
- *  - 포털 첫 화면에서 회사 구글 워크스페이스 계정(CONFIG.ALLOWED_DOMAIN)으로 로그인
+ *  - 포털 첫 화면에서 회사 구글 워크스페이스 계정(CONFIG.ALLOWED_DOMAINS)으로 로그인
  *  - 포털이 보낸 구글 ID 토큰을 여기서 구글에 확인한 뒤, 30일짜리 포털 세션을 발급함
  *  - 이후 모든 요청에 세션(s)이 필요하고, 상담 기록 담당자는 로그인한 사람 이름으로 들어감
  *  - 세션은 스크립트 속성에 저장됨. 모두 로그아웃시키려면 편집기에서 clearAllSessions 실행
@@ -36,8 +36,8 @@ const CONFIG = {
 
   // 구글 로그인: Google Cloud 콘솔에서 만든 OAuth 클라이언트 ID (포털 config.js 의 값과 같아야 함)
   GOOGLE_CLIENT_ID: '170788190959-st694dptpqurkm17fglb21bmhph2ui53.apps.googleusercontent.com',
-  // 이 도메인의 구글 워크스페이스 계정만 로그인 허용
-  ALLOWED_DOMAIN: 'rubi.kr',
+  // 이 도메인들의 구글 워크스페이스 계정만 로그인 허용 (기본 도메인과 별칭 도메인 모두)
+  ALLOWED_DOMAINS: ['rubiworkshop.com', 'rubi.kr'],
   // 도메인 밖이지만 예외로 허용할 계정 (예: ['someone@gmail.com'])
   EXTRA_EMAILS: [],
   // 로그인 유지 기간
@@ -144,9 +144,9 @@ function login_(credential) {
   if (t.aud !== CONFIG.GOOGLE_CLIENT_ID) throw new Error('다른 앱의 로그인 정보입니다');
   if (String(t.email_verified) !== 'true') throw new Error('확인되지 않은 이메일입니다');
   if (Number(t.exp) * 1000 < Date.now()) throw new Error('로그인 정보가 만료되었습니다. 다시 시도해 주세요');
-  const inDomain = CONFIG.ALLOWED_DOMAIN && t.hd === CONFIG.ALLOWED_DOMAIN;
+  const inDomain = CONFIG.ALLOWED_DOMAINS.includes(String(t.hd || ''));   // hd: 워크스페이스 계정에만 있는 값
   const extra = CONFIG.EXTRA_EMAILS.map(x => String(x).toLowerCase()).includes(email);
-  if (!inDomain && !extra) throw new Error(CONFIG.ALLOWED_DOMAIN + ' 회사 계정으로 로그인해 주세요');
+  if (!inDomain && !extra) throw new Error('회사 구글 계정(' + CONFIG.ALLOWED_DOMAINS.join(', ') + ')으로 로그인해 주세요');
 
   const user = { email, name: t.name || email.split('@')[0], picture: t.picture || '', exp: Date.now() + CONFIG.SESSION_DAYS * 86400000 };
   const token = randomString_(40);
