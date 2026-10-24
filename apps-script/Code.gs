@@ -13,12 +13,13 @@
  *     NNNN_Internal Reference (폴더)
  *
  * 배포: 확장 프로그램 > Apps Script > 배포 > 새 배포 > 웹 앱
- *   실행 사용자: 나 / 액세스: 모든 사용자 (접속 키로 보호)
+ *   실행 사용자: 나 / 액세스: 모든 사용자 (구글 로그인 세션으로 보호)
  *
- * 접속 키
- *  - 로그인 화면은 없음. 포털은 기기마다 처음 한 번 접속 키와 이름을 입력해 브라우저에 저장함
- *  - 접속 키는 Index 스프레드시트 '설정' 탭의 '접속키' 행에 있음. 바꾸면 모든 기기에서 다시 입력해야 함
- *  - 모든 요청에 key 필요. who(이름)는 상담 기록의 담당자 기본값으로 쓰임
+ * 로그인
+ *  - 포털 첫 화면에서 회사 구글 워크스페이스 계정(CONFIG.ALLOWED_DOMAIN)으로 로그인
+ *  - 포털이 보낸 구글 ID 토큰을 여기서 구글에 확인한 뒤, 30일짜리 포털 세션을 발급함
+ *  - 이후 모든 요청에 세션(s)이 필요하고, 상담 기록 담당자는 로그인한 사람 이름으로 들어감
+ *  - 세션은 스크립트 속성에 저장됨. 모두 로그아웃시키려면 편집기에서 clearAllSessions 실행
  */
 
 // ───────────────────────────── 설정 ─────────────────────────────
@@ -33,9 +34,14 @@ const CONFIG = {
   // 공통 Log 템플릿 (브랜드별 template이 없을 때 사용). 비워두면 Moulton 템플릿을 씀.
   LOG_TEMPLATE_ID: '1Nvo-wZvNcwV0mDnD_0ryyS-2luQIIuw06TiB6F2R5u4',
 
-  // 접속 키 10회 틀리면 10분 잠금 (요청 보낸 쪽 구분 없이 전체 기준)
-  MAX_FAILS: 10,
-  LOCK_MINUTES: 10,
+  // 구글 로그인: Google Cloud 콘솔에서 만든 OAuth 클라이언트 ID (포털 config.js 의 값과 같아야 함)
+  GOOGLE_CLIENT_ID: '',
+  // 이 도메인의 구글 워크스페이스 계정만 로그인 허용
+  ALLOWED_DOMAIN: 'rubi.kr',
+  // 도메인 밖이지만 예외로 허용할 계정 (예: ['someone@gmail.com'])
+  EXTRA_EMAILS: [],
+  // 로그인 유지 기간
+  SESSION_DAYS: 30,
 
   // 브랜드 코드 → 브랜드 폴더 정보
   //  name: 브랜드 폴더명 / short: 고객 폴더명·Log 파일명에 쓰는 표기 / history: Customer History 폴더 ID
@@ -81,10 +87,11 @@ const CONSULT_HEADERS = ['일시', 'No', '고객명', '브랜드', '단계', '�
 function doGet(e) {
   try {
     const p = e.parameter || {};
-    auth_(p.key);
+    const user = auth_(p.s);
 
     switch (p.action) {
       case 'ping':     return json_({ ok: true });
+      case 'me':       return json_({ ok: true, user: publicUser_(user) });
       case 'list':     return json_({ ok: true, stages: CONFIG.STAGES, channels: CONFIG.CHANNELS, brands: Object.keys(CONFIG.BRANDS), rows: listIndex_() });
       case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
@@ -100,9 +107,11 @@ function doPost(e) {
   lock.waitLock(20000);
   try {
     const body = JSON.parse(e.postData.contents || '{}');
-    auth_(body.key);
-    // 작성자(기기에 저장된 이름) 기록용. 담당자 미입력 시 작성자로 대체
-    body.by = String(body.who || '').trim().slice(0, 30);
+    if (body.action === 'login')  return json_({ ok: true, ...login_(body.credential) });
+    if (body.action === 'logout') { logout_(body.s); return json_({ ok: true }); }
+    const user = auth_(body.s);
+    // 작성자 기록용. 담당자 미입력 시 로그인한 사람으로 대체
+    body.by = user.name || user.email;
 
     switch (body.action) {
       case 'create':   return json_({ ok: true, row: createCustomer_(body) });
@@ -122,41 +131,63 @@ function errMsg_(err) {
   return String(err && err.message ? err.message : err).replace(/^Error:\s*/, '');
 }
 
-// ───────────────────────────── 접속 키 ─────────────────────────────
+// ───────────────────────────── 로그인 ─────────────────────────────
 
-function settingsSheet_() {
-  const ss = indexSs_();
-  let sh = ss.getSheetByName('설정');
-  if (!sh) {
-    sh = ss.insertSheet('설정');
-    sh.getRange(1, 1, 1, 2).setValues([['항목', '값']]).setFontWeight('bold');
-  }
-  return sh;
+/** 구글 ID 토큰을 확인하고 포털 세션을 발급함 */
+function login_(credential) {
+  if (!CONFIG.GOOGLE_CLIENT_ID) throw new Error('Code.gs 의 GOOGLE_CLIENT_ID 가 비어 있습니다');
+  if (!credential) throw new Error('로그인 정보가 없습니다');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('구글 로그인을 확인하지 못했습니다. 다시 시도해 주세요');
+  const t = JSON.parse(res.getContentText());
+  const email = String(t.email || '').toLowerCase();
+  if (t.aud !== CONFIG.GOOGLE_CLIENT_ID) throw new Error('다른 앱의 로그인 정보입니다');
+  if (String(t.email_verified) !== 'true') throw new Error('확인되지 않은 이메일입니다');
+  if (Number(t.exp) * 1000 < Date.now()) throw new Error('로그인 정보가 만료되었습니다. 다시 시도해 주세요');
+  const inDomain = CONFIG.ALLOWED_DOMAIN && t.hd === CONFIG.ALLOWED_DOMAIN;
+  const extra = CONFIG.EXTRA_EMAILS.map(x => String(x).toLowerCase()).includes(email);
+  if (!inDomain && !extra) throw new Error(CONFIG.ALLOWED_DOMAIN + ' 회사 계정으로 로그인해 주세요');
+
+  const user = { email, name: t.name || email.split('@')[0], picture: t.picture || '', exp: Date.now() + CONFIG.SESSION_DAYS * 86400000 };
+  const token = randomString_(40);
+  const props = PropertiesService.getScriptProperties();
+  pruneSessions_(props);
+  props.setProperty('sess:' + hash_(token), JSON.stringify(user));
+  return { session: token, user: publicUser_(user) };
 }
 
-/** '설정' 탭의 접속키 (5분 캐시) */
-function accessKey_() {
+/** 세션을 확인하고 로그인한 사람을 돌려줌. 없거나 만료되면 unauthorized */
+function auth_(token) {
+  if (!token) throw new Error('unauthorized');
+  const key = 'sess:' + hash_(token);
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('access_key');
-  if (hit) return hit;
-  const sh = settingsSheet_();
-  const rows = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 2).getValues();
-  const r = rows.find(x => String(x[0]).trim() === '접속키');
-  const key = r ? String(r[1]).trim() : '';
-  if (key) cache.put('access_key', key, 300);
-  return key;
+  let raw = cache.get(key);
+  if (!raw) { raw = PropertiesService.getScriptProperties().getProperty(key); if (raw) cache.put(key, raw, 600); }
+  if (!raw) throw new Error('unauthorized');
+  const user = JSON.parse(raw);
+  if (user.exp < Date.now()) { PropertiesService.getScriptProperties().deleteProperty(key); cache.remove(key); throw new Error('unauthorized'); }
+  return user;
 }
 
-function auth_(key) {
-  const cache = CacheService.getScriptCache();
-  const fails = parseInt(cache.get('key_fails') || '0', 10);
-  if (fails >= CONFIG.MAX_FAILS) throw new Error('접속 키가 여러 번 틀려 ' + CONFIG.LOCK_MINUTES + '분간 잠겼습니다');
-  const real = accessKey_();
-  if (!real) throw new Error('설정 탭에 접속키가 없습니다. 편집기에서 setupAccessKey를 실행하세요');
-  if (!key || String(key).trim() !== real) {
-    cache.put('key_fails', String(fails + 1), CONFIG.LOCK_MINUTES * 60);
-    throw new Error('unauthorized');
-  }
+function logout_(token) {
+  if (!token) return;
+  const key = 'sess:' + hash_(token);
+  PropertiesService.getScriptProperties().deleteProperty(key);
+  CacheService.getScriptCache().remove(key);
+}
+
+function publicUser_(u) { return { email: u.email, name: u.name, picture: u.picture, exp: u.exp }; }
+
+function pruneSessions_(props) {
+  const all = props.getProperties(), now = Date.now();
+  Object.keys(all).forEach(k => {
+    if (k.indexOf('sess:') !== 0) return;
+    try { if (JSON.parse(all[k]).exp < now) props.deleteProperty(k); } catch (e) { props.deleteProperty(k); }
+  });
+}
+
+function hash_(s) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(s)));
 }
 
 function randomString_(len) {
@@ -169,18 +200,21 @@ function randomString_(len) {
   return s;
 }
 
-/**
- * 편집기에서 직접 실행용: 접속키를 새로 만들어 '설정' 탭에 넣음 (기존 키는 바뀜).
- * 실행 로그에 새 키가 찍힘.
- */
-function setupAccessKey() {
-  const sh = settingsSheet_();
-  const key = randomString_(20);
-  const rows = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues();
-  const i = rows.findIndex(x => String(x[0]).trim() === '접속키');
-  if (i >= 0) sh.getRange(i + 1, 2).setValue(key); else sh.appendRow(['접속키', key]);
-  CacheService.getScriptCache().remove('access_key');
-  Logger.log('새 접속 키: ' + key);
+/** 편집기에서 직접 실행용: 모든 기기를 로그아웃시킴 (퇴사자가 생겼을 때 등) */
+function clearAllSessions() {
+  const props = PropertiesService.getScriptProperties(), all = props.getProperties();
+  let n = 0;
+  Object.keys(all).forEach(k => { if (k.indexOf('sess:') === 0) { props.deleteProperty(k); n++; } });
+  Logger.log('세션 ' + n + '개를 지웠습니다. 캐시 때문에 최대 10분 뒤 모두 적용됩니다');
+}
+
+/** 편집기에서 직접 실행용: 지금 로그인되어 있는 사람 목록 */
+function listSessions() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  Object.keys(all).filter(k => k.indexOf('sess:') === 0).forEach(k => {
+    const u = JSON.parse(all[k]);
+    Logger.log(u.email + '  ~' + Utilities.formatDate(new Date(u.exp), CONFIG.TZ, 'yyyy-MM-dd'));
+  });
 }
 
 function json_(obj) {

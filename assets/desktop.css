@@ -211,6 +211,27 @@ body[data-wall="stone"] .ico:hover{background:rgba(0,0,0,.05)}
 .trash-list li span{flex:1}
 .trash-list .btn{margin:0}
 
+
+/* 잠금 화면 */
+body.locked .desk,body.locked .taskbar,body.locked #windows{display:none}
+.lock{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9vh;color:#fff;padding:24px;
+  background:radial-gradient(900px 600px at 50% 60%,rgba(0,0,0,0) 0%,rgba(0,0,0,.55) 100%)}
+.lock-clock{text-align:center;font-variant-numeric:tabular-nums}
+.lock-clock .t{font-size:clamp(64px,11vw,120px);font-weight:250;letter-spacing:-.02em;line-height:1}
+.lock-clock .d{font-size:16px;color:rgba(255,255,255,.7);margin-top:14px}
+.lock-card{display:flex;flex-direction:column;align-items:center;min-height:190px}
+.gem.big{width:40px;height:40px;margin-bottom:14px}
+.lock-name{font-size:19px;font-weight:650;letter-spacing:.01em}
+.lock-sub{font-size:13px;color:rgba(255,255,255,.62);margin:6px 0 22px}
+.lock-btn{min-height:44px;display:flex;justify-content:center}
+.lock-msg{min-height:20px;margin-top:14px;font-size:13px;color:#f2a3ad;text-align:center;max-width:300px;word-break:keep-all}
+.lock-msg.ok{color:rgba(255,255,255,.7)}
+.lock.leaving{animation:unlock .35s ease-in forwards}
+@keyframes unlock{to{opacity:0;transform:translateY(-24px)}}
+.foot-btns{display:flex;gap:4px}
+.start-foot .who img{width:24px;height:24px;border-radius:50%}
+.start-foot .who small{display:block;font-weight:400;color:var(--ink-3);font-size:11.5px}
+
 @media (max-width:720px){
   .tb-search{display:none}
   .tray{position:static;margin-left:auto}

@@ -500,6 +500,8 @@ function tick() {
   const d = new Date();
   $('#clockT').textContent = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
   $('#clockD').textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  $('#lockT').textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  $('#lockD').textContent = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
 }
 function renderCal() {
   const now = new Date(), m = calMonth;
@@ -535,6 +537,7 @@ document.addEventListener('pointerdown', e => { if (!e.target.closest('.ctx,.sta
 document.addEventListener('contextmenu', e => { if (!e.target.closest('textarea,input,iframe')) e.preventDefault(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeFlyouts(); return; }
+  if (document.body.classList.contains('locked')) return;
   const typing = e.target.closest && e.target.closest('input,textarea');
   if (typing) return;
   if (e.key === 'Delete' && sel && sel !== 'trash') removeFromDesk(sel);
@@ -564,7 +567,76 @@ let rt; addEventListener('resize', () => {
   }, 120);
 });
 
+// ─────────── 로그인 ───────────
+// config.js 에 GOOGLE_CLIENT_ID 가 있으면 첫 화면이 잠금 화면. 회사 구글 계정으로 로그인하면 Apps Script가 확인 후 30일 세션 발급
+const MR = window.MR, CFG = window.MYRUBI_CONFIG || {};
+const lock = $('#lock'), lockMsg = $('#lockMsg');
+let gisLoaded = false, justLoggedOut = false;
+
+function setMsg(t, ok) { lockMsg.textContent = t || ''; lockMsg.classList.toggle('ok', !!ok); }
+function showLock(msg, ok) {
+  closeFlyouts();
+  [...wins.keys()].forEach(closeWin);
+  document.body.classList.add('locked');
+  lock.classList.remove('hidden', 'leaving');
+  setMsg(msg, ok);
+  loadGis();
+}
+function loadGis() {
+  if (gisLoaded) { renderGBtn(); if (justLoggedOut) google.accounts.id.disableAutoSelect(); return; }
+  if (document.getElementById('gsi')) return;
+  const sc = document.createElement('script');
+  sc.id = 'gsi'; sc.src = 'https://accounts.google.com/gsi/client?hl=ko'; sc.async = true;
+  sc.onload = () => {
+    google.accounts.id.initialize({
+      client_id: CFG.GOOGLE_CLIENT_ID, callback: onCredential, hd: CFG.ALLOWED_DOMAIN || undefined,
+      auto_select: !justLoggedOut, context: 'signin', ux_mode: 'popup', cancel_on_tap_outside: false,
+    });
+    gisLoaded = true; renderGBtn();
+    if (justLoggedOut) google.accounts.id.disableAutoSelect(); else google.accounts.id.prompt();
+  };
+  sc.onerror = () => setMsg('구글 로그인을 불러오지 못했습니다. 인터넷 연결을 확인하고 새로 고침해 주세요');
+  document.head.appendChild(sc);
+}
+function renderGBtn() {
+  $('#gBtn').innerHTML = '';
+  google.accounts.id.renderButton($('#gBtn'), { theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: '260' });
+}
+async function onCredential(r) {
+  setMsg('확인하는 중', true);
+  try { await MR.login(r.credential); justLoggedOut = false; unlock(true); }
+  catch (e) { setMsg(e.message); }
+}
+function unlock(animate) {
+  document.body.classList.remove('locked');
+  if (animate) { lock.classList.add('leaving'); setTimeout(() => lock.classList.add('hidden'), 350); }
+  else lock.classList.add('hidden');
+  renderDesk(); renderTaskbar(); renderWho(); openFromUrl();
+}
+function renderWho() {
+  const u = MR && MR.session() ? MR.user() : null;
+  $('#startWho').innerHTML = u
+    ? `${u.picture ? `<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">` : '<span class="gem small"></span>'}<span>${esc(u.name)}<small>${esc(u.email)}</small></span>`
+    : '<span class="gem small"></span>Rubi Workshop';
+  $('#startLogout').classList.toggle('hidden', !u);
+}
+$('#startLogout').onclick = () => { justLoggedOut = true; MR.logout(); showLock('로그아웃했습니다', true); };
+
+function openFromUrl() {
+  const hash = location.hash.slice(1);
+  if (hash && byId[hash]) { openApp(hash); return; }
+  const next = new URLSearchParams(location.search).get('next');
+  if (next) { const a = APPS.find(x => x.kind === 'frame' && x.url && next.startsWith(x.url.split('?')[0])); if (a) openApp(a.id); }
+}
+
 // ─────────── 시작 ───────────
-renderDesk(); renderTaskbar(); tick(); setInterval(tick, 10000);
-const hash = location.hash.slice(1); if (hash && byId[hash]) openApp(hash);
+tick(); setInterval(tick, 10000);
+if (MR && MR.loginEnabled()) {
+  MR.onKick = () => showLock('로그인이 만료되었습니다. 다시 로그인해 주세요');
+  addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.type === 'myrubi:signedout') MR.onKick(); });
+  if (MR.session()) { unlock(false); MR.get({ action: 'me' }).catch(() => {}); } // 세션이 서버에서 지워졌으면 잠금 화면으로
+  else showLock();
+} else {
+  unlock(false);
+}
 })();
