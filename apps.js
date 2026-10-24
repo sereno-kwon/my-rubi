@@ -55,7 +55,6 @@ window.MYRUBI_APPS = [
   { id: 'm-import',      folder: 'management', title: '수입 2026',                 icon: 'sheet', tint: 'green',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/10k5Tfv2uCpOPzf7YnQrddEsbWQb9zm9psDedX-X-dxU/edit' },
   { id: 'm-export',      folder: 'management', title: '수출 2026',                 icon: 'sheet', tint: 'teal',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/19ortty3Wtoqvi_Jm_UhKIibVyBwpzX6wMWqOu_0sQW4/edit' },
   { id: 'm-supply',      folder: 'management', title: '루비서플라이 2026',             icon: 'sheet', tint: 'slate',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1o7IZPhKGQEj1NVSsgmZxQXlDk_Uxj78zqjhqrxEbkCo/edit' },
-  { id: 'm-supply-copy', folder: 'management', title: '루비서플라이 2026 사본',          icon: 'sheet', tint: 'paper',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1aW5qxg9DmZT4cMbet-49Uend6IFlmdy3O9Xxc0HJGF8/edit' },
 
   // 브랜드 사이트 (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비 운영 한국 사이트
