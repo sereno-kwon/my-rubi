@@ -59,9 +59,15 @@ window.MYRUBI_APPS = [
   { id: 'b-surly',     folder: 'brands', group: '루비 운영 한국 사이트', title: '설리',                  mono: 'S',    tint: 'green',  kind: 'link', url: 'https://surly.rubiworkshop.com/' },
   { id: 'b-quoc',      folder: 'brands', group: '루비 운영 한국 사이트', title: 'QUOC',                mono: 'Q',    tint: 'paper',  kind: 'link', url: 'https://quoc.rubiworkshop.com/' },
   { id: 'b-gokiso',    folder: 'brands', group: '루비 운영 한국 사이트', title: '고키소',                 mono: 'G',    tint: 'teal',   kind: 'link', url: 'https://gokiso.rubiworkshop.com/' },
-  // 자전거 브랜드
-  { id: 'b-pashley',   folder: 'brands', group: '자전거 브랜드', title: '파슐리',                 mono: 'Pa',   tint: 'green',  kind: 'link', url: 'https://www.pashley.co.uk/' },
-  { id: 'b-velo',      folder: 'brands', group: '자전거 브랜드', title: '벨로오렌지',               mono: 'VO',   tint: 'amber',  kind: 'link', url: 'https://velo-orange.com/' },
+  // 자전거 브랜드 해외 사이트
+  { id: 'b-moulton-g', folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '몰튼 Global',           mono: 'Mo',   tint: 'slate',  kind: 'link', url: 'https://moultonbicycles.co.uk/' },
+  { id: 'b-bastion-g', folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '바스티온 Global',         mono: 'B',    tint: 'paper',  kind: 'link', url: 'https://bastioncycles.com/' },
+  { id: 'b-tsubasa-g', folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '츠바사 Global',          mono: 'T',    tint: 'ruby',   kind: 'link', url: 'https://cargocollective.com/tsubasabicycles' },
+  { id: 'b-crust-g',   folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '크러스트 Global',         mono: 'C',    tint: 'amber',  kind: 'link', url: 'https://crustbikes.com/' },
+  { id: 'b-parlee-g',  folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '팔리 Global',           mono: 'P',    tint: 'blue',   kind: 'link', url: 'https://parleecycles.com/' },
+  { id: 'b-surly-g',   folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '설리 Global',           mono: 'S',    tint: 'green',  kind: 'link', url: 'https://surlybikes.com/' },
+  { id: 'b-pashley',   folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '파슐리',                 mono: 'Pa',   tint: 'green',  kind: 'link', url: 'https://www.pashley.co.uk/' },
+  { id: 'b-velo',      folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '벨로오렌지',               mono: 'VO',   tint: 'amber',  kind: 'link', url: 'https://velo-orange.com/' },
   // 부품·액세서리 브랜드
   { id: 'b-yohemite',  folder: 'brands', group: '부품·액세서리 브랜드', title: '요헤미티',                mono: 'Yo',   tint: 'ruby',   kind: 'link', url: 'https://www.yohemite.com/' },
   { id: 'b-paul',      folder: 'brands', group: '부품·액세서리 브랜드', title: '폴 컴포넌트',              mono: 'Pc',   tint: 'slate',  kind: 'link', url: 'https://paulcomp.com/' },
