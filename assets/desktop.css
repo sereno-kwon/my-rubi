@@ -4,7 +4,7 @@
   --tb-h:52px;
   --label:#fff; --label-shadow:0 1px 2px rgba(0,0,0,.7),0 0 6px rgba(0,0,0,.35);
   --sel:rgba(255,255,255,.16); --sel-line:rgba(255,255,255,.34);
-  --wl:rgba(255,255,255,.075); --wt:rgba(255,255,255,.2);
+  --wl:rgba(255,255,255,.09); --wt:rgba(255,255,255,.22);
   --chrome:#f3f2ef; --chrome-2:#e7e5e1; --paper:#fbfbfa; --ink:#1d1f22; --ink-2:#5a5e63; --ink-3:#8b8f94; --line:rgba(0,0,0,.09);
   --shadow:0 18px 50px rgba(0,0,0,.35),0 2px 8px rgba(0,0,0,.18);
 }
@@ -13,7 +13,7 @@ html,body{height:100%;margin:0;overflow:hidden}
 body{
   font-family:"Pretendard Variable",Pretendard,"Segoe UI","Malgun Gothic",-apple-system,"Apple SD Gothic Neo",sans-serif;
   font-size:14px;color:var(--ink);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
-  background:radial-gradient(1400px 900px at 20% 10%,#4a5158 0%,transparent 65%),linear-gradient(165deg,#3b4148,#262a2f);
+  background:#000;
 }
 body[data-wall="ruby"]{background:radial-gradient(1300px 900px at 25% 5%,#7a2533 0%,transparent 65%),linear-gradient(165deg,#5a1a24,#2a0c12)}
 body[data-wall="stone"]{
@@ -193,7 +193,7 @@ body[data-wall="stone"] .ico:hover{background:rgba(0,0,0,.05)}
 .walls button{width:132px;border:none;background:transparent;padding:0;text-align:left;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
 .walls .sw{height:76px;border-radius:6px;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
 .walls button[aria-pressed="true"] .sw{border-color:var(--ruby)}
-.walls .sw.geometry{background:linear-gradient(165deg,#4a5158,#262a2f)}
+.walls .sw.geometry{background:#000}
 .walls .sw.ruby{background:linear-gradient(165deg,#7a2533,#2a0c12)}
 .walls .sw.stone{background:linear-gradient(165deg,#e8e6e1,#c4c1ba)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}

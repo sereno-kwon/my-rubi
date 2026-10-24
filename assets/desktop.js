@@ -376,7 +376,7 @@ function memoView() {
     <div class="status"><span>이 브라우저에만 저장됩니다</span><span id="memoState"></span></div></div>`;
 }
 function settingsView() {
-  const walls = [['geometry', '도면'], ['ruby', '루비'], ['stone', '스톤']];
+  const walls = [['geometry', '블랙'], ['ruby', '루비'], ['stone', '스톤']];
   const sizes = [['s', '작게'], ['m', '보통'], ['l', '크게']];
   return `<div class="pane set">
     <h3>배경</h3>
