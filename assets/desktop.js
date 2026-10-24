@@ -223,7 +223,9 @@ function openApp(id) {
 const SIZE_FOR = { folder: [640, 420], memo: [560, 460], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
 function createWin(a) {
   const kind = a.kind === 'builtin' ? a.id : a.kind;
-  const [W0, H0] = SIZE_FOR[kind] || [720, 520];
+  // 항목이 많은 폴더(브랜드 사이트 등)는 창을 크게 연다
+  const big = kind === 'folder' && childrenOf(a.id).length > 15;
+  const [W0, H0] = big ? [860, 640] : (SIZE_FOR[kind] || [720, 520]);
   const W = Math.min(W0, innerWidth - 40), H = Math.min(H0, innerHeight - TB_H - 40);
   const off = (cascade++ % 6) * 28;
   const el = document.createElement('section');
@@ -363,7 +365,8 @@ function folderView(f) {
   const kids = childrenOf(f.id);
   return `<div class="fold">
     <div class="path">${glyph(f)}<span>My Rubi</span><span>›</span><b>${esc(f.title)}</b></div>
-    <div class="items" data-folder="${f.id}">${kids.map(a =>
+    <div class="items" data-folder="${f.id}">${kids.map((a, i) =>
+      (a.group && a.group !== (kids[i - 1] || {}).group ? `<h4 class="f-grp">${esc(a.group)}</h4>` : '') +
       `<button class="f-item" data-id="${a.id}" title="${esc(a.url || a.title)}">${glyph(a)}<span>${esc(a.title)}</span></button>`).join('')}</div>
     <div class="status">항목 ${kids.length}개, ${coarse ? '누르면' : '두 번 클릭하면'} 새 탭에서 열립니다</div>
   </div>`;

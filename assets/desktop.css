@@ -168,7 +168,9 @@ body[data-wall="stone"] .ico:hover{background:rgba(0,0,0,.05)}
 .fold .path{height:40px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink-2);background:#fff}
 .fold .path b{color:var(--ink);font-weight:600}
 .fold .path .glyph{--s:20px}
-.fold .items{flex:1;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,96px);grid-auto-rows:min-content;gap:4px;align-content:start;background:#fff;user-select:none}
+.fold .items{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,96px);grid-auto-rows:min-content;gap:4px;align-content:start;background:#fff;user-select:none}
+.f-grp{grid-column:1/-1;margin:14px 4px 4px;padding-bottom:6px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+.f-grp:first-child{margin-top:2px}
 .f-item{border:1px solid transparent;background:transparent;border-radius:5px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12.5px;line-height:1.3;text-align:center;word-break:keep-all}
 .f-item:hover{background:#eef1f5}
 .f-item.sel{background:#dde6f1;border-color:#b9cbe2}

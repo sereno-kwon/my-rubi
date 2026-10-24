@@ -11,6 +11,7 @@
 // icon : chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench
 // tint : ruby slate green blue amber teal paper
 // mono : 아이콘 대신 글자 한두 개 (브랜드 사이트용)
+// group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
 
 window.MYRUBI_APPS = [
   // 루비 업무 앱
@@ -47,16 +48,47 @@ window.MYRUBI_APPS = [
   { id: 'site-kr',    folder: 'shops', title: 'rubi.kr',         icon: 'globe',  tint: 'paper', kind: 'link', url: 'https://rubi.kr/' },
   { id: 'insta',      folder: 'shops', title: '인스타그램',      icon: 'camera', tint: 'paper', kind: 'link', url: 'https://www.instagram.com/rubi.workshop/' },
 
-  // 브랜드 사이트
-  { id: 'b-moulton', folder: 'brands', title: '몰튼',          mono: 'Mo', tint: 'slate', kind: 'link', url: 'https://moultonbicycles.co.kr/' },
-  { id: 'b-sst',     folder: 'brands', title: '몰튼 SST WIDE', mono: 'SST', tint: 'slate', kind: 'link', url: 'https://sst.moultonbicycles.co.kr/' },
-  { id: 'b-bastion', folder: 'brands', title: '바스티온',      mono: 'B',  tint: 'paper', kind: 'link', url: 'https://bastioncycles.co.kr/' },
-  { id: 'b-tsubasa', folder: 'brands', title: '츠바사',        mono: 'T',  tint: 'ruby',  kind: 'link', url: 'https://tsubasabicycles.co.kr/' },
-  { id: 'b-crust',   folder: 'brands', title: '크러스트',      mono: 'C',  tint: 'amber', kind: 'link', url: 'https://crustbikes.co.kr/' },
-  { id: 'b-parlee',  folder: 'brands', title: '팔리',          mono: 'P',  tint: 'blue',  kind: 'link', url: 'https://parleecycles.co.kr/' },
-  { id: 'b-quoc',    folder: 'brands', title: 'QUOC',          mono: 'Q',  tint: 'paper', kind: 'link', url: 'https://quoc.rubiworkshop.com/' },
-  { id: 'b-gokiso',  folder: 'brands', title: '고키소',        mono: 'G',  tint: 'teal',  kind: 'link', url: 'https://gokiso.rubiworkshop.com/' },
-  { id: 'b-surly',   folder: 'brands', title: '설리',          mono: 'S',  tint: 'green', kind: 'link', url: 'https://surly.rubiworkshop.com/' },
+  // 브랜드 사이트 (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
+  // 루비 운영 한국 사이트
+  { id: 'b-moulton',   folder: 'brands', group: '루비 운영 한국 사이트', title: '몰튼',                  mono: 'Mo',   tint: 'slate',  kind: 'link', url: 'https://moultonbicycles.co.kr/' },
+  { id: 'b-sst',       folder: 'brands', group: '루비 운영 한국 사이트', title: '몰튼 SST WIDE',         mono: 'SST',  tint: 'slate',  kind: 'link', url: 'https://sst.moultonbicycles.co.kr/' },
+  { id: 'b-bastion',   folder: 'brands', group: '루비 운영 한국 사이트', title: '바스티온',                mono: 'B',    tint: 'paper',  kind: 'link', url: 'https://bastioncycles.co.kr/' },
+  { id: 'b-tsubasa',   folder: 'brands', group: '루비 운영 한국 사이트', title: '츠바사',                 mono: 'T',    tint: 'ruby',   kind: 'link', url: 'https://tsubasabicycles.co.kr/' },
+  { id: 'b-crust',     folder: 'brands', group: '루비 운영 한국 사이트', title: '크러스트',                mono: 'C',    tint: 'amber',  kind: 'link', url: 'https://crustbikes.co.kr/' },
+  { id: 'b-parlee',    folder: 'brands', group: '루비 운영 한국 사이트', title: '팔리',                  mono: 'P',    tint: 'blue',   kind: 'link', url: 'https://parleecycles.co.kr/' },
+  { id: 'b-surly',     folder: 'brands', group: '루비 운영 한국 사이트', title: '설리',                  mono: 'S',    tint: 'green',  kind: 'link', url: 'https://surly.rubiworkshop.com/' },
+  { id: 'b-quoc',      folder: 'brands', group: '루비 운영 한국 사이트', title: 'QUOC',                mono: 'Q',    tint: 'paper',  kind: 'link', url: 'https://quoc.rubiworkshop.com/' },
+  { id: 'b-gokiso',    folder: 'brands', group: '루비 운영 한국 사이트', title: '고키소',                 mono: 'G',    tint: 'teal',   kind: 'link', url: 'https://gokiso.rubiworkshop.com/' },
+  // 자전거 브랜드
+  { id: 'b-pashley',   folder: 'brands', group: '자전거 브랜드', title: '파슐리',                 mono: 'Pa',   tint: 'green',  kind: 'link', url: 'https://www.pashley.co.uk/' },
+  { id: 'b-velo',      folder: 'brands', group: '자전거 브랜드', title: '벨로오렌지',               mono: 'VO',   tint: 'amber',  kind: 'link', url: 'https://velo-orange.com/' },
+  // 부품·액세서리 브랜드
+  { id: 'b-yohemite',  folder: 'brands', group: '부품·액세서리 브랜드', title: '요헤미티',                mono: 'Yo',   tint: 'ruby',   kind: 'link', url: 'https://www.yohemite.com/' },
+  { id: 'b-paul',      folder: 'brands', group: '부품·액세서리 브랜드', title: '폴 컴포넌트',              mono: 'Pc',   tint: 'slate',  kind: 'link', url: 'https://paulcomp.com/' },
+  { id: 'b-wolftooth', folder: 'brands', group: '부품·액세서리 브랜드', title: '울프투스',                mono: 'WT',   tint: 'amber',  kind: 'link', url: 'https://www.wolftoothcomponents.com/' },
+  { id: 'b-white',     folder: 'brands', group: '부품·액세서리 브랜드', title: '화이트 인더스트리',           mono: 'WI',   tint: 'paper',  kind: 'link', url: 'https://www.whiteind.com/' },
+  { id: 'b-mks',       folder: 'brands', group: '부품·액세서리 브랜드', title: 'MKS',                 mono: 'MKS',  tint: 'slate',  kind: 'link', url: 'https://mkspedal.com/' },
+  { id: 'b-carbonti',  folder: 'brands', group: '부품·액세서리 브랜드', title: '카본티',                 mono: 'Ct',   tint: 'blue',   kind: 'link', url: 'https://www.carbon-ti.com/' },
+  { id: 'b-chrisking', folder: 'brands', group: '부품·액세서리 브랜드', title: '크리스킹',                mono: 'CK',   tint: 'ruby',   kind: 'link', url: 'https://chrisking.com/' },
+  { id: 'b-spurcycle', folder: 'brands', group: '부품·액세서리 브랜드', title: '스퍼사이클',               mono: 'Sp',   tint: 'teal',   kind: 'link', url: 'https://www.spurcycle.com/' },
+  { id: 'b-growtac',   folder: 'brands', group: '부품·액세서리 브랜드', title: '그로우택',                mono: 'Gr',   tint: 'green',  kind: 'link', url: 'https://growtac.com/' },
+  { id: 'b-thm',       folder: 'brands', group: '부품·액세서리 브랜드', title: 'THM',                 mono: 'THM',  tint: 'slate',  kind: 'link', url: 'https://www.thm.bike/' },
+  { id: 'b-schmolke',  folder: 'brands', group: '부품·액세서리 브랜드', title: '쉬몰케',                 mono: 'Sm',   tint: 'paper',  kind: 'link', url: 'https://www.schmolke-carbon.com/' },
+  { id: 'b-extralite', folder: 'brands', group: '부품·액세서리 브랜드', title: '엑스트라라이트',             mono: 'Ex',   tint: 'blue',   kind: 'link', url: 'https://www.extralite.com/' },
+  { id: 'b-adm',       folder: 'brands', group: '부품·액세서리 브랜드', title: '아르떼 디마노',             mono: 'AdM',  tint: 'amber',  kind: 'link', url: 'https://artedimano.com/' },
+  { id: 'b-berthoud',  folder: 'brands', group: '부품·액세서리 브랜드', title: '베르투 사이클',             mono: 'Be',   tint: 'ruby',   kind: 'link', url: 'https://www.gillesberthoud.fr/' },
+  { id: 'b-velocity',  folder: 'brands', group: '부품·액세서리 브랜드', title: '벨로시티',                mono: 'Ve',   tint: 'teal',   kind: 'link', url: 'https://velocityusa.com/' },
+  { id: 'b-nissen',    folder: 'brands', group: '부품·액세서리 브랜드', title: '니센',                  mono: 'Ni',   tint: 'slate',  kind: 'link', url: 'https://www.nissen-cable.jp/' },
+  { id: 'b-crane',     folder: 'brands', group: '부품·액세서리 브랜드', title: '크레인벨',                mono: 'Cr',   tint: 'amber',  kind: 'link', url: 'https://www.cranebellco.com/' },
+  { id: 'b-ultra',     folder: 'brands', group: '부품·액세서리 브랜드', title: '울트라다이나미코',            mono: 'Ud',   tint: 'green',  kind: 'link', url: 'https://www.ultradynamico.com/' },
+  { id: 'b-kingcage',  folder: 'brands', group: '부품·액세서리 브랜드', title: '킹케이지',                mono: 'KC',   tint: 'paper',  kind: 'link', url: 'https://kingcage.com/' },
+  { id: 'b-hulsroy',   folder: 'brands', group: '부품·액세서리 브랜드', title: '훌스로이',                mono: 'Hu',   tint: 'slate',  kind: 'link', url: 'https://hulsroy.com/' },
+  { id: 'b-nokon',     folder: 'brands', group: '부품·액세서리 브랜드', title: '노콘 케이블',              mono: 'No',   tint: 'blue',   kind: 'link', url: 'https://www.nokon.com/' },
+  { id: 'b-honjo',     folder: 'brands', group: '부품·액세서리 브랜드', title: '혼조',                  mono: 'Ho',   tint: 'teal',   kind: 'link', url: 'https://en.honjo-mudguards.jp/' },
+  { id: 'b-dward',     folder: 'brands', group: '부품·액세서리 브랜드', title: '디워드 디자인',             mono: 'Dw',   tint: 'paper',  kind: 'link', url: 'https://dward-design.co.uk/' },
+  { id: 'b-stone',     folder: 'brands', group: '부품·액세서리 브랜드', title: '스톤 체인링',              mono: 'St',   tint: 'slate',  kind: 'link', url: 'https://stonechainrings.com/' },
+  { id: 'b-evt',       folder: 'brands', group: '부품·액세서리 브랜드', title: 'EVT',                 mono: 'EVT',  tint: 'ruby',   kind: 'link', url: 'https://www.efficientvelo.com/' },
+  { id: 'b-atelier',   folder: 'brands', group: '부품·액세서리 브랜드', title: '아뜰리에 미디엄',            mono: 'AM',   tint: 'amber',  kind: 'link', url: 'https://ateliermedium.com/' },
 ];
 
 // 처음 쓰는 기기에서 작업 표시줄에 고정되는 앱
