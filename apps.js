@@ -28,8 +28,8 @@ window.MYRUBI_APPS = [
 
   // 폴더
   { id: 'google',    title: '구글 업무',     kind: 'folder' },
-  { id: 'shops',     title: '쇼핑몰 관리',   kind: 'folder' },
-  { id: 'brands',    title: '브랜드 사이트', kind: 'folder' },
+  { id: 'shops',     title: 'PLATFORM',      kind: 'folder' },
+  { id: 'brands',    title: 'BRAND',         kind: 'folder' },
   { id: 'management', title: 'MANAGEMENT',  kind: 'folder' },
 
   // 내장
@@ -41,13 +41,11 @@ window.MYRUBI_APPS = [
   { id: 'calendar',  folder: 'google', title: '캘린더',  icon: 'calendar', tint: 'blue',  kind: 'link', url: 'https://calendar.google.com/' },
   { id: 'drive',     folder: 'google', title: '드라이브', icon: 'drive',   tint: 'green', kind: 'link', url: 'https://drive.google.com/' },
 
-  // 쇼핑몰 관리
-  { id: 'imweb',      folder: 'shops', title: '아임웹',          icon: 'store',  tint: 'slate', kind: 'link', url: 'https://imweb.me/' },
-  { id: 'smartstore', folder: 'shops', title: '스마트스토어',     icon: 'store',  tint: 'green', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
-  { id: 'site-ws',    folder: 'shops', title: '루비워크샵',      icon: 'globe',  tint: 'ruby',  kind: 'link', url: 'https://rubiworkshop.com/' },
-  { id: 'site-sp',    folder: 'shops', title: '루비서플라이',    icon: 'globe',  tint: 'slate', kind: 'link', url: 'https://rubisupply.com/' },
-  { id: 'site-kr',    folder: 'shops', title: 'rubi.kr',         icon: 'globe',  tint: 'paper', kind: 'link', url: 'https://rubi.kr/' },
-  { id: 'insta',      folder: 'shops', title: '인스타그램',      icon: 'camera', tint: 'paper', kind: 'link', url: 'https://www.instagram.com/rubi.workshop/' },
+  // PLATFORM (판매 채널 관리자 화면)
+  { id: 'p-ws',        folder: 'shops', title: '루비워크샵',            icon: 'store', tint: 'ruby',  kind: 'link', url: 'https://rubiworkshop.com/admin' },
+  { id: 'p-sp',        folder: 'shops', title: '루비서플라이',          icon: 'store', tint: 'slate', kind: 'link', url: 'https://rubisupply.com/admin' },
+  { id: 'p-ss-ws',     folder: 'shops', title: '루비워크샵 스마트스토어', icon: 'store', tint: 'green', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
+  { id: 'p-ss-garage', folder: 'shops', title: '루비개러지 스마트스토어', icon: 'store', tint: 'amber', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
 
   // MANAGEMENT (공유 드라이브의 '매니지먼트 2026' 시트)
   { id: 'm-erp',         folder: 'management', title: 'ERP 2026',                icon: 'sheet', tint: 'blue',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1NQ3zmJQzW91JGtnPrIwTJn6EdLZzDPBmUeYqXvzZNBw/edit' },
@@ -56,7 +54,7 @@ window.MYRUBI_APPS = [
   { id: 'm-export',      folder: 'management', title: '수출 2026',                 icon: 'sheet', tint: 'teal',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/19ortty3Wtoqvi_Jm_UhKIibVyBwpzX6wMWqOu_0sQW4/edit' },
   { id: 'm-supply',      folder: 'management', title: '루비서플라이 2026',             icon: 'sheet', tint: 'slate',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1o7IZPhKGQEj1NVSsgmZxQXlDk_Uxj78zqjhqrxEbkCo/edit' },
 
-  // 브랜드 사이트 (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
+  // BRAND (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비 운영 한국 사이트
   { id: 'b-moulton',   folder: 'brands', group: '루비 운영 한국 사이트', title: '몰튼',                  mono: 'Mo',   tint: 'slate',  kind: 'link', url: 'https://moultonbicycles.co.kr/' },
   { id: 'b-sst',       folder: 'brands', group: '루비 운영 한국 사이트', title: '몰튼 SST WIDE',         mono: 'SST',  tint: 'slate',  kind: 'link', url: 'https://sst.moultonbicycles.co.kr/' },

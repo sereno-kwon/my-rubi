@@ -223,7 +223,7 @@ function openApp(id) {
 const SIZE_FOR = { folder: [640, 420], memo: [560, 460], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
 function createWin(a) {
   const kind = a.kind === 'builtin' ? a.id : a.kind;
-  // 항목이 많은 폴더(브랜드 사이트 등)는 창을 크게 연다
+  // 항목이 많은 폴더(BRAND 등)는 창을 크게 연다
   const big = kind === 'folder' && childrenOf(a.id).length > 15;
   const [W0, H0] = big ? [860, 640] : (SIZE_FOR[kind] || [720, 520]);
   const W = Math.min(W0, innerWidth - 40), H = Math.min(H0, innerHeight - TB_H - 40);
