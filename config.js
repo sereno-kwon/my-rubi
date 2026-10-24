@@ -6,7 +6,7 @@ window.MYRUBI_CONFIG = {
   // 구글 로그인: Google Cloud 콘솔의 OAuth 클라이언트 ID (…apps.googleusercontent.com)
   // 비워두면 로그인 없이 바로 바탕화면이 열림. 넣는 순간부터 첫 화면이 잠금 화면이 됨
   // Apps Script Code.gs 의 GOOGLE_CLIENT_ID 와 같은 값이어야 함
-  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_ID: '170788190959-st694dptpqurkm17fglb21bmhph2ui53.apps.googleusercontent.com',
 
   // 로그인 허용 도메인 (계정 선택 창에 이 도메인 계정만 보이게 함. 실제 확인은 Apps Script에서)
   ALLOWED_DOMAIN: 'rubi.kr',
