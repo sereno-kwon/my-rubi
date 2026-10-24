@@ -21,7 +21,7 @@ window.MYRUBI_APPS = [
   { id: 'channel',   title: '채널톡',      icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/' },
 
   // 폴더
-  { id: 'google',    title: '구글 업무',     kind: 'folder' },
+  { id: 'google',    title: 'GOOGLE',     kind: 'folder' },
   { id: 'shops',     title: 'PLATFORM',      kind: 'folder' },
   { id: 'brands',    title: 'BRAND',         kind: 'folder' },
   { id: 'management', title: 'MANAGEMENT',  kind: 'folder' },
@@ -31,7 +31,7 @@ window.MYRUBI_APPS = [
   { id: 'memo',      title: '메모장',        icon: 'note', tint: 'paper', kind: 'builtin' },
   { id: 'settings',  title: '바탕화면 설정', icon: 'gear', tint: 'slate', kind: 'builtin' },
 
-  // 구글 업무
+  // GOOGLE
   { id: 'gmail',     folder: 'google', title: 'Gmail',   icon: 'mail',     tint: 'ruby',  kind: 'link', url: 'https://mail.google.com/' },
   { id: 'calendar',  folder: 'google', title: '캘린더',  icon: 'calendar', tint: 'blue',  kind: 'link', url: 'https://calendar.google.com/' },
   { id: 'drive',     folder: 'google', title: '드라이브', icon: 'drive',   tint: 'green', kind: 'link', url: 'https://drive.google.com/' },
