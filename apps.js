@@ -30,6 +30,7 @@ window.MYRUBI_APPS = [
   { id: 'google',    title: '구글 업무',     kind: 'folder' },
   { id: 'shops',     title: '쇼핑몰 관리',   kind: 'folder' },
   { id: 'brands',    title: '브랜드 사이트', kind: 'folder' },
+  { id: 'management', title: 'MANAGEMENT',  kind: 'folder' },
 
   // 내장
   { id: 'memo',      title: '메모장',        icon: 'note', tint: 'paper', kind: 'builtin' },
@@ -47,6 +48,14 @@ window.MYRUBI_APPS = [
   { id: 'site-sp',    folder: 'shops', title: '루비서플라이',    icon: 'globe',  tint: 'slate', kind: 'link', url: 'https://rubisupply.com/' },
   { id: 'site-kr',    folder: 'shops', title: 'rubi.kr',         icon: 'globe',  tint: 'paper', kind: 'link', url: 'https://rubi.kr/' },
   { id: 'insta',      folder: 'shops', title: '인스타그램',      icon: 'camera', tint: 'paper', kind: 'link', url: 'https://www.instagram.com/rubi.workshop/' },
+
+  // MANAGEMENT (공유 드라이브의 '매니지먼트 2026' 시트)
+  { id: 'm-erp',         folder: 'management', title: 'ERP 2026',                icon: 'sheet', tint: 'blue',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1NQ3zmJQzW91JGtnPrIwTJn6EdLZzDPBmUeYqXvzZNBw/edit' },
+  { id: 'm-logistics',   folder: 'management', title: '로지스틱스 2026',              icon: 'sheet', tint: 'amber',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1c_J3h-qjJBJZM3sKb4mAPMouVQJ60aGgnIaiOQNH9tQ/edit' },
+  { id: 'm-import',      folder: 'management', title: '수입 2026',                 icon: 'sheet', tint: 'green',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/10k5Tfv2uCpOPzf7YnQrddEsbWQb9zm9psDedX-X-dxU/edit' },
+  { id: 'm-export',      folder: 'management', title: '수출 2026',                 icon: 'sheet', tint: 'teal',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/19ortty3Wtoqvi_Jm_UhKIibVyBwpzX6wMWqOu_0sQW4/edit' },
+  { id: 'm-supply',      folder: 'management', title: '루비서플라이 2026',             icon: 'sheet', tint: 'slate',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1o7IZPhKGQEj1NVSsgmZxQXlDk_Uxj78zqjhqrxEbkCo/edit' },
+  { id: 'm-supply-copy', folder: 'management', title: '루비서플라이 2026 사본',          icon: 'sheet', tint: 'paper',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1aW5qxg9DmZT4cMbet-49Uend6IFlmdy3O9Xxc0HJGF8/edit' },
 
   // 브랜드 사이트 (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비 운영 한국 사이트

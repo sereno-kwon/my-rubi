@@ -88,7 +88,7 @@ function renderDesk() {
   desk.innerHTML = S.desk.map(id => {
     const a = byId[id], [c, r] = out[id];
     return `<button class="ico${sel === id ? ' sel' : ''}" role="option" data-id="${id}" aria-selected="${sel === id}"
-      style="left:${PAD + c * g.w}px;top:${PAD + r * g.h}px;width:${g.w - 4}px;min-height:${g.h - 6}px">${glyph(a)}<span class="lbl">${esc(a.title)}</span></button>`;
+      style="left:${PAD + c * g.w}px;top:${PAD + r * g.h}px;width:${g.w - 4}px;min-height:${g.h - 6}px">${glyph(a)}<span class="lbl${/^[A-Z0-9 ]{9,}$/.test(a.title) ? ' caps' : ''}">${esc(a.title)}</span></button>`;
   }).join('');
   desk.querySelectorAll('.ico').forEach(bindIcon);
 }
