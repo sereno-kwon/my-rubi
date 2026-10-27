@@ -40,12 +40,10 @@ const coarse = matchMedia('(pointer:coarse)').matches;
 const small = () => innerWidth <= 720;
 const TB_H = 52;
 
-const FOLDER_SVG = `<svg viewBox="0 0 48 48"><path d="M4 12a3 3 0 0 1 3-3h11l4 4h19a3 3 0 0 1 3 3v3H4z" fill="#c9952f"/><path d="M4 17h40v20a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" fill="#e7b549"/><path d="M4 17h40v2.5H4z" fill="#f3cd70"/></svg>`;
-const TRASH_SVG = `<svg viewBox="0 0 48 48"><path d="M11 13h26l-2.4 27a3 3 0 0 1-3 2.8H16.4a3 3 0 0 1-3-2.8z" fill="#dfe4ea" stroke="#9aa4ae" stroke-width="1.4"/><path d="M8 11.5h32" stroke="#7f8a95" stroke-width="3" stroke-linecap="round"/><path d="M20 7h8" stroke="#7f8a95" stroke-width="3" stroke-linecap="round"/><path d="M19 18.5l1 19M24 18.5v19M29 18.5l-1 19" stroke="#a9b2bb" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-
 function glyph(a) {
-  if (a.id === 'trash') return `<span class="glyph trash">${TRASH_SVG}</span>`;
-  if (a.kind === 'folder') return `<span class="glyph folder">${FOLDER_SVG}</span>`;
+  // 폴스타 스타일: 색 타일 없이 선 아이콘 (tint 값은 남겨두되 화면에는 쓰지 않음)
+  if (a.id === 'trash') return `<span class="glyph trash"><svg><use href="#i-trash"/></svg></span>`;
+  if (a.kind === 'folder') return `<span class="glyph folder"><svg><use href="#i-folder"/></svg></span>`;
   const t = a.tint ? ` t-${a.tint}` : ' t-slate';
   if (a.mono) return `<span class="glyph mono${a.mono.length > 2 ? ' long' : ''}${t}">${esc(a.mono)}</span>`;
   return `<span class="glyph${t}"><svg><use href="#i-${a.icon || 'globe'}"/></svg></span>`;
@@ -384,7 +382,7 @@ function memoView() {
     <div class="status"><span>이 브라우저에만 저장됩니다</span><span id="memoState"></span></div></div>`;
 }
 function settingsView() {
-  const walls = [['geometry', '블랙'], ['ruby', '루비'], ['stone', '스톤']];
+  const walls = [['geometry', '블랙'], ['ruby', '그라파이트'], ['stone', '화이트']];
   const sizes = [['s', '작게'], ['m', '보통'], ['l', '크게']];
   return `<div class="pane set">
     <h3>배경</h3>

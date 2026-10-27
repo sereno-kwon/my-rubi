@@ -1,0 +1,25 @@
+/* My Rubi 서체·기본 토큰 (rubi.kr 폴스타 스타일과 같은 체계)
+   영문·숫자·기호는 Pretendard, 한글은 에스코어 드림(4 Regular). 웨이트는 400 하나로 통일하고, 굵은 서체(700)는 로고에만 씁니다.
+   Pretendard에는 한글 글리프가 있으므로 라틴 unicode-range를 지정해 한글이 Pretendard로 나오지 않게 합니다.
+   글자 크기 체계 (12px 미만 없음): 제목 28/32 · 24/28, 카드 제목 18/24, 본문 15/22, 보조 본문·버튼·메뉴 14/20, 캡션 13/18, 라벨 12/16 */
+@font-face { font-family: "RubiLatin"; font-weight: 400; font-display: swap; src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Regular.woff2") format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2190-2199,U+2212,U+2215; }
+@font-face { font-family: "RubiLatin"; font-weight: 700; font-display: swap; src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2") format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2190-2199,U+2212,U+2215; }
+@font-face { font-family: "RubiKo"; font-weight: 400; font-display: swap; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-4Regular.woff") format("woff"); }
+
+:root {
+  /* Polestar 문법: 흑백 위주, 각진 모서리, 1px 선, 가벼운 헤드라인, 포인트 컬러는 아주 드물게 */
+  --font: "RubiLatin", "RubiKo", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --dark: #101114;
+  --on-dark: #ffffff;
+  --bg: #ffffff;
+  --surface: #f4f4f4;
+  --fg: #101114;
+  --muted: #6e6f73;
+  --faint: #a4a5a9;
+  --line: #e3e3e3;
+  --accent: #c9a36a;
+  --danger: #b0303f;
+  --ls: -0.3px;      /* 기본 자간 */
+  --ls-title: -1px;  /* 28px 제목 자간 */
+  --ls-label: .08em; /* 대문자 라벨 자간 */
+}
