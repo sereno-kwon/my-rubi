@@ -393,6 +393,8 @@ function settingsView() {
     <p>아이콘은 끌어서 원하는 칸에 놓을 수 있고, 휴지통 위에 놓으면 바탕화면에서 빠집니다.</p>
     <button class="btn" data-act="arrange">자동 정렬</button><button class="btn" data-act="reset">처음 배치로 되돌리기</button>
     <p class="hint">배치, 고정한 앱, 배경은 이 브라우저에만 저장됩니다.</p>
+    <h3>화면 방식</h3>
+    <a class="btn" href="/" target="_top">텍스트 화면으로 돌아가기</a>
   </div>`;
 }
 function trashView() {

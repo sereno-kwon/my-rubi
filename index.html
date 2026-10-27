@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,91 +7,69 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#101114">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3Cpath d='M3 13h26M9 5l7 23 7-23' fill='none' stroke='%23fff' stroke-opacity='.45' stroke-width='1.4'/%3E%3C/svg%3E">
+<script>try{var t=JSON.parse(localStorage.getItem('myrubi.text.v1')||'{}').theme;if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="/assets/rubi-type.css">
-<link rel="stylesheet" href="/assets/desktop.css">
+<link rel="stylesheet" href="/assets/common.css">
+<link rel="stylesheet" href="/assets/text.css">
 </head>
-<body data-wall="geometry">
+<body>
 
-<!-- 바탕화면 배경: 자전거 지오메트리 도면 -->
-<svg class="wall" viewBox="0 0 1600 1000" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
-  <g class="wl" fill="none">
-    <circle cx="560" cy="700" r="340"/>
-    <circle cx="1560" cy="700" r="340"/>
-    <circle cx="560" cy="700" r="300" class="thin"/>
-    <circle cx="1560" cy="700" r="300" class="thin"/>
-    <path d="M560 700 L905 725 L795 248 Z"/>
-    <path d="M795 248 L1338 262 L1384 418 L905 725"/>
-    <path d="M1338 262 L1384 418"/>
-    <path d="M1384 418 Q1440 560 1560 700"/>
-    <path d="M795 248 L782 170 M752 168 H842"/>
-    <path d="M1338 262 L1322 214 L1255 205 M1322 214 L1300 140 Q1290 118 1240 128"/>
-    <circle cx="905" cy="725" r="22"/>
-    <circle cx="905" cy="725" r="70" class="thin"/>
-  </g>
-  <g class="wl dim" fill="none">
-    <path d="M560 740 V990 M1560 740 V990 M560 975 H1560" class="thin"/>
-    <path d="M905 725 V140 M905 140 H1338 M905 160 V120 M1338 160 V120"/>
-    <path d="M1420 262 H1470 M1420 725 H1470 M1450 262 V725"/>
-    <path d="M905 725 m-90 0 a90 90 0 0 1 -21 -58" />
-    <path d="M1384 418 m0 -80 a80 80 0 0 1 22 3"/>
-    <path d="M330 725 H1140" class="thin"/>
-  </g>
-  <g class="wt">
-    <text x="980" y="962">WHEELBASE 1,000</text>
-    <text x="1080" y="112">REACH 433</text>
-    <text x="1480" y="500">STACK 463</text>
-    <text x="760" y="652">73.0°</text>
-    <text x="1412" y="320">71.5°</text>
-    <text x="920" y="770">BB DROP 25</text>
-  </g>
-</svg>
+<!-- 텍스트 화면: 목록이 곧 인터페이스. 입력하면 걸러지고, 방향키로 고르고, Enter로 연다 -->
+<header class="top">
+  <a class="brand" href="/" id="home" aria-label="My Rubi 처음으로"><span class="gem"></span><span class="wm">MY RUBI</span></a>
+  <nav class="top-r">
+    <span class="who" id="who"></span>
+    <button class="top-btn" id="btnSettings">설정</button>
+    <button class="top-btn hidden" id="btnLogout">로그아웃</button>
+  </nav>
+</header>
 
-<main class="desk" id="desk" role="listbox" aria-label="바탕화면" tabindex="-1"></main>
-<div class="drop-cell" id="dropCell"></div>
-<div class="snap-hint" id="snapHint"></div>
-<div id="windows"></div>
+<main class="wrap">
+  <section class="cmd">
+    <div class="crumb" id="crumb"></div>
+    <label class="prompt">
+      <span class="slash" aria-hidden="true">/</span>
+      <input id="q" type="text" placeholder="무엇을 열까요" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="앱 찾기" aria-controls="list">
+    </label>
+    <p class="keys"><span><kbd>↑</kbd><kbd>↓</kbd> 고르기</span><span><kbd>Enter</kbd> 열기</span><span><kbd>1</kbd>–<kbd>9</kbd> 바로 열기</span><span><kbd>Esc</kbd> 뒤로</span></p>
+    <p class="recent hidden" id="recent"></p>
+    <div class="list" id="list" role="listbox" aria-label="앱 목록"></div>
+  </section>
 
-<!-- 시작 메뉴 -->
-<div class="start hidden" id="start" role="dialog" aria-label="시작 메뉴">
-  <div class="start-search">
-    <svg class="i"><use href="#i-search"/></svg>
-    <input id="startQ" type="search" placeholder="앱 검색" autocomplete="off" spellcheck="false">
-  </div>
-  <div class="start-body" id="startBody"></div>
-  <div class="start-foot">
-    <div class="who" id="startWho"><span class="gem small"></span>Rubi Workshop</div>
-    <div class="foot-btns">
-      <button class="foot-btn" id="startSettings"><svg class="i"><use href="#i-gear"/></svg>바탕화면 설정</button>
-      <button class="foot-btn hidden" id="startLogout"><svg class="i"><use href="#i-power"/></svg>로그아웃</button>
+  <aside class="side" aria-label="오늘">
+    <div class="today">
+      <p class="kicker">TODAY</p>
+      <p class="clock" id="clock"></p>
+      <p class="date" id="date"></p>
+      <p class="hours">쇼룸·고객센터 월~금 12:00~18:00</p>
     </div>
-  </div>
-</div>
+    <!-- 공지·일정(assets/board.js)이 이 자리 바로 앞에 붙음 -->
+    <div id="windows" hidden></div>
+  </aside>
+</main>
 
-<!-- 작업 표시줄 -->
-<nav class="taskbar" aria-label="작업 표시줄">
-  <div class="tb-apps">
-    <button class="tb start-btn" id="startBtn" title="시작" aria-label="시작"><span class="gem"></span><span class="wm">MY RUBI</span></button>
-    <button class="tb-search" id="tbSearch"><svg class="i"><use href="#i-search"/></svg><span>검색</span></button>
-    <div class="tb-list" id="tbList"></div>
-  </div>
-  <button class="tray" id="tray" title="오늘">
-    <span class="t" id="clockT"></span>
-    <span class="d" id="clockD"></span>
-  </button>
-</nav>
+<!-- 포털 안에서 여는 앱 (상담 현황, NAS, 메모장, 설정) -->
+<section class="panel hidden" id="panel" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <header class="p-bar">
+    <button class="p-back" id="pBack" aria-label="목록으로"><svg class="i"><use href="#i-back"/></svg></button>
+    <div class="p-ttl"><span class="p-crumb" id="pCrumb"></span><h1 id="pTitle"></h1></div>
+    <a class="p-btn hidden" id="pOut" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+    <button class="p-btn" id="pClose">닫기 <kbd>Esc</kbd></button>
+  </header>
+  <div class="p-body" id="pBody"></div>
+</section>
 
-<div class="cal hidden" id="cal"></div>
 <div class="ctx hidden" id="ctx" role="menu"></div>
 
 <!-- 잠금 화면 (config.js 에 GOOGLE_CLIENT_ID 가 있을 때만) -->
 <div class="lock hidden" id="lock" role="dialog" aria-label="로그인">
-  <div class="lock-clock"><div class="t" id="lockT"></div><div class="d" id="lockD"></div></div>
-  <div class="lock-card">
-    <span class="gem big"></span>
-    <div class="lock-name">My Rubi</div>
-    <div class="lock-sub" id="lockSub">회사 구글 계정으로 로그인하세요</div>
+  <div class="lock-in">
+    <div class="lock-mark"><span class="gem"></span><span class="wm">MY RUBI</span></div>
+    <p class="lock-t" id="lockT"></p>
+    <p class="lock-d" id="lockD"></p>
+    <p class="lock-sub">회사 구글 계정으로 로그인하세요</p>
     <div class="lock-btn" id="gBtn"></div>
-    <div class="lock-msg" id="lockMsg" role="status"></div>
+    <p class="lock-msg" id="lockMsg" role="status"></p>
   </div>
 </div>
 
@@ -131,6 +109,6 @@
 <script src="/apps.js"></script>
 <script src="/assets/nas.js"></script>
 <script src="/assets/board.js"></script>
-<script src="/assets/desktop.js"></script>
+<script src="/assets/shell.js"></script>
 </body>
 </html>
