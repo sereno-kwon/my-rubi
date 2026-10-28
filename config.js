@@ -1,7 +1,7 @@
 // My Rubi 설정
 window.MYRUBI_CONFIG = {
   // Apps Script 웹앱 URL (…/exec)
-  API_URL: 'https://script.google.com/macros/s/AKfycbx-OhlQdNwKCWcUMs-kmjhqPcWhoUKD_vqpavJcX2XVLUY6p3Rmh8ry1NCqOG_4pLrm/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbypQe4DIULfFv2JllxmXAgMFthIm-PRCSEwkM9kSQGCfOxJ7yn4Qp0TxwwJO3lppvYG/exec',
 
   // 구글 로그인: Google Cloud 콘솔의 OAuth 클라이언트 ID (…apps.googleusercontent.com)
   // 비워두면 로그인 없이 바로 바탕화면이 열림. 넣는 순간부터 첫 화면이 잠금 화면이 됨
