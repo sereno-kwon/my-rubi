@@ -93,10 +93,10 @@ const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'];
 function doGet(e) {
   try {
     const p = e.parameter || {};
+    if (p.action === 'ping') return json_({ ok: true });   // 연결 확인은 로그인 없이
     const user = auth_(p.s);
 
     switch (p.action) {
-      case 'ping':     return json_({ ok: true });
       case 'me':       return json_({ ok: true, user: publicUser_(user) });
       case 'list':     return json_({ ok: true, stages: CONFIG.STAGES, channels: CONFIG.CHANNELS, brands: Object.keys(CONFIG.BRANDS), rows: listIndex_() });
       case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
