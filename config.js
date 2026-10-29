@@ -15,7 +15,7 @@ window.MYRUBI_CONFIG = {
   // 예: MEMBERS: ['세레노', '○○', '△△'],  이름은 구글 계정 이름과 같게
   MEMBERS: ['권오현', '권오륜', '박국현', '김현우', '전요셉'],
   // 구글 계정 이름(또는 이메일)이 위 멤버 이름과 다를 때 맞춰 줌. 로그인한 사람의 탭이 처음에 열리고, 끝낸 사람 이름도 이걸로 기록됨
-  MEMBER_ALIASES: { 'Ohyun Kwon': '권오현', 'ohyun@rubi.kr': '권오현', 'ohyun@rubiworkshop.com': '권오현' },
+  MEMBER_ALIASES: { 'Ohyun Kwon': '권오현', 'ohyun@rubi.kr': '권오현', 'ohyun@rubiworkshop.com': '권오현', 'oryun@rubiworkshop.com': '권오륜', 'oryun@rubi.kr': '권오륜' },
   // 본인에게만 보이는 개인 체크리스트 멤버. 실제로 누가 볼 수 있는지는 Apps Script Code.gs 의 PRIVATE_CHECKLISTS 가 정함
   // (여기 적힌 이름은 서버 응답을 받기 전 잠깐 동안 탭을 숨기는 데만 씀)
   PRIVATE_MEMBERS: ['권오현', '권오륜'],

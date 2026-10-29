@@ -75,7 +75,7 @@ const CONFIG = {
   //  viewers: 본인 말고 이 목록을 볼 수 있는 계정 (예: ['ohyun'])
   PRIVATE_CHECKLISTS: {
     '권오현': { emails: ['ohyun'], names: ['권오현', 'Ohyun Kwon'], viewers: [] },
-    '권오륜': { emails: [],        names: ['권오륜'],               viewers: [] },
+    '권오륜': { emails: ['oryun'], names: ['권오륜'],               viewers: [] },
   },
   // 예전에 구글 계정 이름으로 저장된 담당자 이름을 멤버 이름으로 맞춤 (포털 config.js 의 MEMBER_ALIASES 와 같게)
   CHECK_OWNER_ALIASES: { 'Ohyun Kwon': '권오현' },
