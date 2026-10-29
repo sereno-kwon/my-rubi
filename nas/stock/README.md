@@ -50,16 +50,16 @@
    - 대상: 프로토콜 **HTTP**, 호스트 이름 **`localhost`**, 포트 **8790**
    - Synology DDNS는 하위 이름도 같은 NAS로 오므로 DNS 설정은 따로 없습니다.
 6. **인증서**: 제어판 → 보안 → 인증서 → 설정에서 `stock.rubibase.synology.me` 에 `*.rubibase.synology.me` 가 들어간 인증서를 지정합니다. NAS 앱 설치 때([`../README.md`](../README.md) 6번) 와일드카드 인증서를 받아 두었다면 고르기만 하면 됩니다.
-7. **확인**: 브라우저로 `https://stock.rubibase.synology.me/health` 를 열어 `{"ok": true, "service": "my-rubi-stock"}` 가 보이고 자물쇠에 경고가 없으면 끝입니다.
+7. **확인**: 브라우저로 `https://stock.rubibase.synology.me:8443/health` 를 열어 `{"ok": true, "service": "my-rubi-stock"}` 가 보이고 자물쇠에 경고가 없으면 끝입니다.
 
-공유기 포트 포워딩은 NAS 앱과 같은 443을 씁니다. 이미 열려 있으면 추가할 것이 없습니다.
+공유기 포트 포워딩은 NAS 앱과 같은 규칙(공용 8443 → NAS 443)을 그대로 씁니다. 역방향 프록시가 NAS 443에서 이름(`stock.`)으로 나눠 받으므로 공유기에 추가할 것이 없고, 주소에 `:8443` 이 붙습니다.
 
 ## 포털 설정
 
 `config.js` 에 한 줄을 넣고 커밋합니다.
 
 ```js
-STOCK_API: 'https://stock.rubibase.synology.me/',
+STOCK_API: 'https://stock.rubibase.synology.me:8443/',
 ```
 
 ## 고치거나 업데이트할 때
