@@ -47,6 +47,7 @@ window.MYRUBI_APPS = [
   { id: 'p-sp',        folder: 'shops', title: '루비서플라이',          icon: 'store', tint: 'slate', kind: 'link', url: 'https://rubisupply.com/admin' },
   { id: 'p-ss-ws',     folder: 'shops', title: '루비워크샵 스마트스토어', icon: 'store', tint: 'green', kind: 'link', url: 'https://smartstore.naver.com/rubiworkshop' },
   { id: 'p-ss-garage', folder: 'shops', title: '루비개러지 스마트스토어', icon: 'store', tint: 'amber', kind: 'link', url: 'https://smartstore.naver.com/rubigarage' },
+  { id: 'p-ss-seller', folder: 'shops', title: '스마트스토어 판매자센터', icon: 'store', tint: 'green', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
 
   // MANAGEMENT (공유 드라이브의 '매니지먼트 2026' 시트)
   { id: 'm-erp',         folder: 'management', title: 'ERP 2026',                icon: 'sheet', tint: 'blue',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1NQ3zmJQzW91JGtnPrIwTJn6EdLZzDPBmUeYqXvzZNBw/edit' },
