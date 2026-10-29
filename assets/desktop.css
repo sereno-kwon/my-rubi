@@ -108,7 +108,7 @@ body[data-wall="stone"] .start,body[data-wall="stone"] .cal,body[data-wall="ston
 .start-search input::placeholder{color:var(--faint)}
 .start-search input::-webkit-search-cancel-button{display:none}
 .start-body{flex:1;overflow:auto;padding:4px 24px 24px}
-.start-body h3{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);margin:24px 8px 10px}
+.start-body h3{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--muted);margin:24px 8px 10px}
 .start-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0}
 .s-item{border:none;background:transparent;border-radius:0;padding:14px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:13px;line-height:18px;text-align:center;word-break:keep-all;min-width:0;color:var(--fg)}
 .s-item .glyph{--s:36px;--g-line:var(--line)}
@@ -176,7 +176,7 @@ body[data-wall="stone"] .start,body[data-wall="stone"] .cal,body[data-wall="ston
 
 /* 창 안: 폴더 */
 .fold{display:flex;flex-direction:column;height:100%;background:var(--bg)}
-.fold .path{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line);font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.fold .path{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line);font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--muted)}
 .fold .path b{color:var(--fg)}
 .fold .path .glyph{--s:20px;--g-line:transparent;color:var(--fg)}
 .fold .items{flex:1;min-height:0;overflow:auto;padding:16px 20px 24px;display:grid;grid-template-columns:repeat(auto-fill,104px);grid-auto-rows:min-content;gap:0;align-content:start;user-select:none}
@@ -196,7 +196,7 @@ body[data-wall="stone"] .start,body[data-wall="stone"] .cal,body[data-wall="ston
 .s-nas .glyph{--s:32px;--g-line:var(--line);flex:none}
 .s-nas b{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .s-nas > span:not(.glyph){flex:1}
-.s-nas kbd{font:inherit;font-size:12px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.s-nas kbd{font:inherit;font-size:12px;letter-spacing:var(--ls-label);color:var(--muted)}
 
 /* 포스트잇 자리 (안쪽 모양은 common.css) */
 .board{position:fixed;top:16px;right:16px;width:256px;max-height:calc(100% - var(--tb-h) - 32px);z-index:40;display:flex;flex-direction:column;gap:12px;user-select:none;-webkit-user-select:none;color:var(--d-fg)}

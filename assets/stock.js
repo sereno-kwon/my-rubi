@@ -231,7 +231,7 @@ class View {
   renderDetail() {
     const el = this.detailEl; if (!el) return;
     const d = this.detail;
-    if (!d) { el.innerHTML = `<div class="stk-empty"><span class="kicker">STOCK</span><p>품목을 고르면 창고별 재고가 여기에 보입니다.</p></div>`; return; }
+    if (!d) { el.innerHTML = `<div class="stk-empty"><span class="kicker">Stock</span><p>품목을 고르면 창고별 재고가 여기에 보입니다.</p></div>`; return; }
     const head = `<button class="stk-back" data-a="back" aria-label="목록으로"><svg class="i"><use href="#i-back"/></svg>목록</button>
       <p class="kicker">${esc(d.code)}</p><h2>${esc(d.name || d.code)}</h2>${d.size ? `<p class="sz">${esc(d.size)}</p>` : ''}`;
     if (d.loading) { el.innerHTML = head + `<p class="stk-wait">이카운트에서 불러오는 중</p>`; return; }

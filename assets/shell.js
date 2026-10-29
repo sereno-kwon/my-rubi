@@ -70,7 +70,7 @@ function sections(term) {
       return out;
     }
     if (HOME) return HOME.map(s => ({ label: s.label, items: s.ids.map(id => byId[id]).filter(Boolean) })).filter(s => s.items.length);
-    return [{ label: 'APPS', items: TOP }, { label: 'FOLDERS', items: FOLDERS }];
+    return [{ label: 'Apps', items: TOP }, { label: 'Folders', items: FOLDERS }];
   }
   // 검색: 폴더 안이면 그 폴더에서만, 처음 화면이면 전체에서
   const words = term.split(/\s+/);
@@ -80,7 +80,7 @@ function sections(term) {
   const hits = pool.filter(a => { const h = hay(a); return words.every(w => h.includes(w)); });
   const out = [];
   hits.forEach(a => {
-    const label = a.folder ? byId[a.folder].title : 'RUBI';
+    const label = a.folder ? byId[a.folder].title : 'Rubi';
     let s = out.find(x => x.label === label);
     if (!s) out.push(s = { label, items: [] });
     s.items.push(a);
@@ -110,7 +110,7 @@ function render() {
   // 검색어가 있으면 이카운트 재고, NAS 파일 찾기 줄을 함께 보여줌
   if (raw && byId.stock && stk() && stk().configured()) {
     const i = rows.length; rows.push({ stock: raw });
-    html += `<h2 class="sec-h"><span>STOCK</span></h2><ol class="rows"><li><a class="row k-stock" href="#stock" data-i="${i}" role="option">
+    html += `<h2 class="sec-h"><span>Stock</span></h2><ol class="rows"><li><a class="row k-stock" href="#stock" data-i="${i}" role="option">
       <span class="no">${pad(i + 1)}</span><span class="tt">이카운트 재고에서 “${esc(raw)}” 찾기</span><span class="mt">품목 이름·코드·바코드</span><span class="ar" aria-hidden="true">→</span></a></li></ol>`;
   }
   if (raw && byId.nas && nas() && nas().configured()) {
@@ -131,8 +131,8 @@ function render() {
 
 function renderCrumb() {
   crumbEl.innerHTML = folder
-    ? `<button class="up" data-up title="처음으로 (Esc)"><svg class="i"><use href="#i-back"/></svg>MY RUBI</button><span class="sep">/</span><span>${esc(byId[folder].title)}</span>`
-    : '<span>MY RUBI</span>';
+    ? `<button class="up" data-up title="처음으로 (Esc)"><svg class="i"><use href="#i-back"/></svg>My Rubi</button><span class="sep">/</span><span>${esc(byId[folder].title)}</span>`
+    : '<span>My Rubi</span>';
   const up = crumbEl.querySelector('[data-up]'); if (up) up.onclick = () => goUp();
   q.placeholder = folder ? `${byId[folder].title}에서 찾기` : '무엇을 열까요';
 }
@@ -277,7 +277,7 @@ function openPanel(a, nasQ) {
   teardown();
   panelId = a.id;
   $('#pTitle').textContent = a.title;
-  $('#pCrumb').textContent = a.folder ? `MY RUBI / ${byId[a.folder].title}` : 'MY RUBI';
+  $('#pCrumb').textContent = a.folder ? `My Rubi / ${byId[a.folder].title}` : 'My Rubi';
   pOut.classList.toggle('hidden', a.kind !== 'frame');
   if (a.kind === 'frame') pOut.href = a.url;
   panelEl.className = 'panel p-' + (a.kind === 'builtin' ? a.id : a.kind);

@@ -3,7 +3,7 @@
    --d-* 값(바탕 쪽 글자·선 색)은 각 화면의 CSS가 정함 */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:square;stroke-linejoin:miter;flex:none}
-.kicker{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted)}
+.kicker{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--muted)}
 
 /* 루비 마크: 선으로 그린 원석, 글자색을 따라감 */
 .gem{display:inline-block;width:20px;height:20px;flex:none;background:currentColor;

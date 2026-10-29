@@ -462,7 +462,7 @@ const start = $('#start'), startQ = $('#startQ'), startBody = $('#startBody');
 function sections(q) {
   const match = a => !q || (a.title + ' ' + (a.url || '') + ' ' + (a.note || '')).toLowerCase().includes(q);
   const top = APPS.filter(a => !a.folder && match(a));
-  const out = [{ title: 'RUBI', items: top }];
+  const out = [{ title: 'Rubi', items: top }];
   APPS.filter(a => a.kind === 'folder').forEach(f => out.push({ title: f.title, items: childrenOf(f.id).filter(match) }));
   return out.filter(s => s.items.length);
 }

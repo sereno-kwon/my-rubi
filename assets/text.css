@@ -44,8 +44,8 @@ kbd{font:inherit;font-size:12px;line-height:16px;display:inline-block;min-width:
 .wrap{max-width:var(--max);margin:0 auto;padding:clamp(32px,5vw,64px) var(--gutter) 96px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(32px,6vw,96px);align-items:start}
 
 /* 위치 표시 */
-.crumb{display:flex;align-items:center;gap:10px;min-height:24px;margin-bottom:16px;font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--t-muted)}
-.crumb .up{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:4px 0;color:var(--t-muted);letter-spacing:inherit;text-transform:inherit;font-size:inherit}
+.crumb{display:flex;align-items:center;gap:10px;min-height:24px;margin-bottom:16px;font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--t-muted)}
+.crumb .up{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:4px 0;color:var(--t-muted);letter-spacing:inherit;font-size:inherit}
 .crumb .up:hover{color:var(--t-fg)}
 .crumb .up .i{width:14px;height:14px}
 .crumb .sep{color:var(--t-faint)}
@@ -68,7 +68,7 @@ kbd{font:inherit;font-size:12px;line-height:16px;display:inline-block;min-width:
 
 /* ---------- 목록 ---------- */
 .list{margin-top:8px}
-.sec-h{display:flex;justify-content:space-between;align-items:baseline;margin:48px 0 0;padding-bottom:12px;border-bottom:1px solid var(--t-fg);font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--t-muted)}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;margin:48px 0 0;padding-bottom:12px;border-bottom:1px solid var(--t-fg);font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--t-muted)}
 .sec-h.ko{font-size:13px;line-height:18px;letter-spacing:var(--ls);text-transform:none}
 .sec-h .n{font-variant-numeric:tabular-nums;letter-spacing:0}
 .rows{list-style:none;margin:0;padding:0}
@@ -143,7 +143,7 @@ kbd{font:inherit;font-size:12px;line-height:16px;display:inline-block;min-width:
 /* 오른쪽: 멤버별 체크리스트 요약 (assets/checklist.js) */
 .checks{padding-top:16px;border-top:1px solid var(--t-fg);display:flex;flex-direction:column;gap:10px}
 .checks .kicker{margin:0 0 4px}
-.checks .kicker button{border:none;background:none;padding:0;font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--t-muted)}
+.checks .kicker button{border:none;background:none;padding:0;font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--t-muted)}
 .checks .kicker button:hover{color:var(--t-fg)}
 .cs-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;width:100%;border:none;background:none;padding:0;text-align:left;font-size:14px;line-height:20px}
 .cs-row .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -162,7 +162,7 @@ body.panel-open{overflow:hidden}
 .p-back{width:40px;height:40px;border:none;background:none;border-radius:0;display:grid;place-items:center}
 .p-back:hover{background:var(--surface)}
 .p-ttl{flex:1;min-width:0;display:flex;align-items:baseline;gap:14px}
-.p-crumb{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.p-crumb{font-size:12px;line-height:16px;letter-spacing:var(--ls-label);color:var(--muted);white-space:nowrap}
 .p-ttl h1{margin:0;font-size:18px;line-height:24px;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p-btn{height:40px;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border:1px solid transparent;background:none;border-radius:0;font-size:14px;line-height:20px;color:var(--fg);white-space:nowrap}
 .p-btn:hover{border-color:var(--fg)}

@@ -204,7 +204,7 @@ function renderSummary() {
       <span class="nm">${esc(n)}</span><span class="ct">${p.total ? (p.left ? `${p.left}개 남음` : '끝') : '없음'}</span>
       <span class="ck-bar" aria-hidden="true"><i style="width:${pct}%"></i></span></button>`;
   }).join('');
-  summaryEl.innerHTML = `<p class="kicker"><button data-open="${ALL}">CHECKLIST</button></p>${rows}`;
+  summaryEl.innerHTML = `<p class="kicker"><button data-open="${ALL}">Checklist</button></p>${rows}`;
 }
 
 // ─────────── 저장 ───────────

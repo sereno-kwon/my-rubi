@@ -110,7 +110,7 @@ function render() {
   }).join('') : `<li class="cal-none">${d ? '일정 없음' : loading[month] ? '불러오는 중' : ''}</li>`;
 
   host.innerHTML = `
-    <p class="kicker"><a href="${gcalUrl(month)}" target="_blank" rel="noopener" title="구글 캘린더에서 열기">CALENDAR</a></p>
+    <p class="kicker"><a href="${gcalUrl(month)}" target="_blank" rel="noopener" title="구글 캘린더에서 열기">Calendar</a></p>
     <div class="cal-h">
       <span class="cal-m">${esc(label(month))}</span>
       <span class="cal-nav">

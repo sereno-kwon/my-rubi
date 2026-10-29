@@ -24,15 +24,15 @@ window.MYRUBI_APPS = [
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
   // BOOKMARK (바로가기)
-  { id: 'ecount',    title: 'ECOUNT',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
-  { id: 'channel',   title: 'CHANNEL TALK', icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/', note: '채널톡' },
+  { id: 'ecount',    title: 'Ecount',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
+  { id: 'channel',   title: 'Channel Talk', icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/', note: '채널톡' },
 
   // 폴더
-  { id: 'google',    title: 'GOOGLE',     kind: 'folder' },
-  { id: 'shops',     title: 'PLATFORM',      kind: 'folder' },
-  { id: 'brands',    title: 'BRAND',         kind: 'folder' },
-  { id: 'management', title: 'MANAGEMENT',  kind: 'folder' },
-  { id: 'logistics',  title: 'LOGISTICS',   kind: 'folder' },
+  { id: 'google',    title: 'Google',     kind: 'folder' },
+  { id: 'shops',     title: 'Platform',      kind: 'folder' },
+  { id: 'brands',    title: 'Brand',         kind: 'folder' },
+  { id: 'management', title: 'Management',  kind: 'folder' },
+  { id: 'logistics',  title: 'Logistics',   kind: 'folder' },
 
   // 내장
   { id: 'settings',  title: '바탕화면 설정', icon: 'gear', tint: 'slate', kind: 'builtin' },
@@ -110,9 +110,9 @@ window.MYRUBI_APPS = [
 
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
-  { label: 'ESSENTIAL', ids: ['checklist', 'stock', 'nas'] },
-  { label: 'APP',       ids: ['imweb-update', 'inbound'] },
-  { label: 'BOOKMARK',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
+  { label: 'Essential', ids: ['checklist', 'stock', 'nas'] },
+  { label: 'App',       ids: ['imweb-update', 'inbound'] },
+  { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
 // 처음 쓰는 기기에서 작업 표시줄에 고정되는 앱
