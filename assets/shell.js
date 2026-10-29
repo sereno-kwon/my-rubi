@@ -387,6 +387,8 @@ function openFromUrl() {
 // ─────────── 시작 ───────────
 if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.onLayout = null;  // 텍스트 화면은 아이콘 자리 계산이 없음
 tick(); setInterval(tick, 10000);
+// 이미 열린 포털에 바로가기 주소(#checklist/이름 등)를 붙여 넣었을 때도 열리게
+addEventListener('hashchange', () => { if (!document.body.classList.contains('locked')) openFromUrl(); });
 if (MR && MR.loginEnabled()) {
   MR.onKick = () => showLock('로그인이 만료되었습니다. 다시 로그인해 주세요');
   addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.type === 'myrubi:signedout') MR.onKick(); });

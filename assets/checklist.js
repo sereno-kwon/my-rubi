@@ -31,7 +31,12 @@ function weekStart(dateStr) {
   d.setDate(d.getDate() - off);
   return ymd(d);
 }
-const me = () => (MR && MR.user().name) || '';
+/** 로그인한 사람의 멤버 이름. 구글 계정 이름이 멤버 이름과 다르면 config.js 의 MEMBER_ALIASES 로 맞춤 (예: 'Ohyun Kwon' → '권오현') */
+function me() {
+  const u = MR ? MR.user() : { name: '', email: '' };
+  const al = CFG.MEMBER_ALIASES || {};
+  return al[u.email] || al[u.name] || u.name || '';
+}
 const shared = () => !!(MR && MR.loginEnabled() && MR.session());
 
 let items = [];        // { id, owner, text, repeat, doneAt, doneBy, order, author, createdAt, updatedAt }
@@ -56,9 +61,13 @@ function members() {
   const add = n => { n = String(n || '').trim(); if (n && !out.includes(n)) out.push(n); };
   (CFG.MEMBERS || []).forEach(add);
   items.forEach(it => add(it.owner));
-  add(me());
+  // MEMBERS 를 적어 두면 그 명단으로 고정. 비어 있을 때만 로그인한 사람을 자동으로 더함
+  if (!(CFG.MEMBERS || []).length) add(me());
   return out;
 }
+const alias = n => (CFG.MEMBER_ALIASES || {})[n] || n;
+/** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게 */
+const fix = list => (list || []).map(it => Object.assign({}, it, { owner: alias(it.owner), doneBy: alias(it.doneBy) }));
 const ofMember = name => items.filter(it => it.owner === name);
 function progress(list) {
   // 할 일은 끝낸 지 7일이 지나면 안 세고, 반복 항목은 전부 셈
@@ -194,14 +203,14 @@ function renderSummary() {
 }
 
 // ─────────── 저장 ───────────
-const readLocal = () => readJson(K_LOCAL, []);
+const readLocal = () => fix(readJson(K_LOCAL, []));
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify(items));
 
 async function load() {
   if (!shared()) { items = readLocal(); if (!editing) render(); return; }
   try {
     const j = await MR.get({ action: 'checks' });
-    items = j.checks || [];
+    items = fix(j.checks);
     ls.set(K_CACHE, JSON.stringify(items));
     msg = '';
   } catch (e) {
@@ -217,7 +226,7 @@ async function persist(op, d) {
   const fields = { id: d.id, owner: d.owner, text: d.text, repeat: d.repeat, order: d.order };
   if (shared()) {
     const j = await MR.post(Object.assign({ action: 'check', op }, fields, op === 'toggle' ? { done: !!d.done } : {}));
-    items = j.checks || [];
+    items = fix(j.checks);
     ls.set(K_CACHE, JSON.stringify(items));
     return;
   }
@@ -362,7 +371,7 @@ window.MYRUBI_CHECK = {
       });
     }
     started = true; editing = null; msg = '';
-    items = shared() ? readJson(K_CACHE, []) : readLocal();
+    items = shared() ? fix(readJson(K_CACHE, [])) : readLocal();
     render(); load();
   },
   /** 패널 안에 붙이기. tab 을 주면 그 멤버 탭으로 */
