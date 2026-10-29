@@ -45,8 +45,8 @@ window.MYRUBI_APPS = [
   // PLATFORM (판매 채널 관리자 화면)
   { id: 'p-ws',        folder: 'shops', title: '루비워크샵',            icon: 'store', tint: 'ruby',  kind: 'link', url: 'https://rubiworkshop.com/admin' },
   { id: 'p-sp',        folder: 'shops', title: '루비서플라이',          icon: 'store', tint: 'slate', kind: 'link', url: 'https://rubisupply.com/admin' },
-  { id: 'p-ss-ws',     folder: 'shops', title: '루비워크샵 스마트스토어', icon: 'store', tint: 'green', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
-  { id: 'p-ss-garage', folder: 'shops', title: '루비개러지 스마트스토어', icon: 'store', tint: 'amber', kind: 'link', url: 'https://sell.smartstore.naver.com/' },
+  { id: 'p-ss-ws',     folder: 'shops', title: '루비워크샵 스마트스토어', icon: 'store', tint: 'green', kind: 'link', url: 'https://smartstore.naver.com/rubiworkshop' },
+  { id: 'p-ss-garage', folder: 'shops', title: '루비개러지 스마트스토어', icon: 'store', tint: 'amber', kind: 'link', url: 'https://smartstore.naver.com/rubigarage' },
 
   // MANAGEMENT (공유 드라이브의 '매니지먼트 2026' 시트)
   { id: 'm-erp',         folder: 'management', title: 'ERP 2026',                icon: 'sheet', tint: 'blue',   kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1NQ3zmJQzW91JGtnPrIwTJn6EdLZzDPBmUeYqXvzZNBw/edit' },
