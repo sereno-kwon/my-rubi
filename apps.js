@@ -14,12 +14,18 @@
 // group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
 
 window.MYRUBI_APPS = [
-  // 자주 여는 곳
+  // ESSENTIAL
   { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
-  { id: 'stock',     title: '재고 확인',    icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
-  { id: 'ecount',    title: '이카운트 ERP', icon: 'box',   tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/' },
-  { id: 'channel',   title: '채널톡',      icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/' },
+  { id: 'stock',     title: '재고확인',     icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
+
+  // APP (준비 중)
+  { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
+  { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
+
+  // BOOKMARK (바로가기)
+  { id: 'ecount',    title: 'ECOUNT',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
+  { id: 'channel',   title: 'CHANNEL TALK', icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/', note: '채널톡' },
 
   // 폴더
   { id: 'google',    title: 'GOOGLE',     kind: 'folder' },
@@ -99,6 +105,13 @@ window.MYRUBI_APPS = [
   { id: 'b-stone',     folder: 'brands', group: '부품·액세서리 브랜드', title: '스톤 체인링',              mono: 'St',   tint: 'slate',  kind: 'link', url: 'https://stonechainrings.com/' },
   { id: 'b-evt',       folder: 'brands', group: '부품·액세서리 브랜드', title: 'EVT',                 mono: 'EVT',  tint: 'ruby',   kind: 'link', url: 'https://www.efficientvelo.com/' },
   { id: 'b-atelier',   folder: 'brands', group: '부품·액세서리 브랜드', title: '아뜰리에 미디엄',            mono: 'AM',   tint: 'amber',  kind: 'link', url: 'https://ateliermedium.com/' },
+];
+
+// 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
+window.MYRUBI_HOME = [
+  { label: 'ESSENTIAL', ids: ['checklist', 'stock', 'nas'] },
+  { label: 'APP',       ids: ['imweb-update', 'inbound'] },
+  { label: 'BOOKMARK',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
 // 처음 쓰는 기기에서 작업 표시줄에 고정되는 앱

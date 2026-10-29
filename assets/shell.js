@@ -12,6 +12,7 @@ if (byId.settings) byId.settings = Object.assign({}, byId.settings, { title: '�
 const childrenOf = fid => APPS.filter(a => a.folder === fid);
 const TOP = APPS.filter(a => !a.folder && a.kind !== 'folder').map(a => byId[a.id]);
 const FOLDERS = APPS.filter(a => a.kind === 'folder');
+const HOME = Array.isArray(window.MYRUBI_HOME) ? window.MYRUBI_HOME : null;  // 첫 목록 구역 (apps.js)
 
 // ─────────── 저장 ───────────
 const K_UI = 'myrubi.text.v1', K_RECENT = 'myrubi.recent';
@@ -50,7 +51,7 @@ let sel = 0;         // 키보드로 고른 줄
 function meta(a) {
   if (a.kind === 'folder') return `${childrenOf(a.id).length}개`;
   if (a.kind === 'link') return host(a.url);
-  if (a.kind === 'soon') return '준비 중';
+  if (a.kind === 'soon') return '예정';
   return '포털에서 열기';
 }
 const arrow = a => a.kind === 'link' ? '↗' : '→';
@@ -68,6 +69,7 @@ function sections(term) {
       });
       return out;
     }
+    if (HOME) return HOME.map(s => ({ label: s.label, items: s.ids.map(id => byId[id]).filter(Boolean) })).filter(s => s.items.length);
     return [{ label: 'APPS', items: TOP }, { label: 'FOLDERS', items: FOLDERS }];
   }
   // 검색: 폴더 안이면 그 폴더에서만, 처음 화면이면 전체에서
