@@ -27,6 +27,6 @@ window.MYRUBI_CONFIG = {
   NAS_WEB: 'https://rubibase.synology.me:5001',
 
   // 이카운트 재고 조회 (nas/stock/README.md 참고)
-  // STOCK_API: NAS 재고 조회 서비스 주소 (예: 'https://stock.rubibase.synology.me:8443/'). 비워두면 재고 확인 창에 설치 안내가 보임
-  STOCK_API: '',
+  // STOCK_API: 재고 조회 연결 파일 주소 (NAS 앱 index.php 와 같은 폴더의 stock.php). 비워두면 재고 확인 창에 설치 안내가 보임
+  STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
 };

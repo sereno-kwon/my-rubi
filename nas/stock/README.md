@@ -3,7 +3,7 @@
 포털의 **재고 확인** 앱에서 품목 이름·코드·바코드로 찾고, 고르면 그 순간의 이카운트 창고별 재고를 보여 주는 설정입니다. 처음 화면 검색창에 단어를 넣으면 "이카운트 재고에서 찾기" 줄도 함께 나옵니다.
 
 ```
-포털(my.rubiworkshop.com) ──HTTPS──▶ DSM 역방향 프록시 ──▶ rubi-stock 컨테이너(127.0.0.1:8790) ──▶ 이카운트 OpenAPI
+포털(my.rubiworkshop.com) ──HTTPS:8443──▶ NAS Web Station: nas/proxy/stock.php ──▶ rubi-stock 컨테이너(127.0.0.1:8790) ──▶ 이카운트 OpenAPI
 ```
 
 - 이카운트 API는 등록한 사무실 IP에서만 부를 수 있어서, 같은 회선의 NAS가 대신 부릅니다. API 인증키는 NAS의 `stock.env` 에만 있고 브라우저로 가지 않습니다.
@@ -36,7 +36,7 @@
    - ecount-sync 폴더가 `docker/ecount-sync` 가 아니면 `docker-compose.yml` 의 `../ecount-sync` 를 실제 위치로 고칩니다.
    - 조회 전용 사용자로 인증키를 따로 받았다면 `stock.env` 의 `ECOUNT_` 줄에 적습니다. 적은 값이 우선입니다.
    - `PORTAL_API_URL` 은 미리 채워져 있습니다 (포털 `config.js` 의 `API_URL`)
-3. **컨테이너 띄우기**: Container Manager → 프로젝트 → 생성 → 프로젝트 이름 `rubi-stock`, 경로 `docker/rubi-stock`, 원본 **기존 docker-compose.yml 사용** → 다음 → 완료. 처음엔 `python:3.12-slim` 이미지를 받느라 1–2분 걸립니다.
+3. **컨테이너 띄우기**: Container Manager → 프로젝트 → 생성 → 프로젝트 이름 `rubi-stock`, 경로는 ecount-sync 옆에 만든 `rubi-stock` 폴더, 원본 **기존 docker-compose.yml 사용** → 다음 → 완료. 처음엔 `python:3.12-slim` 이미지를 받느라 1–2분 걸립니다.
 4. **로그 확인**: 프로젝트 → rubi-stock → 로그에 아래 줄들이 보이면 이카운트 연결이 된 것입니다. 값은 로그에 남지 않고 어느 파일의 어느 이름에서 가져왔는지만 나옵니다.
    ```
    이카운트 값을 ecount-sync 설정에서 가져옴: .env:COM_CODE, .env:USER_ID, …
@@ -44,22 +44,15 @@
    품목 목록 1234개 받음
    ```
    `이카운트 API 주소가 맞지 않습니다` 가 보이면 `stock.py` 위쪽 `EP_PRODUCTS`, `EP_STOCK_ONE` 경로를 이카운트 OpenAPI 문서(자기설정 → OpenAPI)의 이름과 맞춰 주세요.
-5. **역방향 프록시**: 제어판 → 로그인 포털 → 고급 → 역방향 프록시 → 생성
-   - 이름 `myrubi-stock`
-   - 소스: 프로토콜 **HTTPS**, 호스트 이름 **`stock.rubibase.synology.me`**, 포트 **443**
-   - 대상: 프로토콜 **HTTP**, 호스트 이름 **`localhost`**, 포트 **8790**
-   - Synology DDNS는 하위 이름도 같은 NAS로 오므로 DNS 설정은 따로 없습니다.
-6. **인증서**: 제어판 → 보안 → 인증서 → 설정에서 `stock.rubibase.synology.me` 에 `*.rubibase.synology.me` 가 들어간 인증서를 지정합니다. NAS 앱 설치 때([`../README.md`](../README.md) 6번) 와일드카드 인증서를 받아 두었다면 고르기만 하면 됩니다.
-7. **확인**: 브라우저로 `https://stock.rubibase.synology.me:8443/health` 를 열어 `{"ok": true, "service": "my-rubi-stock"}` 가 보이고 자물쇠에 경고가 없으면 끝입니다.
-
-공유기 포트 포워딩은 NAS 앱과 같은 규칙(공용 8443 → NAS 443)을 그대로 씁니다. 역방향 프록시가 NAS 443에서 이름(`stock.`)으로 나눠 받으므로 공유기에 추가할 것이 없고, 주소에 `:8443` 이 붙습니다.
+5. **연결 파일 올리기**: NAS 앱 연결 파일(`index.php`)이 들어 있는 Web Station 폴더(`web/myrubi-nas/nas/proxy/`)에 이 저장소의 `nas/proxy/stock.php` 를 올립니다. NAS 앱과 같은 주소·인증서·8443 포트를 그대로 쓰므로 역방향 프록시, 인증서, 공유기 설정은 따로 하지 않습니다. (DSM 역방향 프록시는 443을 Web Station이 쓰고 있어 만들 수 없습니다.)
+6. **확인**: 브라우저로 `https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php` 를 열어 `{"ok": true, "service": "my-rubi-stock"}` 가 보이면 끝입니다. `rubi-stock 컨테이너가 응답하지 않습니다` 가 보이면 Container Manager에서 컨테이너가 실행 중인지 확인합니다.
 
 ## 포털 설정
 
 `config.js` 에 한 줄을 넣고 커밋합니다.
 
 ```js
-STOCK_API: 'https://stock.rubibase.synology.me:8443/',
+STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
 ```
 
 ## 고치거나 업데이트할 때
@@ -71,7 +64,7 @@ STOCK_API: 'https://stock.rubibase.synology.me:8443/',
 
 | 증상 | 확인할 것 |
 |---|---|
-| 재고 창에 "재고 서버에 연결할 수 없습니다" | 7번 확인 주소가 열리는지, 역방향 프록시 대상 포트 8790, 컨테이너가 실행 중인지 |
+| 재고 창에 "재고 서버에 연결할 수 없습니다" | 6번 확인 주소가 열리는지, `stock.php` 가 `index.php` 와 같은 폴더에 있는지, 컨테이너가 실행 중인지 |
 | "포털 로그인을 확인할 수 없습니다" | `stock.env` 의 `PORTAL_API_URL` 이 포털 `config.js` 의 `API_URL` 과 같은지 |
 | "이카운트 로그인 실패" | 인증키·사용자 ID, 그리고 이카운트 API IP 등록에 사무실 회선이 들어 있는지 |
 | "이카운트 로그인은 10분에 한 번만 됩니다" | 방금 재시작했거나 세션이 끝난 직후입니다. 10분 뒤 다시 |

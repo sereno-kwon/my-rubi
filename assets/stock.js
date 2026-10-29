@@ -7,7 +7,8 @@
 const CFG = window.MYRUBI_CONFIG || {};
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const configured = () => !!CFG.STOCK_API;
-const base = () => CFG.STOCK_API.replace(/\/?$/, '/');
+// 주소 하나(…/stock.php)로 보내고 동작은 r= 로 구분함: 'search?q=x' → stock.php?r=search&q=x
+const endpoint = path => { const [ep, qs] = path.split('?'); return CFG.STOCK_API + (CFG.STOCK_API.includes('?') ? '&' : '?') + 'r=' + ep + (qs ? '&' + qs : ''); };
 const pad = n => String(n).padStart(2, '0');
 const fmtQty = n => (n == null ? '–' : Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 3 }));
 const hm = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
@@ -19,7 +20,7 @@ const codeLike = q => /^[A-Za-z0-9][A-Za-z0-9\-_.\/]{1,39}$/.test(q);
 async function api(path, method) {
   const MR = window.MR, s = MR && MR.session();
   let r;
-  try { r = await fetch(base() + path, { method: method || 'GET', headers: { 'X-MyRubi-Session': s ? s.token : '' } }); }
+  try { r = await fetch(endpoint(path), { method: method || 'GET', headers: { 'X-MyRubi-Session': s ? s.token : '' } }); }
   catch (e) { throw new Error('재고 서버에 연결할 수 없습니다. NAS가 켜져 있는지, 연결 주소 설정이 맞는지 확인해 주세요'); }
   let j; try { j = await r.json(); } catch (e) { throw new Error(`재고 서버 응답을 읽을 수 없습니다 (${r.status})`); }
   if (!j.ok) {

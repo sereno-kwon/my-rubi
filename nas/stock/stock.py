@@ -515,6 +515,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         path, qs = u.path.rstrip('/') or '/', urllib.parse.parse_qs(u.query)
         q = lambda k: (qs.get(k) or [''])[0]
+        if path == '/' and q('r'):          # 주소 하나로 받는 방식 (?r=search&q=…)도 같은 동작으로
+            path = '/' + q('r')
 
         origin = self.headers.get('Origin')
         if origin and origin != ALLOWED_ORIGIN:

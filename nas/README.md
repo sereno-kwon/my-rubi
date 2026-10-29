@@ -23,7 +23,7 @@
 
 1. **Web Station 설치**: 패키지 센터에서 Web Station과 PHP 8.2(또는 최신 PHP)를 설치합니다.
 2. **PHP 프로필**: Web Station → 스크립트 언어 설정 → PHP → 생성. 이름 `myrubi`, 버전 PHP 8.x, 확장 목록에서 **curl** 을 켭니다.
-3. **파일 올리기**: File Station에서 `web` 공유 폴더 안에 `myrubi-nas` 폴더를 만들고, 이 저장소의 `nas/proxy/index.php` 를 올립니다.
+3. **파일 올리기**: File Station에서 `web` 공유 폴더 안에 `myrubi-nas` 폴더를 만들고, 이 저장소의 `nas/proxy/index.php` 를 올립니다. (`stock.php` 는 이카운트 재고 조회용으로, 같은 폴더에 둡니다. [`stock/README.md`](stock/README.md))
 4. **웹 서비스**: Web Station → 웹 서비스 → 생성 → 기본 서비스(PHP), 문서 루트 `web/myrubi-nas`, PHP 프로필 `myrubi`.
 5. **웹 포털**: Web Station → 웹 포털 → 생성 → 방금 만든 서비스, 포털 유형 **이름 기반**, 호스트 이름 `myrubi.rubibase.synology.me`, 포트 HTTPS **443** 체크.
 6. **인증서**: 제어판 → 보안 → 인증서 에서 `rubibase.synology.me` 인증서를 고르고 **추가 → 기존 인증서 교체 → Let's Encrypt** 로 다시 받으면서, 주체 대체 이름(SAN)에 `*.rubibase.synology.me` 를 넣습니다. 발급되면 같은 화면의 **설정**에서 `myrubi.rubibase.synology.me` 웹 포털에 이 인증서를 지정합니다.
