@@ -89,7 +89,10 @@ kbd{font:inherit;font-size:12px;line-height:16px;display:inline-block;min-width:
 .empty{margin:48px 0 0;padding:24px 0;border-top:1px solid var(--t-line);color:var(--t-muted);font-size:15px}
 
 /* ---------- 오른쪽: 오늘, 공지·일정 ---------- */
-.side{position:sticky;top:calc(var(--h) + 32px);display:flex;flex-direction:column;gap:32px;max-height:calc(100vh - var(--h) - 64px)}
+.side{position:sticky;top:calc(var(--h) + 32px);display:flex;flex-direction:column;gap:32px;max-height:calc(100vh - var(--h) - 64px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.side::-webkit-scrollbar{display:none}
+/* 오른쪽 칸이 화면보다 길어도 체크리스트까지 스크롤로 닿게. 칸들은 줄어들지 않음 */
+.side > *{flex:none}
 .today{padding-top:16px;border-top:1px solid var(--t-fg)}
 .today .kicker{color:var(--t-muted)}
 .clock{margin:20px 0 0;font-size:clamp(48px,5vw,64px);line-height:1;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
@@ -266,7 +269,7 @@ body.locked .top,body.locked .wrap,body.locked .panel{display:none}
 /* ---------- 좁은 화면 ---------- */
 @media (max-width:1080px){
   .wrap{grid-template-columns:minmax(0,1fr)}
-  .side{position:static;max-height:none;order:-1;flex-direction:row;align-items:flex-start;gap:24px}
+  .side{position:static;max-height:none;overflow:visible;order:-1;flex-direction:row;align-items:flex-start;gap:24px}
   .today{flex:1;min-width:0}
   .clock{font-size:40px;margin-top:12px}
   .side .board,.checks,.cal{width:300px;flex:none}
