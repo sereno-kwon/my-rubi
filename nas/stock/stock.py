@@ -113,6 +113,8 @@ ZONE_FIXED = (ENV('ECOUNT_ZONE', '') or _SYNC.get('zone', '')).strip().upper()  
 # 테스트 인증키: 이카운트는 API마다 테스트 서버에서 한 번 성공해야 실서버에서 쓸 수 있음('인증되지 않은 API').
 # 있으면 이 서비스가 쓰는 API를 테스트 서버로 한 번씩 불러 자동으로 검증함
 TEST_KEY = (ENV('ECOUNT_TEST_KEY', '') or _SYNC.get('testkey', '')).strip()
+# 테스트 인증키를 발급받은 ERP 사용자 ID (실서버 키와 다른 사용자로 받았을 때만 적음)
+TEST_USER_ID = (ENV('ECOUNT_TEST_USER_ID', '') or USER_ID).strip()
 
 
 def _sync_apis():
@@ -406,7 +408,7 @@ class Ecount:
         with self.vlock:
             try:
                 base = TEST_HOST or f'https://sboapi{self._zone()}.ecount.com'
-                d = self._post(base + EP_LOGIN, {'COM_CODE': COM_CODE, 'USER_ID': USER_ID, 'API_CERT_KEY': TEST_KEY,
+                d = self._post(base + EP_LOGIN, {'COM_CODE': COM_CODE, 'USER_ID': TEST_USER_ID, 'API_CERT_KEY': TEST_KEY,
                                                  'LAN_TYPE': 'ko-KR', 'ZONE': self._zone()}, login=True, test=True)
                 sid = (d.get('Datas') or {}).get('SESSION_ID') if isinstance(d.get('Datas'), dict) else None
                 if not sid:
