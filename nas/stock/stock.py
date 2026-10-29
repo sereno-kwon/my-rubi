@@ -37,10 +37,76 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # ───────────────────────────── 설정 (stock.env) ─────────────────────────────
 
 ENV = os.environ.get
-COM_CODE = ENV('ECOUNT_COM_CODE', '').strip()
-USER_ID = ENV('ECOUNT_USER_ID', '').strip()
-API_KEY = ENV('ECOUNT_API_KEY', '').strip()
-ZONE_FIXED = ENV('ECOUNT_ZONE', '').strip().upper()          # 알면 적어 두면 존 조회를 건너뜀 (예: CC)
+SYNC_DIR = ENV('ECOUNT_SYNC_DIR', '/ecount-sync')            # ecount-sync 폴더 (docker-compose 에서 읽기 전용으로 붙임)
+
+
+def _sync_values():
+    """stock.env 에 이카운트 값이 없으면 ecount-sync 폴더의 설정 파일(.env, *.env, *.json)에서 찾아 씀.
+    변수 이름이 조금 달라도(ECOUNT_COM_CODE, COM_CODE, API_CERT_KEY …) 알아봄. 값은 로그에 남기지 않음"""
+    want = {
+        'com': re.compile(r'(^|_)(COM_?CODE|COMPANY_?CODE)$'),
+        'user': re.compile(r'(^|_)USER_?ID$'),
+        'key': re.compile(r'(^|_)(API_?CERT_?KEY|CERT_?KEY)$|^ECOUNT_?(API_?)?KEY$'),
+        'zone': re.compile(r'(^|_)ZONE$'),
+    }
+    found, used = {}, []
+    if not os.path.isdir(SYNC_DIR):
+        return found, used
+    files = []
+    for root, dirs, names in os.walk(SYNC_DIR):
+        dirs[:] = [d for d in dirs if d not in ('node_modules', '.git', 'data', 'logs', 'log', '__pycache__', 'venv', '.venv')]
+        if root.count(os.sep) - SYNC_DIR.count(os.sep) > 2:
+            continue
+        for n in names:
+            low = n.lower()
+            if 'example' in low or 'sample' in low:
+                continue
+            if low == '.env' or low.endswith('.env') or low.startswith('.env.') or (low.endswith('.json') and 'config' in low or low in ('settings.json', 'secrets.json')):
+                files.append(os.path.join(root, n))
+    files.sort(key=lambda f: (os.path.basename(f).lower() != '.env', f.count(os.sep), f))
+    for f in files:
+        pairs = []
+        try:
+            with open(f, encoding='utf-8') as fh:
+                text = fh.read()
+            if f.lower().endswith('.json'):
+                def walk(o, pre=''):
+                    if isinstance(o, dict):
+                        for k, v in o.items():
+                            walk(v, f'{pre}_{k}' if pre else str(k))
+                    elif isinstance(o, (str, int)):
+                        pairs.append((pre, str(o)))
+                walk(json.loads(text))
+            else:
+                for line in text.splitlines():
+                    m = re.match(r'\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$', line)
+                    if m:
+                        v = m.group(2).strip()
+                        if v[:1] in '\'"' and v[-1:] == v[:1]:
+                            v = v[1:-1]
+                        else:
+                            v = re.sub(r'\s+#.*$', '', v)
+                        pairs.append((m.group(1), v))
+        except Exception:
+            continue
+        for k, v in pairs:
+            ku = k.upper().replace('-', '_')
+            if not v or any(x in ku for x in ('IMWEB', 'NAVER', 'SMARTSTORE', 'GOOGLE', 'NAS_')):
+                continue
+            for name, rx in want.items():
+                if name not in found and rx.search(ku):
+                    found[name] = v.strip()
+                    used.append(f'{os.path.relpath(f, SYNC_DIR)}:{k}')
+        if {'com', 'user', 'key'} <= found.keys():
+            break
+    return found, used
+
+
+_SYNC, SYNC_USED = ({}, []) if (ENV('ECOUNT_COM_CODE') and ENV('ECOUNT_API_KEY')) else _sync_values()
+COM_CODE = (ENV('ECOUNT_COM_CODE', '') or _SYNC.get('com', '')).strip()
+USER_ID = (ENV('ECOUNT_USER_ID', '') or _SYNC.get('user', '')).strip()
+API_KEY = (ENV('ECOUNT_API_KEY', '') or _SYNC.get('key', '')).strip()
+ZONE_FIXED = (ENV('ECOUNT_ZONE', '') or _SYNC.get('zone', '')).strip().upper()   # 알면 존 조회를 건너뜀 (예: CC)
 MAIN_WH = ENV('MAIN_WH', 'RLD').strip()                       # 맨 위에 보여줄 창고 (채널 재고 동기화 기준 창고)
 PORTAL_API_URL = ENV('PORTAL_API_URL', '').strip()            # 포털 Apps Script 웹앱 주소 (…/exec), 로그인 확인용
 ALLOWED_ORIGIN = ENV('ALLOWED_ORIGIN', 'https://my.rubiworkshop.com').strip()
@@ -520,6 +586,10 @@ def main():
                               ('ECOUNT_API_KEY', API_KEY), ('PORTAL_API_URL', PORTAL_API_URL)) if not v]
     if missing:
         log('stock.env 에 빠진 값:', ', '.join(missing))
+    if SYNC_USED:
+        log('이카운트 값을 ecount-sync 설정에서 가져옴:', ', '.join(SYNC_USED))
+    elif not (ENV('ECOUNT_COM_CODE') and ENV('ECOUNT_API_KEY')):
+        log(f'ecount-sync 설정을 찾지 못함 ({SYNC_DIR}). docker-compose.yml 의 ecount-sync 경로나 stock.env 의 ECOUNT_ 값을 확인')
     log(f'재고 조회 서비스 시작 :{PORT}  기준 창고 {MAIN_WH}  품목 {len(EC.index)}개(저장본)')
     threading.Thread(target=background, daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()

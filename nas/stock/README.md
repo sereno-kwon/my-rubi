@@ -31,13 +31,15 @@
 ## NAS 설정 (DSM 7, 20분)
 
 1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), 그 안에 빈 `data` 폴더도 하나 만듭니다.
-2. **파일 올리기**: `stock.py`, `docker-compose.yml`, `stock.env` 세 개를 `rubi-stock` 폴더에 올립니다. `stock.env` 는 저장소의 `stock.env.example` 을 이름만 바꿔 값을 채운 파일입니다(인증키가 들어가므로 저장소에는 올리지 않음). 맥에서 점으로 시작하는 파일(.env)은 숨겨져서 올리기 번거로워 이 이름을 씁니다.
-   - `ECOUNT_COM_CODE`, `ECOUNT_USER_ID`, `ECOUNT_API_KEY`: 위 권장대로 받은 인증키
-   - `ECOUNT_ZONE`: ecount-sync 설정에 있는 존 코드를 그대로 적으면 존 조회를 건너뜁니다
+2. **파일 올리기**: `stock.py`, `docker-compose.yml`, `stock.env` 세 개를 `rubi-stock` 폴더에 올립니다. `stock.env` 는 저장소의 `stock.env.example` 을 이름만 바꾼 파일이고, 그대로 올려도 됩니다.
+   - 이카운트 회사코드·사용자 ID·인증키·존은 **ecount-sync 폴더의 설정 파일에서 자동으로 읽습니다.** `docker-compose.yml` 이 옆 폴더 `../ecount-sync` 를 읽기 전용으로 붙이고, 서비스가 그 안의 `.env`, `*.env`, `config*.json` 에서 이카운트 값을 찾습니다(이름이 `COM_CODE`, `ECOUNT_COM_CODE`, `API_CERT_KEY` 처럼 조금 달라도 알아봄). ecount-sync 쪽 파일은 건드리지 않습니다.
+   - ecount-sync 폴더가 `docker/ecount-sync` 가 아니면 `docker-compose.yml` 의 `../ecount-sync` 를 실제 위치로 고칩니다.
+   - 조회 전용 사용자로 인증키를 따로 받았다면 `stock.env` 의 `ECOUNT_` 줄에 적습니다. 적은 값이 우선입니다.
    - `PORTAL_API_URL` 은 미리 채워져 있습니다 (포털 `config.js` 의 `API_URL`)
 3. **컨테이너 띄우기**: Container Manager → 프로젝트 → 생성 → 프로젝트 이름 `rubi-stock`, 경로 `docker/rubi-stock`, 원본 **기존 docker-compose.yml 사용** → 다음 → 완료. 처음엔 `python:3.12-slim` 이미지를 받느라 1–2분 걸립니다.
-4. **로그 확인**: 프로젝트 → rubi-stock → 로그에 아래 두 줄이 보이면 이카운트 연결이 된 것입니다.
+4. **로그 확인**: 프로젝트 → rubi-stock → 로그에 아래 줄들이 보이면 이카운트 연결이 된 것입니다. 값은 로그에 남지 않고 어느 파일의 어느 이름에서 가져왔는지만 나옵니다.
    ```
+   이카운트 값을 ecount-sync 설정에서 가져옴: .env:COM_CODE, .env:USER_ID, …
    이카운트 로그인
    품목 목록 1234개 받음
    ```

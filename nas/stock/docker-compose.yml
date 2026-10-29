@@ -14,6 +14,9 @@ services:
     volumes:
       - ./stock.py:/app/stock.py:ro
       - ./data:/data
+      # 이카운트 회사코드·사용자 ID·인증키는 ecount-sync 설정에서 그대로 읽음 (읽기 전용)
+      # ecount-sync 폴더가 rubi-stock 옆이 아니면 이 줄의 왼쪽 경로를 고침
+      - ../ecount-sync:/ecount-sync:ro
     # NAS 안(역방향 프록시)에서만 들어오게 127.0.0.1 에만 엶
     ports:
       - "127.0.0.1:8790:8790"
