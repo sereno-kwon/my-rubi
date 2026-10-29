@@ -10,7 +10,7 @@
 <script>try{var t=JSON.parse(localStorage.getItem('myrubi.text.v1')||'{}').theme;if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="/assets/rubi-type.css">
 <link rel="stylesheet" href="/assets/common.css?v=20261029c">
-<link rel="stylesheet" href="/assets/text.css">
+<link rel="stylesheet" href="/assets/text.css?v=20261029e">
 </head>
 <body>
 
@@ -43,6 +43,8 @@
       <p class="date" id="date"></p>
       <p class="hours">쇼룸·고객센터 월~금 12:00~18:00</p>
     </div>
+    <!-- 구글 캘린더 한 달 격자 (assets/calendar.js). 로그인 뒤 Apps Script가 CONFIG.CALENDARS 의 일정을 돌려줌 -->
+    <div class="cal hidden" id="cal" aria-label="달력"></div>
     <!-- 멤버별 체크리스트 요약 (assets/checklist.js). 이름을 누르면 체크리스트 패널이 열림 -->
     <div class="checks hidden" id="checks" aria-label="체크리스트"></div>
     <!-- 공지·일정(assets/board.js)이 이 자리 바로 앞에 붙음 -->
@@ -113,7 +115,8 @@
 <script src="/assets/nas.js?v=20261029c"></script>
 <script src="/assets/stock.js"></script>
 <script src="/assets/board.js"></script>
+<script src="/assets/calendar.js"></script>
 <script src="/assets/checklist.js"></script>
-<script src="/assets/shell.js?v=20261029d"></script>
+<script src="/assets/shell.js?v=20261029e"></script>
 </body>
 </html>

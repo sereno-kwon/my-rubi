@@ -405,6 +405,7 @@ function unlock(animate) {
   if (animate) { lock.classList.add('leaving'); setTimeout(() => lock.classList.add('hidden'), 350); }
   else lock.classList.add('hidden');
   if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.start();
+  if (window.MYRUBI_CAL) window.MYRUBI_CAL.start($('#cal'));
   if (chk()) chk().start($('#checks'));
   renderWho(); render(); focusQ(); openFromUrl();
 }

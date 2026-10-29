@@ -7,6 +7,7 @@
  *  - 바탕화면 오른쪽 위 포스트잇(공지·일정)을 Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *  - 멤버별 체크리스트(매일·매주·할 일)를 Index 스프레드시트의 '체크리스트' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *    CONFIG.PRIVATE_CHECKLISTS 에 적은 멤버의 목록은 본인에게만 돌려줌 (다른 직원에게는 응답에서 아예 빠짐)
+ *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 포털 첫 화면 오른쪽 달력에 돌려줌 (읽기만, GET calendar)
  *
  * Drive 구조 (기존 그대로 유지)
  *  루트 / 브랜드 폴더 / Customer History_브랜드 / NNNN_[BRAND] MODEL (SPEC)_채널_고객명_YYYYMMDD /
@@ -79,6 +80,14 @@ const CONFIG = {
   },
   // 예전에 구글 계정 이름으로 저장된 담당자 이름을 멤버 이름으로 맞춤 (포털 config.js 의 MEMBER_ALIASES 와 같게)
   CHECK_OWNER_ALIASES: { 'Ohyun Kwon': '권오현' },
+
+  // 포털 첫 화면 오른쪽 달력에 보여줄 구글 캘린더 ID 목록 (구글 캘린더 → 캘린더 설정 → 캘린더 ID)
+  //  비워두면 이 스크립트를 실행하는 계정의 기본 캘린더만 보여줌
+  //  회사 공용 캘린더는 '…@group.calendar.google.com', 직원 캘린더는 이메일 그대로 (이 계정에 공유되어 있어야 읽힘)
+  //  예: CALENDARS: ['primary', 'abc123@group.calendar.google.com', 'oryun@rubiworkshop.com'],
+  CALENDARS: [],
+  // 같은 달을 다시 물을 때 이 시간(초) 동안은 캘린더를 다시 읽지 않고 받아 둔 결과를 돌려줌
+  CALENDAR_CACHE_SEC: 120,
 };
 
 // Index 시트 컬럼 (순서 = 열 순서)
@@ -121,6 +130,7 @@ function doGet(e) {
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
       case 'notes':    return json_({ ok: true, notes: listNotes_() });
       case 'checks':   return json_({ ok: true, checks: listChecks_(user), hide: hiddenMembers_(user) });
+      case 'calendar': return json_({ ok: true, ...listCalendar_(p.month) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -933,4 +943,81 @@ function saveCheck_(b, user) {
     return listChecks_(user);
   }
   throw new Error('unknown op');
+}
+
+// ───────────────────────────── 구글 캘린더 (첫 화면 달력) ─────────────────────────────
+// Apps Script 캘린더 서비스(CalendarApp)로 읽음. 스크립트를 실행하는 계정(배포 설정의 '나')이 볼 수 있는 캘린더만 읽힘
+// 처음 한 번 편집기에서 test_calendar 를 실행해 캘린더 권한을 승인한 뒤 새 버전으로 배포해야 함
+
+/** 달력 격자 범위: 그 달 1일이 든 주의 일요일부터 6주(42일) */
+function calendarRange_(month) {
+  const m = String(month || '').match(/^(\d{4})-(\d{2})$/);
+  const now = new Date();
+  const y = m ? Number(m[1]) : Number(Utilities.formatDate(now, CONFIG.TZ, 'yyyy'));
+  const mo = m ? Number(m[2]) : Number(Utilities.formatDate(now, CONFIG.TZ, 'M'));
+  const mm = String(mo).padStart(2, '0');
+  // CONFIG.TZ 기준 그 달 1일 0시 (스크립트 프로젝트 시간대와 달라도 맞게)
+  const first = new Date(`${y}-${mm}-01T00:00:00${tzOffset_(new Date(Date.UTC(y, mo - 1, 1, 12)))}`);
+  const dow = Number(Utilities.formatDate(first, CONFIG.TZ, 'u')) % 7;   // u: 1=월 … 7=일 → 일=0
+  const start = new Date(first.getTime() - dow * 86400000);
+  const end = new Date(start.getTime() + 42 * 86400000);
+  return { month: `${y}-${mm}`, start, end };
+}
+/** '+09:00' 같은 시간대 표기 */
+function tzOffset_(d) { return Utilities.formatDate(d, CONFIG.TZ, 'XXX'); }
+
+/** 읽을 캘린더 목록 [{ id, name, color, cal }] */
+function calendars_() {
+  const ids = (CONFIG.CALENDARS || []).length ? CONFIG.CALENDARS : ['primary'];
+  const out = [];
+  ids.forEach(id => {
+    const cal = id === 'primary' ? CalendarApp.getDefaultCalendar() : CalendarApp.getCalendarById(id);
+    if (!cal) return;   // 공유되지 않았거나 ID가 틀린 캘린더는 건너뜀
+    out.push({ id: cal.getId(), name: cal.getName(), color: cal.getColor() || '', cal });
+  });
+  return out;
+}
+
+/** 한 달치 일정. { month, start, end, calendars:[{id,name,color}], events:[…] } */
+function listCalendar_(month) {
+  const r = calendarRange_(month);
+  const cache = CacheService.getScriptCache(), key = 'cal:' + r.month;
+  const sec = Number(CONFIG.CALENDAR_CACHE_SEC) || 0;
+  if (sec) { const hit = cache.get(key); if (hit) return JSON.parse(hit); }
+
+  const fmtDay = d => Utilities.formatDate(d, CONFIG.TZ, 'yyyy-MM-dd');
+  const fmtMin = d => Utilities.formatDate(d, CONFIG.TZ, 'HH:mm');
+  const cals = calendars_();
+  const events = [];
+  cals.forEach((c, ci) => {
+    let list = [];
+    try { list = c.cal.getEvents(r.start, r.end); } catch (e) { return; }
+    list.forEach(ev => {
+      const allDay = ev.isAllDayEvent();
+      const s = ev.getStartTime(), e = ev.getEndTime();
+      // 종일 일정의 끝은 다음 날 0시(배타)라 하루를 빼서 마지막 날로 맞춤
+      const endDay = allDay ? fmtDay(new Date(e.getTime() - 1)) : fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1)));
+      events.push({
+        id: ev.getId(), cal: ci, title: ev.getTitle() || '(제목 없음)',
+        allDay, date: fmtDay(s), endDate: endDay,
+        start: allDay ? '' : fmtMin(s), end: allDay ? '' : fmtMin(e),
+        location: ev.getLocation() || '',
+      });
+    });
+  });
+  events.sort((a, b) => (a.date + (a.allDay ? '' : a.start)).localeCompare(b.date + (b.allDay ? '' : b.start)));
+  const out = {
+    month: r.month, start: fmtDay(r.start), end: fmtDay(new Date(r.end.getTime() - 1)),
+    calendars: cals.map(c => ({ id: c.id, name: c.name, color: c.color })),
+    events,
+  };
+  if (sec) { try { cache.put(key, JSON.stringify(out), Math.min(sec, 21600)); } catch (e) {} }   // 100KB 넘으면 캐시만 건너뜀
+  return out;
+}
+
+/** 편집기에서 직접 실행용: 캘린더 권한 승인 + 이번 달 일정 확인 */
+function test_calendar() {
+  const r = listCalendar_('');
+  Logger.log(r.month + ' · 캘린더 ' + r.calendars.map(c => c.name).join(', ') + ' · 일정 ' + r.events.length + '건');
+  r.events.slice(0, 10).forEach(e => Logger.log(e.date + ' ' + (e.allDay ? '종일' : e.start + '-' + e.end) + '  ' + e.title));
 }
