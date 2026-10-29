@@ -30,7 +30,7 @@
 
 ## NAS 설정 (DSM 7, 20분)
 
-1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), (따로 만들 하위 폴더는 없습니다).
+1. **폴더 만들기**: File Station에서 ecount-sync 가 들어 있는 폴더(예: `Rubi Company`)를 열고, ecount-sync 바로 옆에 `rubi-stock` 폴더를 만듭니다. 따로 만들 하위 폴더는 없습니다.
 2. **파일 올리기**: `stock.py`, `docker-compose.yml`, `stock.env` 세 개를 `rubi-stock` 폴더에 올립니다. `stock.env` 는 저장소의 `stock.env.example` 을 이름만 바꾼 파일이고, 그대로 올려도 됩니다.
    - 이카운트 회사코드·사용자 ID·인증키·존은 **ecount-sync 폴더의 설정 파일에서 자동으로 읽습니다.** `docker-compose.yml` 이 옆 폴더 `../ecount-sync` 를 읽기 전용으로 붙이고, 서비스가 그 안의 `.env`, `*.env`, `config*.json` 에서 이카운트 값을 찾습니다(이름이 `COM_CODE`, `ECOUNT_COM_CODE`, `API_CERT_KEY` 처럼 조금 달라도 알아봄). ecount-sync 쪽 파일은 건드리지 않습니다.
    - ecount-sync 폴더가 `docker/ecount-sync` 가 아니면 `docker-compose.yml` 의 `../ecount-sync` 를 실제 위치로 고칩니다.
