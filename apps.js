@@ -20,6 +20,7 @@ window.MYRUBI_APPS = [
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
 
   // APP (준비 중)
+  { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'soon', note: '고객 상담·출고 관리, 준비 중입니다.' },
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
@@ -111,7 +112,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'stock', 'nas'] },
-  { label: 'App',       ids: ['imweb-update', 'inbound'] },
+  { label: 'App',       ids: ['customers', 'inbound', 'imweb-update'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
