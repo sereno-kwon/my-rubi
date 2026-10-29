@@ -151,6 +151,8 @@ svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stro
 .stk-row .s{font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .stk-row .q{flex:none;min-width:40px;text-align:right;font-size:15px;line-height:22px;font-variant-numeric:tabular-nums}
 .stk-row .q.zero,.stk-row .q.none{color:var(--faint)}
+.stk-row .q.busy{animation:stkBlink 1s ease-in-out infinite}
+@keyframes stkBlink{50%{opacity:.35}}
 .stk-row.direct .n{color:var(--muted)}
 .stk-hint{padding:32px 20px;max-width:420px}
 .stk-hint p{margin:0 0 12px;font-size:14px;line-height:21px;color:var(--muted);word-break:keep-all}

@@ -15,6 +15,8 @@ const hm = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.
 const mdhm = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const ago = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : `${Math.round(m / 60)}시간 전`; };
 // 품목코드처럼 보이는 검색어 (공백 없는 영문·숫자·기호): 목록에 없어도 코드로 바로 조회할 수 있게 함
+const LIST_FRESH = 5 * 60 * 1000;  // 목록 재고는 5분 안에 확인한 값이면 다시 묻지 않음
+const LIST_MAX = 30;               // 검색 한 번에 목록 재고를 부르는 최대 개수 (이카운트 하루 호출 한도 보호)
 const codeLike = q => /^[A-Za-z0-9][A-Za-z0-9\-_.\/]{1,39}$/.test(q);
 
 async function api(path, method) {
@@ -40,8 +42,10 @@ class View {
     this.body = body; this.alive = true;
     this.items = []; this.sel = 0; this.q = ''; this.seq = 0; this.timer = null;
     this.detail = null; this.loadingCode = ''; this.mainWh = 'RLD';
+    // 목록 재고: 화면에 보이는 줄의 재고를 한 줄씩 차례로 불러옴 (이카운트 단건 조회 1초 1회 제한)
+    this.queue = []; this.running = false; this.qTimer = null; this.fetched = 0; this.observer = null;
   }
-  destroy() { this.alive = false; clearTimeout(this.timer); }
+  destroy() { this.alive = false; clearTimeout(this.timer); clearTimeout(this.qTimer); if (this.observer) this.observer.disconnect(); }
 
   start(q) {
     if (!configured()) {
@@ -108,7 +112,7 @@ class View {
   async find(raw, auto) {
     const q = String(raw || '').trim(); this.q = q;
     const my = ++this.seq;
-    if (!q) { this.items = []; this.sel = 0; this.drawList(); return; }
+    if (!q) { this.items = []; this.queue = []; this.sel = 0; this.drawList(); return; }
     try {
       const j = await api('search?q=' + encodeURIComponent(q));
       if (!this.alive || my !== this.seq) return;
@@ -117,7 +121,11 @@ class View {
       // 목록에 맞는 품목이 없거나, 숫자·기호가 섞인 코드 같은 검색어일 때만 '코드로 바로 조회' 줄을 붙임
       if (codeLike(q) && (!this.items.length || /[\d\-_.\/]/.test(q)) && !this.items.some(p => p.code.toLowerCase() === q.toLowerCase() || (p.barcode && p.barcode === q)))
         this.items.push({ code: q, direct: true });
+      this.queue = []; this.fetched = 0; this.qReady = false;
       this.sel = 0; this.drawList();
+      // 입력이 멈춘 뒤에만 목록 재고를 불러옴 (치는 도중의 검색어로 호출을 쓰지 않게)
+      clearTimeout(this.qTimer);
+      this.qTimer = setTimeout(() => { if (my === this.seq) { this.qReady = true; this.runQueue(); } }, 700);
       this.status(j.items.length ? `“${q}” ${j.items.length}개${j.items.length >= 60 ? ' (앞 60개)' : ''}` : `“${q}”와 맞는 품목이 없습니다`);
       // 바코드를 찍었거나 결과가 하나뿐이면 바로 조회
       const exact = this.items.findIndex(p => !p.direct && (p.barcode === q || p.code.toLowerCase() === q.toLowerCase()));
@@ -135,10 +143,61 @@ class View {
     el.innerHTML = this.items.map((p, i) => {
       const on = i === this.sel ? ' sel' : '', cur = this.detail && this.detail.code === p.code ? ' cur' : '';
       if (p.direct) return `<div class="stk-row direct${on}" role="option" data-i="${i}"><span class="t"><span class="n">품목코드 “${esc(p.code)}”로 바로 조회</span><span class="s">목록에 없는 새 품목일 때</span></span><span class="q">→</span></div>`;
-      const last = p.last ? `<span class="q${p.last.qty <= 0 ? ' zero' : ''}" title="${esc(this.mainWh)} ${esc(ago(p.last.at))} 확인">${fmtQty(p.last.qty)}</span>` : '<span class="q none">·</span>';
       return `<div class="stk-row${on}${cur}" role="option" data-i="${i}">
-        <span class="t"><span class="n">${esc(p.name || p.code)}</span><span class="s">${esc([p.code, p.size].filter(Boolean).join(' · '))}</span></span>${last}</div>`;
+        <span class="t"><span class="n">${esc(p.name || p.code)}</span><span class="s">${esc([p.code, p.size].filter(Boolean).join(' · '))}</span></span>${this.qtyCell(p)}</div>`;
     }).join('');
+    this.watchRows();
+  }
+  qtyCell(p) {
+    if (p.last) return `<span class="q${p.last.qty <= 0 ? ' zero' : ''}${p.pending ? ' busy' : ''}" title="${esc(this.mainWh)} 재고, ${esc(ago(p.last.at))} 확인">${fmtQty(p.last.qty)}</span>`;
+    return p.pending ? '<span class="q none busy" title="불러오는 중">…</span>' : '<span class="q none" title="아직 조회 전">·</span>';
+  }
+  updateRow(p) {
+    const i = this.items.indexOf(p);
+    const q = this.listEl && this.listEl.querySelector(`.stk-row[data-i="${i}"] .q`);
+    if (q) q.outerHTML = this.qtyCell(p);
+  }
+
+  // ── 목록 재고 불러오기 ──
+  // 화면에 보이는 줄 중 5분 안에 확인한 값이 없는 품목만, 검색 한 번에 최대 LIST_MAX 개까지
+  stale(p) { return !p.direct && (!p.last || Date.now() - p.last.at > LIST_FRESH); }
+  watchRows() {
+    if (this.observer) this.observer.disconnect();
+    if (!('IntersectionObserver' in window) || !this.listEl) return;
+    this.observer = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) return;
+        const p = this.items[+en.target.dataset.i];
+        if (p && this.stale(p) && !this.queue.includes(p) && !p.pending) this.queue.push(p);
+      });
+      this.runQueue();
+    }, { root: this.listEl });
+    this.listEl.querySelectorAll('.stk-row:not(.direct)').forEach(r => this.observer.observe(r));
+  }
+  async runQueue() {
+    if (this.running || !this.qReady) return;
+    this.running = true;
+    const my = this.seq;
+    try {
+      while (this.alive && my === this.seq && this.queue.length && this.fetched < LIST_MAX) {
+        const p = this.queue.shift();
+        if (!this.stale(p)) continue;
+        p.pending = true; this.updateRow(p);
+        this.status(`목록 재고 불러오는 중 · ${p.name || p.code}`);
+        try {
+          const j = await api('stock?code=' + encodeURIComponent(p.code));
+          this.fetched++;
+          p.last = { qty: j.main.qty, at: j.at };
+        } catch (e) {
+          p.pending = false; this.updateRow(p);
+          this.queue = []; this.status(e.message);   // 오류(한도·제한 등)가 나면 더 부르지 않음
+          break;
+        }
+        p.pending = false;
+        if (this.alive && my === this.seq) this.updateRow(p);
+      }
+      if (this.alive && my === this.seq && !this.queue.length) this.status(`“${this.q}” ${this.items.filter(p => !p.direct).length}개 · 숫자는 ${this.mainWh} 재고`);
+    } finally { this.running = false; }
   }
   move(d) {
     if (!this.items.length) return;
