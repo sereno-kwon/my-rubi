@@ -27,14 +27,14 @@
 4. **웹 서비스**: Web Station → 웹 서비스 → 생성 → 기본 서비스(PHP), 문서 루트 `web/myrubi-nas`, PHP 프로필 `myrubi`.
 5. **웹 포털**: Web Station → 웹 포털 → 생성 → 방금 만든 서비스, 포털 유형 **이름 기반**, 호스트 이름 `myrubi.rubibase.synology.me`, 포트 HTTPS **443** 체크.
 6. **인증서**: 제어판 → 보안 → 인증서 에서 `rubibase.synology.me` 인증서를 고르고 **추가 → 기존 인증서 교체 → Let's Encrypt** 로 다시 받으면서, 주체 대체 이름(SAN)에 `*.rubibase.synology.me` 를 넣습니다. 발급되면 같은 화면의 **설정**에서 `myrubi.rubibase.synology.me` 웹 포털에 이 인증서를 지정합니다.
-7. **확인**: 브라우저로 `https://myrubi.rubibase.synology.me:8443/` 을 열었을 때 `{"success":false,"error":{"code":"method_not_allowed"}}` 가 보이면 정상입니다. 자물쇠(HTTPS)가 경고 없이 떠야 합니다.
+7. **확인**: 브라우저로 `https://myrubi.rubibase.synology.me:8443/nas/proxy/` 을 열었을 때 `{"success":false,"error":{"code":"method_not_allowed"}}` 가 보이면 정상입니다. 자물쇠(HTTPS)가 경고 없이 떠야 합니다.
 
 ## 포털 설정
 
 `config.js` 에 두 줄을 넣고 커밋합니다.
 
 ```js
-NAS_API: 'https://myrubi.rubibase.synology.me:8443/',
+NAS_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/',
 NAS_WEB: 'https://rubibase.synology.me:5001',   // 'File Station에서 열기' 메뉴용, 비워도 됨
 ```
 
