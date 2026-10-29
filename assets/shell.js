@@ -383,6 +383,9 @@ $('#btnLogout').onclick = () => { justLoggedOut = true; MR.logout(); showLock('�
 
 function openFromUrl() {
   const hash = decodeURIComponent(location.hash.slice(1));
+  // #checklist/이름 : 그 멤버의 체크리스트 탭으로 바로 열기
+  const m = hash.match(/^checklist\/(.+)$/);
+  if (m && byId.checklist && chk()) { remember('checklist'); openPanel(byId.checklist); chk().show(m[1]); return; }
   if (hash && byId[hash]) { open(hash); return; }
   const next = new URLSearchParams(location.search).get('next');
   if (next) {

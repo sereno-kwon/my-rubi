@@ -151,6 +151,8 @@ body.panel-open{overflow:hidden}
 .ck-tab .ct{font-size:12px;line-height:16px;font-variant-numeric:tabular-nums;color:var(--faint)}
 .ck-tab[aria-selected="true"] .ct{color:var(--muted)}
 .ck-newm{margin-left:auto}
+.ck-link{font-size:13px;color:var(--faint)}
+.ck-link:hover{color:var(--fg)}
 .ck-newm input{width:96px;border:none;outline:none;background:transparent;padding:0;font-size:14px;line-height:20px;color:var(--fg)}
 .ck-newm input::placeholder{color:var(--faint)}
 .ck-newm input:focus::placeholder{color:transparent}

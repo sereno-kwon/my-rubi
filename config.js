@@ -13,7 +13,7 @@ window.MYRUBI_CONFIG = {
 
   // 체크리스트 멤버 (탭 순서). 비워두면 항목을 가진 사람과 로그인한 사람만 탭으로 보임
   // 예: MEMBERS: ['세레노', '○○', '△△'],  이름은 구글 계정 이름과 같게
-  MEMBERS: [],
+  MEMBERS: ['권오현', '권오륜', '박국현', '김현우', '전요셉'],
 
   // Synology NAS 연결 (nas/README.md 참고)
   // NAS_API: NAS Web Station에 올린 연결 파일 주소 (예: 'https://myrubi.이름.synology.me/'). 비워두면 NAS 창에 설치 안내가 보임

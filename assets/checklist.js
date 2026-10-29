@@ -86,9 +86,18 @@ function currentTab() {
 }
 
 // ─────────── 패널 ───────────
+function syncHash() {
+  if (!host) return;
+  const tab = currentTab();
+  try { history.replaceState(null, '', '#checklist' + (tab === ALL ? '' : '/' + encodeURIComponent(tab))); } catch (e) {}
+}
+/** 지금 탭의 바로가기 주소 */
+function shortcut(tab) { return location.origin + '/#checklist' + (tab === ALL ? '' : '/' + encodeURIComponent(tab)); }
+
 function render() {
   renderSummary();
   if (!host) return;
+  syncHash();
   const ms = members(), tab = currentTab();
   const tabs = [ALL, ...ms].map(n => {
     const p = n === ALL ? progress(items) : progress(ofMember(n));
@@ -96,7 +105,8 @@ function render() {
       <span class="nm">${n === ALL ? '전체' : esc(n)}</span><span class="ct">${p.done}/${p.total}</span></button>`;
   }).join('');
   const addMember = `<form class="ck-tab ck-newm" id="ckNewMember" autocomplete="off" title="멤버 추가">
-    <input name="name" placeholder="+ 멤버" aria-label="새 멤버 이름" maxlength="20"></form>`;
+    <input name="name" placeholder="+ 멤버" aria-label="새 멤버 이름" maxlength="20"></form>
+    <button class="ck-tab ck-link" data-copy="${esc(shortcut(tab))}" title="${esc(shortcut(tab))}">바로가기 복사</button>`;
   let body = tab === ALL ? overviewHtml(ms) : memberHtml(tab);
   const foot = msg ? `<p class="ck-msg err" role="status">${esc(msg)}</p>`
     : !shared() ? '<p class="ck-msg">이 브라우저에만 저장됩니다</p>' : '';
@@ -241,6 +251,12 @@ function onClick(e) {
   if (t) { ui.tab = t.dataset.tab; saveUi(); editing = null; render(); return; }
   const o = e.target.closest('[data-open]');
   if (o) { ui.tab = o.dataset.open; saveUi(); editing = null; render(); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    try { navigator.clipboard.writeText(cp.dataset.copy); } catch (err) {}
+    cp.textContent = '복사됨'; setTimeout(() => { cp.textContent = '바로가기 복사'; }, 1200);
+    return;
+  }
   const m = e.target.closest('[data-more]');
   if (m) { const r = m.getBoundingClientRect(); itemMenu(m.dataset.more, r.left, r.bottom + 4); return; }
   const c = e.target.closest('[data-a=cancel]');
@@ -358,6 +374,9 @@ window.MYRUBI_CHECK = {
     const first = host.querySelector('.ck-add input'); if (first && !matchMedia('(pointer:coarse)').matches) first.focus();
   },
   unmount() { host = null; editing = null; },
+  /** 그 멤버 탭을 보여줌 (주소 #checklist/이름 으로 들어왔을 때) */
+  show(tab) { if (tab) { ui.tab = tab; saveUi(); } if (host) render(); },
+  shortcut,
   progress(name) { return progress(name ? ofMember(name) : items); },
   members,
   /** 요약 칸에서 이름을 눌렀을 때 패널을 여는 함수 (shell.js 가 넣음) */
