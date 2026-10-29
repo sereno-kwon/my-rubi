@@ -44,6 +44,7 @@ def _sync_values():
     """stock.env 에 이카운트 값이 없으면 ecount-sync 폴더의 설정 파일(.env, *.env, *.json)에서 찾아 씀.
     변수 이름이 조금 달라도(ECOUNT_COM_CODE, COM_CODE, API_CERT_KEY …) 알아봄. 값은 로그에 남기지 않음"""
     want = {
+        'testkey': re.compile(r'TEST.*KEY$|KEY.*TEST'),
         'com': re.compile(r'(^|_)(COM_?CODE|COMPANY_?CODE)$'),
         'user': re.compile(r'(^|_)USER_?ID$'),
         'key': re.compile(r'(^|_)(API_?CERT_?KEY|CERT_?KEY)$|^ECOUNT_?(API_?)?KEY$'),
@@ -94,6 +95,8 @@ def _sync_values():
             if not v or any(x in ku for x in ('IMWEB', 'NAVER', 'SMARTSTORE', 'GOOGLE', 'NAS_')):
                 continue
             for name, rx in want.items():
+                if name == 'key' and 'TEST' in ku:
+                    continue
                 if name not in found and rx.search(ku):
                     found[name] = v.strip()
                     used.append(f'{os.path.relpath(f, SYNC_DIR)}:{k}')
@@ -107,6 +110,33 @@ COM_CODE = (ENV('ECOUNT_COM_CODE', '') or _SYNC.get('com', '')).strip()
 USER_ID = (ENV('ECOUNT_USER_ID', '') or _SYNC.get('user', '')).strip()
 API_KEY = (ENV('ECOUNT_API_KEY', '') or _SYNC.get('key', '')).strip()
 ZONE_FIXED = (ENV('ECOUNT_ZONE', '') or _SYNC.get('zone', '')).strip().upper()   # 알면 존 조회를 건너뜀 (예: CC)
+# 테스트 인증키: 이카운트는 API마다 테스트 서버에서 한 번 성공해야 실서버에서 쓸 수 있음('인증되지 않은 API').
+# 있으면 이 서비스가 쓰는 API를 테스트 서버로 한 번씩 불러 자동으로 검증함
+TEST_KEY = (ENV('ECOUNT_TEST_KEY', '') or _SYNC.get('testkey', '')).strip()
+
+
+def _sync_apis():
+    """ecount-sync 코드가 부르는 이카운트 API 이름 (진단용, 로그에만 씀)"""
+    apis = set()
+    if not os.path.isdir(SYNC_DIR):
+        return []
+    for root, dirs, names in os.walk(SYNC_DIR):
+        dirs[:] = [d for d in dirs if d not in ('node_modules', '.git', 'data', 'logs', '__pycache__', 'venv', '.venv')]
+        for n in names:
+            if not n.endswith(('.py', '.js', '.mjs', '.ts', '.php')):
+                continue
+            try:
+                f = os.path.join(root, n)
+                if os.path.getsize(f) > 500_000:
+                    continue
+                with open(f, encoding='utf-8', errors='ignore') as fh:
+                    apis.update(re.findall(r'OAPI/V2/([A-Za-z]+/[A-Za-z]+)', fh.read()))
+            except Exception:
+                pass
+    return sorted(apis)
+
+
+SYNC_APIS = _sync_apis()
 MAIN_WH = ENV('MAIN_WH', 'RLD').strip()                       # 맨 위에 보여줄 창고 (채널 재고 동기화 기준 창고)
 PORTAL_API_URL = ENV('PORTAL_API_URL', '').strip()            # 포털 Apps Script 웹앱 주소 (…/exec), 로그인 확인용
 ALLOWED_ORIGIN = ENV('ALLOWED_ORIGIN', 'https://my.rubiworkshop.com').strip()
@@ -121,6 +151,7 @@ EP_ZONE = '/OAPI/V2/Zone'
 EP_LOGIN = '/OAPI/V2/OAPILogin'
 EP_PRODUCTS = '/OAPI/V2/InventoryBasic/GetBasicProductsList'                    # 품목 목록 (10분 제한)
 EP_STOCK_ONE = '/OAPI/V2/InventoryBalance/ViewInventoryBalanceStatusByLocation'   # 창고별 재고 단건 (1초 제한)
+EP_NAMES = {EP_PRODUCTS: '품목조회', EP_STOCK_ONE: '창고별재고현황(단건)'}
 
 SLOW_GAP = 600 + 5        # 로그인·존·목록 조회 간격(초)
 FAST_GAP = 1.2            # 단건 조회 간격(초)
@@ -179,10 +210,11 @@ def fold(s):
 # ───────────────────────────── 이카운트 ─────────────────────────────
 
 class EcountError(Exception):
-    def __init__(self, msg, expired=False, limited=False):
+    def __init__(self, msg, expired=False, limited=False, unauth=''):
         super().__init__(msg)
         self.expired = expired
         self.limited = limited
+        self.unauth = unauth      # 검증되지 않은 API 경로
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -197,6 +229,7 @@ _opener = urllib.request.build_opener(_NoRedirect)
 class Ecount:
     def __init__(self):
         self.lock = threading.Lock()          # 이카운트 호출은 한 번에 하나씩
+        self.vlock = threading.Lock()         # 테스트 서버 검증은 따로 한 줄로
         self.st = read_json(STATE_FILE, {})
         self.catalog = read_json(CATALOG_FILE, {'at': 0, 'items': []})
         self.index = []
@@ -231,11 +264,12 @@ class Ecount:
         return max(0, int(SLOW_GAP - (now() - self.st.get(key, 0))))
 
     # ── 호출 ──
-    def _post(self, url, body, login=False):
-        if now() < self.pause_until:
+    def _post(self, url, body, login=False, test=False):
+        if not test and now() < self.pause_until:
             left = int(self.pause_until - now()) // 60 + 1
             raise EcountError(f'이카운트 오류가 이어져 잠시 쉬는 중입니다. {left}분 뒤 다시 시도해 주세요')
-        self._count_call()
+        if not test:
+            self._count_call()
         data = json.dumps(body).encode('utf-8')
         req = urllib.request.Request(url, data=data, method='POST', headers={'Content-Type': 'application/json'})
         try:
@@ -244,19 +278,19 @@ class Ecount:
         except urllib.error.HTTPError as e:
             raw, code = e.read() or b'', e.code
         except Exception as e:
-            self._fail()
+            test or self._fail()
             raise EcountError('이카운트에 연결할 수 없습니다 (' + type(e).__name__ + ')')
         finally:
-            self._save()
+            test or self._save()
 
         text = raw.decode('utf-8', 'replace')
         if code in (302, 412):
-            self._fail()
+            test or self._fail()
             raise EcountError('이카운트 호출 간격 제한에 걸렸습니다. 잠시 뒤 다시 시도해 주세요', limited=True)
         try:
             j = json.loads(text)
         except Exception:
-            self._fail()
+            test or self._fail()
             if code == 404:
                 raise EcountError('이카운트 API 주소가 맞지 않습니다 (' + url.split('?')[0].split('.com')[-1] + ')')
             raise EcountError(f'이카운트 응답을 읽을 수 없습니다 (HTTP {code})')
@@ -264,12 +298,18 @@ class Ecount:
         err = j.get('Error') or {}
         msg = (err.get('Message') or '') if isinstance(err, dict) else str(err)
         ecode = str((err.get('Code') if isinstance(err, dict) else '') or '')
+        if '인증되지 않은' in msg or 'not authorized' in msg.lower():
+            path = '/OAPI' + urllib.parse.urlparse(url).path.split('/OAPI', 1)[-1]
+            test or self._fail()
+            raise EcountError(msg, unauth=path)
         if not login and (code == 500 or 'EXP' in ecode or re.search(r'please login|로그인', msg, re.I)):
-            self._fail()
+            test or self._fail()
             raise EcountError('이카운트 세션이 끝났습니다', expired=True)
         if str(j.get('Status')) != '200' or err:
-            self._fail()
+            test or self._fail()
             raise EcountError('이카운트 오류: ' + (msg or ecode or f'HTTP {code}'))
+        if test:
+            return j.get('Data') or {}
         self.errors = 0
         self.last_error = ''
         return j.get('Data') or {}
@@ -320,6 +360,18 @@ class Ecount:
 
     def _call(self, path, body):
         """세션을 붙여 부름. 세션이 끝났으면 (로그인 제한 안에서) 한 번 다시 로그인"""
+        try:
+            return self._call_once(path, body)
+        except EcountError as e:
+            if not e.unauth:
+                raise
+            name = EP_NAMES.get(path, path.rsplit('/', 1)[-1])
+            if TEST_KEY:
+                self.verify_later([path])
+                raise EcountError(f'이카운트에서 "{name}" API가 아직 검증되지 않아 테스트 서버로 검증을 보냈습니다. 10분쯤 뒤 다시 시도해 주세요', unauth=path)
+            raise EcountError(f'이카운트에서 "{name}" API가 아직 검증되지 않았습니다. 테스트 인증키를 stock.env 의 ECOUNT_TEST_KEY 에 넣으면 자동으로 검증합니다', unauth=path)
+
+    def _call_once(self, path, body):
         sid = self.st.get('session') or self._login()
         try:
             return self._post(f'{self._base()}{path}?SESSION_ID={urllib.parse.quote(sid)}', body)
@@ -330,6 +382,48 @@ class Ecount:
             self._save()
             sid = self._login()
             return self._post(f'{self._base()}{path}?SESSION_ID={urllib.parse.quote(sid)}', body)
+
+    # ── API 검증 (테스트 서버에서 한 번씩 성공시키기) ──
+    def _sample_body(self, path):
+        code = (self.catalog.get('items') or [{'code': 'TEST'}])[0]['code']
+        if path == EP_PRODUCTS:
+            return {'PROD_CD': '', 'PROD_TYPE': ''}
+        return {'BASE_DATE': kst().strftime('%Y%m%d'), 'PROD_CD': code, 'WH_CD': '', 'ZERO_FLAG': 'Y'}
+
+    def verify_later(self, paths):
+        """백그라운드에서 검증. 같은 API는 한 시간에 한 번만 시도"""
+        tried = self.st.setdefault('verify_try', {})
+        todo = [p for p in paths if now() - tried.get(p, 0) > 3600]
+        if not todo or not TEST_KEY:
+            return False
+        for p in todo:
+            tried[p] = now()
+        self._save()
+        threading.Thread(target=self.verify, args=(todo,), daemon=True).start()
+        return True
+
+    def verify(self, paths):
+        with self.vlock:
+            try:
+                base = TEST_HOST or f'https://sboapi{self._zone()}.ecount.com'
+                d = self._post(base + EP_LOGIN, {'COM_CODE': COM_CODE, 'USER_ID': USER_ID, 'API_CERT_KEY': TEST_KEY,
+                                                 'LAN_TYPE': 'ko-KR', 'ZONE': self._zone()}, login=True, test=True)
+                sid = (d.get('Datas') or {}).get('SESSION_ID') if isinstance(d.get('Datas'), dict) else None
+                if not sid:
+                    log('API 검증: 테스트 서버 로그인 실패.', d.get('Message') or '테스트 인증키와 사용자 ID를 확인해 주세요')
+                    return
+                for p in paths:
+                    time.sleep(11)       # 테스트 서버는 10초에 한 번
+                    name = EP_NAMES.get(p, p)
+                    try:
+                        self._post(f'{base}{p}?SESSION_ID={urllib.parse.quote(sid)}', self._sample_body(p), test=True)
+                        self.st.setdefault('verified', {})[p] = now()
+                        self._save()
+                        log(f'API 검증: "{name}" 테스트 서버 호출 성공. 이카운트 API인증현황에 반영되면 실서버에서 쓸 수 있음')
+                    except EcountError as e:
+                        log(f'API 검증: "{name}" 테스트 서버 호출 실패:', e)
+            except EcountError as e:
+                log('API 검증 실패:', e)
 
     @staticmethod
     def _rows(d):
@@ -442,7 +536,8 @@ class Ecount:
     def health(self):
         return {'catalog': {'count': len(self.catalog.get('items', [])), 'at': int(self.catalog.get('at', 0) * 1000)},
                 'mainWh': MAIN_WH, 'calls': self.st.get('calls', 0) if self.st.get('day') == kst().strftime('%Y%m%d') else 0,
-                'dailyLimit': DAILY_LIMIT, 'paused': now() < self.pause_until, 'lastError': self.last_error}
+                'dailyLimit': DAILY_LIMIT, 'paused': now() < self.pause_until, 'lastError': self.last_error,
+                'testKey': bool(TEST_KEY), 'verified': sorted(EP_NAMES.get(p, p) for p in self.st.get('verified', {}))}
 
 
 EC = Ecount()
@@ -567,6 +662,11 @@ class Handler(BaseHTTPRequestHandler):
 def background():
     """품목 목록을 매일 새로 받음 (시작 직후 한 번, 이후 5분마다 확인)"""
     time.sleep(3)
+    if TEST_KEY:
+        todo = [p for p in (EP_PRODUCTS, EP_STOCK_ONE) if p not in EC.st.get('verified', {})]
+        if todo and EC.verify_later(todo):
+            log('테스트 인증키로', ', '.join(EP_NAMES[p] for p in todo), 'API 검증을 시작함')
+            time.sleep(40)
     while True:
         try:
             if EC.catalog_due():
@@ -592,6 +692,9 @@ def main():
         log('이카운트 값을 ecount-sync 설정에서 가져옴:', ', '.join(SYNC_USED))
     elif not (ENV('ECOUNT_COM_CODE') and ENV('ECOUNT_API_KEY')):
         log(f'ecount-sync 설정을 찾지 못함 ({SYNC_DIR}). docker-compose.yml 의 ecount-sync 경로나 stock.env 의 ECOUNT_ 값을 확인')
+    if SYNC_APIS:
+        log('ecount-sync 가 쓰는 이카운트 API:', ', '.join(SYNC_APIS))
+    log('테스트 인증키:', '있음 (검증되지 않은 API를 자동으로 검증)' if TEST_KEY else '없음')
     log(f'재고 조회 서비스 시작 :{PORT}  기준 창고 {MAIN_WH}  품목 {len(EC.index)}개(저장본)')
     threading.Thread(target=background, daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()
