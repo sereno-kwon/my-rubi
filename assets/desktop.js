@@ -264,6 +264,7 @@ function fillWin(w) {
   else if (a.id === 'settings') body.innerHTML = settingsView();
   else if (a.id === 'trash') body.innerHTML = trashView();
   else if (a.id === 'nas') { if (window.MYRUBI_NAS) window.MYRUBI_NAS.mount(body, w.nasQ); w.nasQ = null; return; }
+  else if (a.id === 'checklist') body.innerHTML = `<div class="pane"><h2>체크리스트</h2><p>멤버별 체크리스트는 텍스트 화면에서 엽니다.</p><a class="btn" href="/#checklist">텍스트 화면에서 열기</a></div>`;
   bindWinBody(w);
 }
 function refreshWin(id) { const w = wins.get(id); if (w) fillWin(w); }

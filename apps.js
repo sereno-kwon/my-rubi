@@ -8,7 +8,7 @@
 //   builtin : 포털 내장 (메모장, 바탕화면 설정)
 //   soon    : 준비 중 (아이콘만 보이고, 열면 안내 창)
 //
-// icon : server chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench
+// icon : server chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench check
 // tint : ruby slate green blue amber teal paper
 // mono : 아이콘 대신 글자 한두 개 (브랜드 사이트용)
 // group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
@@ -20,6 +20,7 @@ window.MYRUBI_APPS = [
   { id: 'ecount',    title: '이카운트 ERP', icon: 'box',   tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/' },
   { id: 'channel',   title: '채널톡',      icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
+  { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
 
   // 폴더
   { id: 'google',    title: 'GOOGLE',     kind: 'folder' },

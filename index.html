@@ -43,12 +43,14 @@
       <p class="date" id="date"></p>
       <p class="hours">쇼룸·고객센터 월~금 12:00~18:00</p>
     </div>
+    <!-- 멤버별 체크리스트 요약 (assets/checklist.js). 이름을 누르면 체크리스트 패널이 열림 -->
+    <div class="checks hidden" id="checks" aria-label="체크리스트"></div>
     <!-- 공지·일정(assets/board.js)이 이 자리 바로 앞에 붙음 -->
     <div id="windows" hidden></div>
   </aside>
 </main>
 
-<!-- 포털 안에서 여는 앱 (상담 현황, NAS, 메모장, 설정) -->
+<!-- 포털 안에서 여는 앱 (상담 현황, NAS, 체크리스트, 메모장, 설정) -->
 <section class="panel hidden" id="panel" role="dialog" aria-modal="true" aria-labelledby="pTitle">
   <header class="p-bar">
     <button class="p-back" id="pBack" aria-label="목록으로"><svg class="i"><use href="#i-back"/></svg></button>
@@ -101,6 +103,7 @@
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M8 12.5l3 3 5-6"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/></symbol>
 </svg>
 
@@ -109,6 +112,7 @@
 <script src="/apps.js"></script>
 <script src="/assets/nas.js"></script>
 <script src="/assets/board.js"></script>
+<script src="/assets/checklist.js"></script>
 <script src="/assets/shell.js"></script>
 </body>
 </html>

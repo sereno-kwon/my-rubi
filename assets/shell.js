@@ -30,6 +30,7 @@ const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&a
 const pad = n => String(n).padStart(2, '0');
 const hasKo = t => /[가-힣]/.test(t);
 const nas = () => window.MYRUBI_NAS;
+const chk = () => window.MYRUBI_CHECK;
 const host = u => { try { return new URL(u, location.href).host.replace(/^www\./, ''); } catch (e) { return ''; } };
 
 function applyTheme() {
@@ -241,16 +242,18 @@ function openPanel(a, nasQ) {
   if (a.kind === 'frame') pBody.innerHTML = `<iframe src="${esc(a.url)}" title="${esc(a.title)}"></iframe>`;
   else if (a.kind === 'soon') pBody.innerHTML = `<div class="soon"><span class="tag">준비 중</span><h2>${esc(a.title)}</h2><p>${esc(a.note || '곧 이 자리에서 열립니다.')}</p></div>`;
   else if (a.id === 'nas') { if (nas()) nas().mount(pBody, nasQ || null); }
+  else if (a.id === 'checklist') { if (chk()) chk().mount(pBody); }
   else if (a.id === 'memo') memoView();
   else if (a.id === 'settings') settingsView();
   else pBody.innerHTML = '<div class="soon"><p>열 수 없는 항목입니다.</p></div>';
 
   try { history.replaceState(null, '', '#' + a.id); } catch (e) {}
-  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings') setTimeout(() => f.focus(), 30);
+  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist') setTimeout(() => f.focus(), 30);
   else $('#pClose').focus();
 }
 function teardown() {
   if (panelId === 'nas' && nas()) nas().unmount();
+  if (panelId === 'checklist' && chk()) chk().unmount();
   pBody.innerHTML = '';
   panelId = null;
 }
@@ -312,6 +315,7 @@ function closeMenu() { ctx.classList.add('hidden'); }
 document.addEventListener('pointerdown', e => { if (!e.target.closest('.ctx')) closeMenu(); });
 function copy(t) { try { navigator.clipboard.writeText(t); } catch (e) {} }
 window.MYRUBI_DESK = { menu: showMenu, openNas: qq => openPanel(byId.nas, qq) };
+if (chk()) chk().onOpen = () => { if (byId.checklist) { remember('checklist'); openPanel(byId.checklist); } };
 
 // ─────────── 시계 ───────────
 function tick() {
@@ -366,6 +370,7 @@ function unlock(animate) {
   if (animate) { lock.classList.add('leaving'); setTimeout(() => lock.classList.add('hidden'), 350); }
   else lock.classList.add('hidden');
   if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.start();
+  if (chk()) chk().start($('#checks'));
   renderWho(); render(); focusQ(); openFromUrl();
 }
 function renderWho() {

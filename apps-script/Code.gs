@@ -5,6 +5,7 @@
  *  - 00_My Rubi Index 시트를 읽어 포털에 상담 현황을 돌려줌 (GET)
  *  - 포털에서 들어온 상담 입력을 Drive 고객 폴더 + Log 시트 + Index 시트에 기록함 (POST)
  *  - 바탕화면 오른쪽 위 포스트잇(공지·일정)을 Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
+ *  - 멤버별 체크리스트(매일·매주·할 일)를 Index 스프레드시트의 '체크리스트' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *
  * Drive 구조 (기존 그대로 유지)
  *  루트 / 브랜드 폴더 / Customer History_브랜드 / NNNN_[BRAND] MODEL (SPEC)_채널_고객명_YYYYMMDD /
@@ -88,6 +89,11 @@ const NOTE_COLS = ['id', 'type', 'text', 'date', 'time', 'color', 'author', 'ema
 const NOTE_HEADERS = ['ID', '종류(notice/event)', '내용', '날짜', '시간', '색', '작성자', '이메일', '작성일시', '수정일시'];
 const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'];
 
+// 체크리스트 탭 컬럼 (멤버별 체크리스트)
+const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order', 'author', 'email', 'createdAt', 'updatedAt'];
+const CHECK_HEADERS = ['ID', '담당', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시'];
+const CHECK_REPEATS = ['daily', 'weekly', 'once'];
+
 // ───────────────────────────── HTTP ─────────────────────────────
 
 function doGet(e) {
@@ -102,6 +108,7 @@ function doGet(e) {
       case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
       case 'notes':    return json_({ ok: true, notes: listNotes_() });
+      case 'checks':   return json_({ ok: true, checks: listChecks_() });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -126,6 +133,7 @@ function doPost(e) {
       case 'consult':  return json_({ ok: true, row: addConsult_(body) });
       case 'update':   return json_({ ok: true, row: updateRow_(body) });
       case 'note':     return json_({ ok: true, notes: saveNote_(body, user) });
+      case 'check':    return json_({ ok: true, checks: saveCheck_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -798,6 +806,90 @@ function saveNote_(b, user) {
     Object.assign(o, { type, text, date, time, color, updatedAt: now_() });
     sh.getRange(row, 1, 1, NOTE_COLS.length).setNumberFormat('@').setValues([NOTE_COLS.map(k => o[k])]);
     return listNotes_();
+  }
+  throw new Error('unknown op');
+}
+
+// ───────────────────────────── 체크리스트 (멤버별) ─────────────────────────────
+
+function checkSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('체크리스트');
+  if (!sh) {
+    sh = ss.insertSheet('체크리스트');
+    sh.getRange(1, 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), CHECK_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+function checkRows_(sh) {
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, CHECK_COLS.length).getValues()
+    .map(r => { const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; return o; });
+}
+
+/** 목록. 끝낸 지 30일이 넘은 '할 일'은 빼고 돌려줌 (시트에는 남음) */
+function listChecks_() {
+  const cutoff = Utilities.formatDate(new Date(Date.now() - 30 * 86400000), CONFIG.TZ, 'yyyy-MM-dd');
+  return checkRows_(checkSheet_())
+    .map(o => { delete o.email; return o; })
+    .filter(o => o.id && o.text && !(o.repeat === 'once' && o.doneAt && o.doneAt.slice(0, 10) < cutoff));
+}
+
+/** op: add / update / toggle / delete. 저장 후 전체 목록을 돌려줌 */
+function saveCheck_(b, user) {
+  const sh = checkSheet_();
+  const op = String(b.op || '');
+  const who = user.name || user.email;
+  const findRow = id => {
+    const last = sh.getLastRow();
+    if (!id || last < 2) return -1;
+    const ids = sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+    const i = ids.indexOf(String(id));
+    return i < 0 ? -1 : i + 2;
+  };
+  const readRow = row => { const cur = sh.getRange(row, 1, 1, CHECK_COLS.length).getValues()[0]; const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k)); return o; };
+  const writeRow = (row, o) => sh.getRange(row, 1, 1, CHECK_COLS.length).setNumberFormat('@').setValues([CHECK_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+
+  if (op === 'delete') {
+    const row = findRow(b.id);
+    if (row > 0) sh.deleteRow(row);
+    return listChecks_();
+  }
+  if (op === 'toggle') {
+    const row = findRow(b.id);
+    if (row < 0) throw new Error('이미 지워진 항목입니다. 새로 고침해 주세요');
+    const o = readRow(row);
+    if (b.done) { o.doneAt = now_(); o.doneBy = who; } else { o.doneAt = ''; o.doneBy = ''; }
+    writeRow(row, o);
+    return listChecks_();
+  }
+
+  const owner = String(b.owner || '').trim().slice(0, 40);
+  const text = String(b.text || '').trim().slice(0, 200);
+  const repeat = CHECK_REPEATS.indexOf(b.repeat) >= 0 ? b.repeat : 'once';
+  const order = Number(b.order) || 0;
+  if (!owner) throw new Error('담당 멤버가 필요합니다');
+  if (!text) throw new Error('내용을 적어 주세요');
+
+  if (op === 'add') {
+    const o = { id: Utilities.getUuid().slice(0, 8), owner, text, repeat, doneAt: '', doneBy: '', order,
+      author: who, email: user.email, createdAt: now_(), updatedAt: '' };
+    writeRow(sh.getLastRow() + 1, o);
+    return listChecks_();
+  }
+  if (op === 'update') {
+    const row = findRow(b.id);
+    if (row < 0) throw new Error('이미 지워진 항목입니다. 새로 고침해 주세요');
+    const o = readRow(row);
+    // 반복 종류가 바뀌면 끝낸 기록은 새로 시작
+    if (o.repeat !== repeat) { o.doneAt = ''; o.doneBy = ''; }
+    Object.assign(o, { owner, text, repeat, order, updatedAt: now_() });
+    writeRow(row, o);
+    return listChecks_();
   }
   throw new Error('unknown op');
 }
