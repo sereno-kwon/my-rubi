@@ -121,6 +121,8 @@ function render() {
   if (!rows.length) html = `<p class="empty">“${esc(raw)}”와 맞는 항목이 없습니다.</p>`;
   listEl.innerHTML = html;
   listEl.classList.toggle('dense', rows.length > 12);
+  numReset();
+  const km = $('#kMax'); if (km) km.textContent = Math.max(1, rows.length);
   sel = Math.max(0, Math.min(sel, rows.length - 1));
   paint(false);
   renderCrumb();
@@ -153,6 +155,34 @@ function paint(scroll) {
 }
 function move(d) { if (!rows.length) return; sel = (sel + d + rows.length) % rows.length; paint(true); }
 
+// ─────────── 번호로 바로 열기 ───────────
+// 숫자를 연달아 치면 두 자리 번호가 됨 (1 → 0 이면 10번, 1 → 2 이면 12번).
+// 뒤에 숫자가 더 붙을 수 없는 번호(목록이 12줄일 때 2–9, 10–12)는 바로 열고,
+// 1처럼 10–12로 이어질 수 있는 번호는 그 줄을 짚어 둔 채 잠깐 기다렸다가 엶. 01, 02 처럼 앞에 0을 붙여도 됨.
+const NUM_WAIT = 700;
+let numBuf = '', numTimer = 0;
+function numReset() { clearTimeout(numTimer); numTimer = 0; numBuf = ''; }
+function numKey(k) {
+  clearTimeout(numTimer);
+  numBuf += k;
+  const n = +numBuf, max = rows.length, width = String(max).length;
+  const done = numBuf.length >= width || (n > 0 && n * 10 > max);
+  if (n > max || (done && n < 1)) { numReset(); return; }      // 없는 번호는 무시
+  if (n >= 1) { sel = n - 1; paint(true); }                        // 기다리는 동안 그 줄을 짚어 둠
+  if (done) { numReset(); activate(n - 1); return; }
+  numTimer = setTimeout(() => {
+    const m = +numBuf; numReset();
+    if (m >= 1 && panelEl.classList.contains('hidden') && !document.body.classList.contains('locked')) activate(m - 1);
+  }, NUM_WAIT);
+}
+/** 숫자 아닌 키가 들어오면: Enter는 짚어 둔 번호를 바로 열고, 나머지는 입력 중인 번호를 버림 */
+function numInterrupt(e) {
+  if (!numBuf) return false;
+  if (e.key === 'Enter' && +numBuf >= 1) { e.preventDefault(); const m = +numBuf; numReset(); activate(m - 1); return true; }
+  numReset();
+  return false;
+}
+
 function activate(i) {
   const r = rows[i]; if (!r) return;
   if (r.stock != null) { remember('stock'); openPanel(byId.stock, r.stock); return; }
@@ -180,6 +210,7 @@ function focusQ() { if (!matchMedia('(pointer:coarse)').matches) q.focus(); }
 // 목록 클릭
 listEl.addEventListener('click', e => {
   const r = e.target.closest('.row'); if (!r) return;
+  numReset();
   const i = +r.dataset.i, row = rows[i];
   sel = i; paint(false);
   if (row && row.id && byId[row.id].kind === 'link') { remember(row.id); setTimeout(render, 0); return; } // 기본 동작(새 탭)에 맡김
@@ -201,6 +232,8 @@ q.addEventListener('input', () => { sel = 0; render(); });
 q.addEventListener('keydown', e => {
   if (e.isComposing || e.keyCode === 229) return;  // 한글 조합 중
   const plain = !e.metaKey && !e.ctrlKey && !e.altKey;
+  if (plain && /^[0-9]$/.test(e.key) && !q.value) { e.preventDefault(); numKey(e.key); return; }
+  if (numInterrupt(e)) return;
   if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
   else if (e.key === 'Enter') { e.preventDefault(); activate(sel); }
@@ -209,7 +242,6 @@ q.addEventListener('keydown', e => {
     if (q.value) { q.value = ''; sel = 0; render(); } else if (folder) goUp();
   }
   else if (e.key === 'Backspace' && !q.value && folder) { e.preventDefault(); goUp(); }
-  else if (plain && /^[1-9]$/.test(e.key) && !q.value) { e.preventDefault(); activate(+e.key - 1); }
 });
 
 // 화면 어디서든: 글자를 치면 검색창으로, ⌘K / Ctrl+K 로 검색창
@@ -226,8 +258,9 @@ document.addEventListener('keydown', e => {
   const t = e.target;
   if (t === q || (t.closest && t.closest('input,textarea,select,[contenteditable],.board'))) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[0-9]$/.test(e.key) && !q.value) { e.preventDefault(); numKey(e.key); return; }
+  if (numInterrupt(e)) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); q.focus(); move(e.key === 'ArrowDown' ? 1 : -1); return; }
-  if (/^[1-9]$/.test(e.key) && !q.value) { e.preventDefault(); activate(+e.key - 1); return; }
   if (e.key === 'Backspace' && folder && !q.value) { e.preventDefault(); goUp(); return; }
   if (e.key.length === 1 && e.key !== ' ') q.focus();   // 이 글자는 검색창에 들어감
 });
@@ -289,7 +322,7 @@ function settingsView() {
     <p>처음 화면 검색창 아래에 최근 연 항목이 최대 여섯 개 보입니다.</p>
     <button class="btn" data-act="clear-recent"${recent.length ? '' : ' disabled'}>최근 목록 비우기</button>
     <h3>키보드</h3>
-    <p>아무 글자나 치면 검색창으로 갑니다. ↑↓로 고르고 Enter로 열고, 검색창이 비어 있을 때 숫자 1–9로 그 번호를 바로 엽니다. Esc는 검색어 지우기, 폴더에서 나오기, 열린 앱 닫기 순서로 동작합니다. ⌘K(윈도우는 Ctrl+K)는 어디서든 검색창으로 갑니다.</p>
+    <p>아무 글자나 치면 검색창으로 갑니다. ↑↓로 고르고 Enter로 열고, 검색창이 비어 있을 때 번호를 치면 그 줄을 바로 엽니다. 10번 이상은 숫자를 이어서 칩니다(1, 2를 연달아 치면 12번). 1처럼 뒤에 숫자가 더 붙을 수 있는 번호는 잠깐 기다렸다가 열리고, 기다리는 동안 Enter를 누르면 바로 열립니다. Esc는 검색어 지우기, 폴더에서 나오기, 열린 앱 닫기 순서로 동작합니다. ⌘K(윈도우는 Ctrl+K)는 어디서든 검색창으로 갑니다.</p>
     <h3>화면 방식</h3>
     <p>아이콘을 끌어 놓고 창을 여러 개 띄우는 윈도우형 화면도 그대로 쓸 수 있습니다.</p>
     <a class="btn" href="/desktop/">윈도우 화면으로 보기</a>
