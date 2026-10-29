@@ -7,7 +7,10 @@
 'use strict';
 
 const MR = window.MR, CFG = window.MYRUBI_CONFIG || {};
-const K_LOCAL = 'myrubi.checks', K_CACHE = 'myrubi.checks.cache', K_UI = 'myrubi.checks.ui';
+const K_LOCAL = 'myrubi.checks', K_CACHE_BASE = 'myrubi.checks.cache', K_UI = 'myrubi.checks.ui';
+/** 공유 PC에서 앞사람의 개인 목록이 보이지 않게 저장 칸을 계정마다 나눔 */
+const K_CACHE = () => K_CACHE_BASE + '.' + ((MR && MR.user().email) || '');
+try { localStorage.removeItem(K_CACHE_BASE); } catch (e) {}   // 계정 구분 없던 예전 저장 칸 정리
 const REPEATS = ['daily', 'weekly', 'once'];
 const REPEAT_NAME = { daily: '매일', weekly: '매주', once: '할 일' };
 const REPEAT_HINT = { daily: '매일 아침 다시 비워집니다', weekly: '월요일마다 다시 비워집니다', once: '끝내면 목록에서 내려갑니다' };
@@ -40,6 +43,7 @@ function me() {
 const shared = () => !!(MR && MR.loginEnabled() && MR.session());
 
 let items = [];        // { id, owner, text, repeat, doneAt, doneBy, order, author, createdAt, updatedAt }
+let hide = [];         // 이 계정에 숨길 멤버 (개인 목록, 서버가 알려줌)
 let msg = '', busy = false, started = false, editing = null;
 let host = null;       // 패널에 붙은 루트 요소
 let summaryEl = null;  // 오른쪽 요약 칸
@@ -63,7 +67,8 @@ function members() {
   items.forEach(it => add(it.owner));
   // MEMBERS 를 적어 두면 그 명단으로 고정. 비어 있을 때만 로그인한 사람을 자동으로 더함
   if (!(CFG.MEMBERS || []).length) add(me());
-  return out;
+  // 다른 사람의 개인 목록은 탭도 보이지 않음
+  return out.filter(n => !hide.includes(n));
 }
 const alias = n => (CFG.MEMBER_ALIASES || {})[n] || n;
 /** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게 */
@@ -210,8 +215,8 @@ async function load() {
   if (!shared()) { items = readLocal(); if (!editing) render(); return; }
   try {
     const j = await MR.get({ action: 'checks' });
-    items = fix(j.checks);
-    ls.set(K_CACHE, JSON.stringify(items));
+    items = fix(j.checks); hide = j.hide || [];
+    ls.set(K_CACHE(), JSON.stringify({ items, hide }));
     msg = '';
   } catch (e) {
     msg = /unknown action/.test(e.message)
@@ -226,8 +231,8 @@ async function persist(op, d) {
   const fields = { id: d.id, owner: d.owner, text: d.text, repeat: d.repeat, order: d.order };
   if (shared()) {
     const j = await MR.post(Object.assign({ action: 'check', op }, fields, op === 'toggle' ? { done: !!d.done } : {}));
-    items = fix(j.checks);
-    ls.set(K_CACHE, JSON.stringify(items));
+    items = fix(j.checks); hide = j.hide || [];
+    ls.set(K_CACHE(), JSON.stringify({ items, hide }));
     return;
   }
   const who = me() || d.owner;
@@ -371,7 +376,11 @@ window.MYRUBI_CHECK = {
       });
     }
     started = true; editing = null; msg = '';
-    items = shared() ? fix(readJson(K_CACHE, [])) : readLocal();
+    if (shared()) {
+      // 서버가 알려주기 전까지는 개인 목록 멤버를 일단 숨겨 둠 (본인이면 불러온 뒤 바로 보임)
+      const c = readJson(K_CACHE(), null);
+      items = fix(c && c.items); hide = c && c.hide ? c.hide : (CFG.PRIVATE_MEMBERS || []).filter(n => n !== me());
+    } else { items = readLocal(); hide = []; }
     render(); load();
   },
   /** 패널 안에 붙이기. tab 을 주면 그 멤버 탭으로 */

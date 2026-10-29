@@ -6,6 +6,7 @@
  *  - 포털에서 들어온 상담 입력을 Drive 고객 폴더 + Log 시트 + Index 시트에 기록함 (POST)
  *  - 바탕화면 오른쪽 위 포스트잇(공지·일정)을 Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *  - 멤버별 체크리스트(매일·매주·할 일)를 Index 스프레드시트의 '체크리스트' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
+ *    CONFIG.PRIVATE_CHECKLISTS 에 적은 멤버의 목록은 본인에게만 돌려줌 (다른 직원에게는 응답에서 아예 빠짐)
  *
  * Drive 구조 (기존 그대로 유지)
  *  루트 / 브랜드 폴더 / Customer History_브랜드 / NNNN_[BRAND] MODEL (SPEC)_채널_고객명_YYYYMMDD /
@@ -67,6 +68,17 @@ const CONFIG = {
   CHANNELS: ['루비워크샵', '루비서플라이', '스마트스토어', '기타'],
 
   TZ: 'Asia/Seoul',
+
+  // 체크리스트 개인 목록: 여기 적은 멤버의 체크리스트는 본인(과 viewers 에 적은 사람)에게만 보임
+  //  emails : 본인 계정. 아이디(@ 앞)만 적으면 rubiworkshop.com, rubi.kr 어느 쪽으로 로그인해도 맞음
+  //  names  : emails 가 비어 있을 때만 쓰는 임시 확인용 구글 계정 이름 (계정 이름은 바꿀 수 있으므로 이메일을 적는 것이 안전)
+  //  viewers: 본인 말고 이 목록을 볼 수 있는 계정 (예: ['ohyun'])
+  PRIVATE_CHECKLISTS: {
+    '권오현': { emails: ['ohyun'], names: ['권오현', 'Ohyun Kwon'], viewers: [] },
+    '권오륜': { emails: [],        names: ['권오륜'],               viewers: [] },
+  },
+  // 예전에 구글 계정 이름으로 저장된 담당자 이름을 멤버 이름으로 맞춤 (포털 config.js 의 MEMBER_ALIASES 와 같게)
+  CHECK_OWNER_ALIASES: { 'Ohyun Kwon': '권오현' },
 };
 
 // Index 시트 컬럼 (순서 = 열 순서)
@@ -108,7 +120,7 @@ function doGet(e) {
       case 'get':      return json_({ ok: true, row: getRow_(p.no), consults: listConsults_(p.no) });
       case 'consults': return json_({ ok: true, rows: listConsults_(p.no) });
       case 'notes':    return json_({ ok: true, notes: listNotes_() });
-      case 'checks':   return json_({ ok: true, checks: listChecks_() });
+      case 'checks':   return json_({ ok: true, checks: listChecks_(user), hide: hiddenMembers_(user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -133,7 +145,7 @@ function doPost(e) {
       case 'consult':  return json_({ ok: true, row: addConsult_(body) });
       case 'update':   return json_({ ok: true, row: updateRow_(body) });
       case 'note':     return json_({ ok: true, notes: saveNote_(body, user) });
-      case 'check':    return json_({ ok: true, checks: saveCheck_(body, user) });
+      case 'check':    return json_({ ok: true, checks: saveCheck_(body, user), hide: hiddenMembers_(user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -824,17 +836,42 @@ function checkSheet_() {
   return sh;
 }
 
+const checkOwner_ = n => { n = String(n || '').trim(); return (CONFIG.CHECK_OWNER_ALIASES || {})[n] || n; };
+
 function checkRows_(sh) {
   const last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, CHECK_COLS.length).getValues()
-    .map(r => { const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; return o; });
+    .map(r => { const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.owner = checkOwner_(o.owner); o.doneBy = checkOwner_(o.doneBy); return o; });
 }
 
-/** 목록. 끝낸 지 30일이 넘은 '할 일'은 빼고 돌려줌 (시트에는 남음) */
-function listChecks_() {
+/** 이메일 아이디(@ 앞). 회사 도메인(ALLOWED_DOMAINS)이면 아이디만, 바깥 계정이면 이메일 전체로 비교 */
+function emailKey_(email) {
+  const e = String(email || '').toLowerCase().trim();
+  const at = e.lastIndexOf('@');
+  if (at < 0) return e;
+  return CONFIG.ALLOWED_DOMAINS.includes(e.slice(at + 1)) ? e.slice(0, at) : e;
+}
+/** 이 사람이 그 멤버의 체크리스트를 볼 수 있는지. 개인 목록이 아닌 멤버는 모두 볼 수 있음 */
+function canSeeChecks_(owner, user) {
+  const p = (CONFIG.PRIVATE_CHECKLISTS || {})[checkOwner_(owner)];
+  if (!p) return true;
+  const me = emailKey_(user.email);
+  const keys = (p.emails || []).concat(p.viewers || []).map(emailKey_);
+  if (keys.includes(me)) return true;
+  if (!(p.emails || []).length) return (p.names || []).includes(String(user.name || '').trim());
+  return false;
+}
+/** 이 사람에게 탭을 숨길 멤버 */
+function hiddenMembers_(user) {
+  return Object.keys(CONFIG.PRIVATE_CHECKLISTS || {}).filter(n => !canSeeChecks_(n, user));
+}
+
+/** 목록. 볼 수 없는 개인 목록과 끝낸 지 30일이 넘은 '할 일'은 빼고 돌려줌 (시트에는 남음) */
+function listChecks_(user) {
   const cutoff = Utilities.formatDate(new Date(Date.now() - 30 * 86400000), CONFIG.TZ, 'yyyy-MM-dd');
   return checkRows_(checkSheet_())
+    .filter(o => canSeeChecks_(o.owner, user))
     .map(o => { delete o.email; return o; })
     .filter(o => o.id && o.text && !(o.repeat === 'once' && o.doneAt && o.doneAt.slice(0, 10) < cutoff));
 }
@@ -852,44 +889,48 @@ function saveCheck_(b, user) {
     return i < 0 ? -1 : i + 2;
   };
   const readRow = row => { const cur = sh.getRange(row, 1, 1, CHECK_COLS.length).getValues()[0]; const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k)); return o; };
+  const gone = '이미 지워진 항목입니다. 새로 고침해 주세요';
+  /** 남의 개인 목록에 있는 줄은 없는 것처럼 다룸 */
+  const ownRow = id => { const row = findRow(id); if (row < 0) return -1; return canSeeChecks_(readRow(row).owner, user) ? row : -1; };
   const writeRow = (row, o) => sh.getRange(row, 1, 1, CHECK_COLS.length).setNumberFormat('@').setValues([CHECK_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
 
   if (op === 'delete') {
-    const row = findRow(b.id);
+    const row = ownRow(b.id);
     if (row > 0) sh.deleteRow(row);
-    return listChecks_();
+    return listChecks_(user);
   }
   if (op === 'toggle') {
-    const row = findRow(b.id);
-    if (row < 0) throw new Error('이미 지워진 항목입니다. 새로 고침해 주세요');
+    const row = ownRow(b.id);
+    if (row < 0) throw new Error(gone);
     const o = readRow(row);
     if (b.done) { o.doneAt = now_(); o.doneBy = who; } else { o.doneAt = ''; o.doneBy = ''; }
     writeRow(row, o);
-    return listChecks_();
+    return listChecks_(user);
   }
 
-  const owner = String(b.owner || '').trim().slice(0, 40);
+  const owner = checkOwner_(String(b.owner || '').slice(0, 40));
   const text = String(b.text || '').trim().slice(0, 200);
   const repeat = CHECK_REPEATS.indexOf(b.repeat) >= 0 ? b.repeat : 'once';
   const order = Number(b.order) || 0;
   if (!owner) throw new Error('담당 멤버가 필요합니다');
   if (!text) throw new Error('내용을 적어 주세요');
+  if (!canSeeChecks_(owner, user)) throw new Error(owner + '님의 체크리스트에는 넣을 수 없습니다');
 
   if (op === 'add') {
     const o = { id: Utilities.getUuid().slice(0, 8), owner, text, repeat, doneAt: '', doneBy: '', order,
       author: who, email: user.email, createdAt: now_(), updatedAt: '' };
     writeRow(sh.getLastRow() + 1, o);
-    return listChecks_();
+    return listChecks_(user);
   }
   if (op === 'update') {
-    const row = findRow(b.id);
-    if (row < 0) throw new Error('이미 지워진 항목입니다. 새로 고침해 주세요');
+    const row = ownRow(b.id);
+    if (row < 0) throw new Error(gone);
     const o = readRow(row);
     // 반복 종류가 바뀌면 끝낸 기록은 새로 시작
     if (o.repeat !== repeat) { o.doneAt = ''; o.doneBy = ''; }
     Object.assign(o, { owner, text, repeat, order, updatedAt: now_() });
     writeRow(row, o);
-    return listChecks_();
+    return listChecks_(user);
   }
   throw new Error('unknown op');
 }
