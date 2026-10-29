@@ -1,5 +1,5 @@
 // My Rubi 멤버별 체크리스트
-// 멤버마다 탭이 하나씩 있고, 매일 반복 · 매주 반복 · 한 번 할 일 세 묶음으로 나뉨
+// 멤버마다 탭이 하나씩 있고, 목록은 체크리스트 하나 (매일·매주 반복 묶음은 2026-10-29에 없앰)
 // 구글 로그인을 켜면 Apps Script(00_My Rubi Index 시트의 '체크리스트' 탭)에 저장되어 모든 직원이 같은 목록을 봄
 // 로그인을 켜기 전에는 이 브라우저에만 저장됨
 // 패널(텍스트 화면)과 오른쪽 요약 칸이 같이 씀. 윈도우 화면은 쓰지 않음
@@ -11,9 +11,9 @@ const K_LOCAL = 'myrubi.checks', K_CACHE_BASE = 'myrubi.checks.cache', K_UI = 'm
 /** 공유 PC에서 앞사람의 개인 목록이 보이지 않게 저장 칸을 계정마다 나눔 */
 const K_CACHE = () => K_CACHE_BASE + '.' + ((MR && MR.user().email) || '');
 try { localStorage.removeItem(K_CACHE_BASE); } catch (e) {}   // 계정 구분 없던 예전 저장 칸 정리
-const REPEATS = ['daily', 'weekly', 'once'];
-const REPEAT_NAME = { daily: '매일', weekly: '매주', once: '할 일' };
-const REPEAT_HINT = { daily: '매일 아침 다시 비워집니다', weekly: '월요일마다 다시 비워집니다', once: '끝내면 목록에서 내려갑니다' };
+const REPEATS = ['once'];
+const REPEAT_NAME = { once: '체크리스트' };
+const REPEAT_HINT = { once: '끝낸 항목은 7일 뒤 목록에서 내려갑니다' };
 const POLL_MS = 120000;
 const ALL = '*';
 
@@ -72,7 +72,7 @@ function members() {
 }
 const alias = n => (CFG.MEMBER_ALIASES || {})[n] || n;
 /** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게 */
-const fix = list => (list || []).map(it => Object.assign({}, it, { owner: alias(it.owner), doneBy: alias(it.doneBy) }));
+const fix = list => (list || []).map(it => Object.assign({}, it, { owner: alias(it.owner), doneBy: alias(it.doneBy), repeat: 'once' }));
 const ofMember = name => items.filter(it => it.owner === name);
 function progress(list) {
   // 할 일은 끝낸 지 7일이 지나면 안 세고, 반복 항목은 전부 셈
@@ -136,10 +136,11 @@ function overviewHtml(ms) {
   return head + '<div class="ck-over">' + ms.map(n => {
     const list = ofMember(n);
     const groups = REPEATS.map(r => {
-      const g = list.filter(it => it.repeat === r && (r !== 'once' || !isDone(it)));
+      // 끝낸 지 7일이 안 된 항목까지 셈 (다 끝냈을 때 '모두 끝냄'으로 보이게)
+      const g = list.filter(it => it.repeat === r && (!isDone(it) || daysSince(it.doneAt) < 7));
       if (!g.length) return '';
       const left = g.filter(it => !isDone(it));
-      return `<li><span class="rp">${REPEAT_NAME[r]}</span><span class="tx">${left.length ? left.slice(0, 4).map(it => esc(it.text)).join(' · ') + (left.length > 4 ? ` 외 ${left.length - 4}` : '') : '<s>모두 끝냄</s>'}</span><span class="ct">${g.length - left.length}/${g.length}</span></li>`;
+      return `<li><span class="tx">${left.length ? left.slice(0, 4).map(it => esc(it.text)).join(' · ') + (left.length > 4 ? ` 외 ${left.length - 4}` : '') : '<s>모두 끝냄</s>'}</span><span class="ct">${g.length - left.length}/${g.length}</span></li>`;
     }).join('');
     const p = progress(list);
     const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
@@ -177,7 +178,7 @@ function itemHtml(it) {
   if (editing === it.id) {
     return `<li class="ck-row edit"><form class="ck-edit" data-id="${esc(it.id)}" autocomplete="off">
       <input name="text" value="${esc(it.text)}" aria-label="내용" maxlength="200">
-      <select name="repeat" aria-label="반복">${REPEATS.map(r => `<option value="${r}"${it.repeat === r ? ' selected' : ''}>${REPEAT_NAME[r]}</option>`).join('')}</select>
+      <input type="hidden" name="repeat" value="once">
       <select name="owner" aria-label="담당">${members().map(m => `<option${it.owner === m ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select>
       <button type="submit" class="pri">저장</button><button type="button" data-a="cancel">취소</button>
     </form></li>`;

@@ -239,7 +239,7 @@ body.panel-open{overflow:hidden}
 .ck-card h3{margin:0;font-size:24px;line-height:28px;letter-spacing:-.6px}
 .ck-card header .ct{font-size:13px;line-height:18px;color:var(--muted);font-variant-numeric:tabular-nums}
 .ck-card ul{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
-.ck-card li{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;font-size:14px;line-height:20px}
+.ck-card li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;font-size:14px;line-height:20px}
 .ck-card li .rp{color:var(--muted);font-size:13px}
 .ck-card li .tx{min-width:0;word-break:keep-all}
 .ck-card li .tx s{color:var(--faint);text-decoration:none}
