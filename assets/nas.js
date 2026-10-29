@@ -26,7 +26,7 @@ class NasError extends Error { constructor(msg, code, expired) { super(msg); thi
 async function call(params, opt = {}) {
   const s = store.get();
   const body = new URLSearchParams(params);
-  if (s && !opt.noSession) { body.set('_sid', s.sid); if (s.token) body.set('SynoToken', s.token); }
+  if (s && !opt.noSession) body.set('_sid', s.sid);
   let r;
   try { r = await fetch(CFG.NAS_API, { method: 'POST', body }); }
   catch (e) { throw new NasError('NAS에 연결할 수 없습니다. NAS가 켜져 있는지, 연결 주소 설정이 맞는지 확인해 주세요'); }
@@ -37,7 +37,13 @@ async function call(params, opt = {}) {
   let j; try { j = await r.json(); } catch (e) { throw new NasError('NAS 응답을 읽을 수 없습니다 (' + r.status + ')'); }
   if (j.success) return j.data || {};
   const code = j.error && j.error.code;
-  if (EXPIRED.includes(code)) { store.set(null); throw new NasError('NAS 로그인 시간이 지났습니다. 다시 로그인해 주세요', code, true); }
+  if (EXPIRED.includes(code)) {
+    // 로그인 직후(1분 안)에 세션이 거절되면 시간 만료가 아니라 NAS 설정 문제이므로 다른 안내를 보여줌
+    const fresh = s && Date.now() - s.at < 60000;
+    store.set(null);
+    throw new NasError(fresh ? 'NAS가 방금 만든 로그인을 받아주지 않았습니다 (코드 ' + code + '). 관리자에게 알려주세요'
+                             : 'NAS 로그인 시간이 지났습니다. 다시 로그인해 주세요 (코드 ' + code + ')', code, true);
+  }
   const map = params.api === 'SYNO.API.Auth' ? AUTH_ERR : FS_ERR;
   throw new NasError(map[code] || ('NAS 오류 ' + code), code);
 }
@@ -46,10 +52,10 @@ const NAS = {
   configured,
   session: () => store.get(),
   async login(account, passwd, otp) {
-    const p = { api: 'SYNO.API.Auth', version: '6', method: 'login', account, passwd, session: 'FileStation', format: 'sid', enable_syno_token: 'yes' };
+    const p = { api: 'SYNO.API.Auth', version: '6', method: 'login', account, passwd, session: 'FileStation', format: 'sid' };
     if (otp) p.otp_code = otp;
     const d = await call(p, { noSession: true });
-    store.set({ sid: d.sid, token: d.synotoken || '', account, at: Date.now() });
+    store.set({ sid: d.sid, account, at: Date.now() });
   },
   async logout() {
     const s = store.get(); if (!s) return;
