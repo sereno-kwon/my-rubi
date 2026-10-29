@@ -85,6 +85,22 @@ const NAS = {
     const r = await call({ api: 'SYNO.FileStation.Download', version: '1', method: 'download', path, mode: open ? 'open' : 'download' }, { raw: true });
     return r.blob();
   },
+  // 이미지 미리보기. NAS가 만들어 둔 작은 썸네일(SYNO.FileStation.Thumb)을 먼저 쓰고,
+  // 연결 파일이 아직 Thumb를 막고 있으면(예전 index.php) 크지 않은 사진만 원본을 받아 대신 보여줌
+  thumbApi: true,
+  async thumb(f) {
+    if (NAS.thumbApi) {
+      try {
+        const r = await call({ api: 'SYNO.FileStation.Thumb', version: '2', method: 'get', path: f.path, size: 'medium' }, { raw: true });
+        if (r instanceof Response) return r.blob();
+      } catch (e) {
+        if (e.expired) throw e;
+        if (e.code === 'api_not_allowed') NAS.thumbApi = false; // 그 밖의 오류는 아래 원본 받기로 넘어감
+      }
+    }
+    if (!WEB_IMG.test(f.name) || (f.size || 0) > 15 * 1024 * 1024) throw new NasError('미리보기를 만들 수 없습니다');
+    return NAS.download(f.path, true);
+  },
   fileStationUrl(path) {
     if (!CFG.NAS_WEB) return '';
     return CFG.NAS_WEB.replace(/\/$/, '') + '/?launchApp=SYNO.SDS.App.FileStation3.Instance&launchParam=' + encodeURIComponent('openfile=' + encodeURIComponent(path));
@@ -106,6 +122,8 @@ const KIND = [
   [/\.(zip|rar|7z|tar|gz)$/i, 'zip', '압축'],
   [/\.(ai|psd|indd|eps|sketch|fig)$/i, 'art', '디자인'],
 ];
+const WEB_IMG = /\.(jpe?g|png|gif|webp|bmp|svg)$/i;
+const THUMBABLE = /\.(jpe?g|png|gif|webp|heic|heif|tiff?|bmp|svg|cr2|cr3|nef|arw|dng|raf)$/i;
 const OPENABLE = /\.(jpe?g|png|gif|webp|svg|pdf|txt|mp4|mov|m4v)$/i;
 function kindOf(f) { if (f.dir) return ['dir', '폴더']; const k = KIND.find(x => x[0].test(f.name)); return k ? [k[1], k[2]] : ['file', '파일']; }
 function fmtSize(n) {
@@ -132,8 +150,67 @@ class View {
   constructor(body) {
     this.body = body; this.path = ''; this.items = []; this.mode = 'browse'; this.task = null; this.sel = null; this.shares = [];
     this.searchQ = ''; this.alive = true;
+    this.thumbs = new Map(); this.tip = null; this.tipFor = null; this.tipTimer = 0;
   }
-  destroy() { this.alive = false; if (this.task) NAS.searchStop(this.task); this.task = null; }
+  destroy() {
+    this.alive = false; if (this.task) NAS.searchStop(this.task); this.task = null;
+    this.hideTip(); if (this.tip) { this.tip.remove(); this.tip = null; }
+    this.thumbs.forEach(v => { if (v.url) URL.revokeObjectURL(v.url); }); this.thumbs.clear();
+  }
+
+  // ─── 이미지 위에 마우스를 올리면 그 줄 위쪽에 썸네일 ───
+  bindTips(list) {
+    if (matchMedia('(hover: none)').matches) return;
+    list.addEventListener('mouseover', e => {
+      const r = e.target.closest('.nas-row'); if (!r || r === this.tipFor) return;
+      const f = this.items[+r.dataset.i];
+      if (!f || f.dir || !THUMBABLE.test(f.name)) { this.hideTip(); return; }
+      this.hideTip(); this.tipFor = r;
+      this.tipTimer = setTimeout(() => this.showTip(r, f), 220);
+    });
+    list.addEventListener('mouseleave', () => this.hideTip());
+    list.addEventListener('scroll', () => this.hideTip(), { passive: true });
+  }
+  hideTip() {
+    clearTimeout(this.tipTimer); this.tipFor = null;
+    if (this.tip) this.tip.classList.remove('on');
+  }
+  placeTip(row) {
+    const t = this.tip, rr = row.getBoundingClientRect(), name = row.querySelector('.n') || row;
+    const nr = name.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight, gap = 8;
+    let top = rr.top - h - gap, below = false;
+    if (top < 8) { top = rr.bottom + gap; below = true; }          // 위에 자리가 없으면 아래로
+    const left = Math.max(8, Math.min(nr.left, innerWidth - w - 8));
+    t.style.top = Math.round(top) + 'px'; t.style.left = Math.round(left) + 'px';
+    t.classList.toggle('below', below);
+  }
+  async showTip(row, f) {
+    if (this.tipFor !== row || !this.alive) return;
+    if (!this.tip) { this.tip = document.createElement('div'); this.tip.className = 'nas-thumb'; this.tip.setAttribute('aria-hidden', 'true'); document.body.appendChild(this.tip); }
+    const t = this.tip;
+    const label = `<span class="cap"><span class="cn">${esc(f.name)}</span><span class="cs">${esc(fmtSize(f.size))}</span></span>`;
+    let c = this.thumbs.get(f.path);
+    if (c && c.url) t.innerHTML = `<img src="${c.url}" alt="">${label}`;
+    else if (c && c.err) t.innerHTML = `<span class="msg">${esc(c.err)}</span>${label}`;
+    else t.innerHTML = `<span class="msg">미리보기 불러오는 중</span>${label}`;
+    this.placeTip(row); t.classList.add('on');
+    if (c) return;
+    c = {}; this.thumbs.set(f.path, c);
+    try {
+      const blob = await NAS.thumb(f);
+      if (!blob || !/^image\//.test(blob.type || 'image/')) throw new Error('미리보기를 만들 수 없습니다');
+      c.url = URL.createObjectURL(blob);
+      if (this.thumbs.size > 80) { const [k, v] = this.thumbs.entries().next().value; if (v.url) URL.revokeObjectURL(v.url); this.thumbs.delete(k); }
+    } catch (e) {
+      if (e.expired) { this.thumbs.delete(f.path); this.hideTip(); return this.fail(e); }
+      c.err = e.message || '미리보기를 만들 수 없습니다';
+    }
+    if (this.tipFor !== row || !this.alive) return;
+    t.innerHTML = c.url ? `<img src="${c.url}" alt="">${label}` : `<span class="msg">${esc(c.err)}</span>${label}`;
+    const img = t.querySelector('img');
+    if (img && !img.complete) img.onload = () => { if (this.tipFor === row) this.placeTip(row); };
+    else this.placeTip(row);
+  }
   start(q) {
     if (!configured()) return this.renderSetup();
     if (!store.get()) return this.renderLogin(q);
@@ -194,6 +271,7 @@ class View {
     b.querySelector('.nas-q').onsubmit = e => { e.preventDefault(); const v = e.target.querySelector('input').value.trim(); v ? this.runSearch(v) : this.go(this.path); };
     b.querySelector('.nas-q input').addEventListener('keydown', e => { if (e.key === 'Escape' && this.mode === 'search') { e.target.value = ''; this.go(this.path); } });
     const list = b.querySelector('.nas-list');
+    this.bindTips(list);
     list.addEventListener('click', e => { const r = e.target.closest('.nas-row'); if (!r) return; this.select(+r.dataset.i); if (e.detail === 0 || matchMedia('(pointer:coarse)').matches) this.open(this.items[+r.dataset.i]); });
     list.addEventListener('dblclick', e => { const r = e.target.closest('.nas-row'); if (r) this.open(this.items[+r.dataset.i]); });
     list.addEventListener('contextmenu', e => { const r = e.target.closest('.nas-row'); if (!r) return; e.preventDefault(); e.stopPropagation(); this.select(+r.dataset.i); this.menu(this.items[+r.dataset.i], e.clientX, e.clientY); });
@@ -273,6 +351,7 @@ class View {
   }
 
   draw(items, loading) {
+    this.hideTip();
     this.items = items;
     const list = this.body.querySelector('.nas-list'); if (!list) return;
     if (!items.length) { list.innerHTML = loading ? '' : `<div class="nas-empty">${this.mode === 'search' ? '' : '비어 있는 폴더입니다'}</div>`; return; }

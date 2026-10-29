@@ -4,7 +4,7 @@
  *
  * 포털(my.rubiworkshop.com)이 NAS의 File Station API를 부를 수 있게 중간에서 전달함.
  * - my.rubiworkshop.com 에서 온 요청만 받음
- * - 로그인/로그아웃, 폴더 목록, 검색, 내려받기 API만 통과시킴 (파일 삭제·이동·공유 등은 막힘)
+ * - 로그인/로그아웃, 폴더 목록, 검색, 내려받기, 썸네일 API만 통과시킴 (파일 삭제·이동·공유 등은 막힘)
  * - 비밀번호나 세션을 이 파일이 저장하지 않음. 받은 요청을 NAS에 그대로 넘기고 응답을 돌려줌
  * 설치: nas/README.md
  */
@@ -19,6 +19,7 @@ const ALLOWED = [
   'SYNO.FileStation.List'     => ['list_share', 'list', 'getinfo'],
   'SYNO.FileStation.Search'   => ['start', 'list', 'stop', 'clean'],
   'SYNO.FileStation.Download' => ['download'],
+  'SYNO.FileStation.Thumb'    => ['get'],   // 이미지 썸네일 (마우스 올렸을 때 미리보기)
 ];
 
 // ───── CORS ─────

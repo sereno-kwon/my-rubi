@@ -123,6 +123,15 @@ svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stro
 .nas-login .btn{margin:12px 0 0;min-height:48px}
 .nas-msg{min-height:18px;font-size:13px;line-height:18px;color:var(--danger);word-break:keep-all}
 .nas-msg.ok{color:var(--muted)}
+/* 이미지 줄에 마우스를 올리면 그 줄 위쪽에 뜨는 썸네일 */
+.nas-thumb{position:fixed;z-index:1000;top:0;left:0;width:260px;padding:8px;background:var(--bg);border:1px solid var(--fg);box-shadow:0 12px 32px rgba(0,0,0,.18);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;visibility:hidden}
+.nas-thumb.below{transform:translateY(-4px)}
+.nas-thumb.on{opacity:1;transform:none;visibility:visible}
+.nas-thumb img{display:block;width:100%;height:auto;max-height:220px;object-fit:contain;background:var(--surface)}
+.nas-thumb .msg{display:flex;align-items:center;justify-content:center;height:140px;background:var(--surface);color:var(--muted);font-size:12px;line-height:16px;text-align:center;padding:0 12px;word-break:keep-all}
+.nas-thumb .cap{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:12px;line-height:16px}
+.nas-thumb .cn{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nas-thumb .cs{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
 
 
 /* ---------- 재고 확인 (assets/stock.js) ---------- */
