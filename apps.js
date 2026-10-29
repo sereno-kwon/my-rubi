@@ -15,12 +15,12 @@
 
 window.MYRUBI_APPS = [
   // 자주 여는 곳
+  { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
   { id: 'index',     title: 'Index 시트',  icon: 'sheet',  tint: 'green', kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1wkogYTTI26ha1YsYu35pOLSBFSxIRok58qYRqRw18mA/edit' },
   { id: 'customers', title: '고객 폴더',   icon: 'folder', tint: 'amber', kind: 'link', url: 'https://drive.google.com/drive/folders/1nNNZEw7Pn7a186FraNtmodHsIwtncfH4' },
   { id: 'ecount',    title: '이카운트 ERP', icon: 'box',   tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/' },
   { id: 'channel',   title: '채널톡',      icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
-  { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
 
   // 폴더
   { id: 'google',    title: 'GOOGLE',     kind: 'folder' },
