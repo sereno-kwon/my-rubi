@@ -17,7 +17,7 @@
 - 포털 전용 연결 주소는 그 아래 하위 이름 하나를 씁니다: **`myrubi.rubibase.synology.me`**
   - Synology DDNS는 하위 이름(`*.rubibase.synology.me`)도 같은 NAS로 연결되므로 DNS 설정은 따로 하지 않습니다.
   - DSM 화면(5001)과 주소를 나눠 두면, 포털 연결 파일만 따로 켜고 끌 수 있습니다.
-- 공유기 포트 포워딩: **443**(HTTPS)과 **80**(인증서 발급 확인용)을 NAS로 보냅니다. 지금 5001만 열려 있다면 이 두 개를 추가합니다.
+- 공유기 포트 포워딩: 루비 공유기는 공용 443을 DSM(5001)으로 보내고 있어서, 포털 연결용으로 **공용 8443 → NAS 443** 규칙을 따로 둡니다 (DSM 접속 방식은 그대로). 그래서 연결 주소에 `:8443` 이 붙습니다.
 
 ## NAS 설정 (DSM 7 기준, 20분)
 
@@ -27,14 +27,14 @@
 4. **웹 서비스**: Web Station → 웹 서비스 → 생성 → 기본 서비스(PHP), 문서 루트 `web/myrubi-nas`, PHP 프로필 `myrubi`.
 5. **웹 포털**: Web Station → 웹 포털 → 생성 → 방금 만든 서비스, 포털 유형 **이름 기반**, 호스트 이름 `myrubi.rubibase.synology.me`, 포트 HTTPS **443** 체크.
 6. **인증서**: 제어판 → 보안 → 인증서 에서 `rubibase.synology.me` 인증서를 고르고 **추가 → 기존 인증서 교체 → Let's Encrypt** 로 다시 받으면서, 주체 대체 이름(SAN)에 `*.rubibase.synology.me` 를 넣습니다. 발급되면 같은 화면의 **설정**에서 `myrubi.rubibase.synology.me` 웹 포털에 이 인증서를 지정합니다.
-7. **확인**: 브라우저로 `https://myrubi.rubibase.synology.me/` 을 열었을 때 `{"success":false,"error":{"code":"method_not_allowed"}}` 가 보이면 정상입니다. 자물쇠(HTTPS)가 경고 없이 떠야 합니다.
+7. **확인**: 브라우저로 `https://myrubi.rubibase.synology.me:8443/` 을 열었을 때 `{"success":false,"error":{"code":"method_not_allowed"}}` 가 보이면 정상입니다. 자물쇠(HTTPS)가 경고 없이 떠야 합니다.
 
 ## 포털 설정
 
 `config.js` 에 두 줄을 넣고 커밋합니다.
 
 ```js
-NAS_API: 'https://myrubi.rubibase.synology.me/',
+NAS_API: 'https://myrubi.rubibase.synology.me:8443/',
 NAS_WEB: 'https://rubibase.synology.me:5001',   // 'File Station에서 열기' 메뉴용, 비워도 됨
 ```
 
