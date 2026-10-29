@@ -115,7 +115,7 @@ APPS 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 - `assets/board.js` 공지·일정 포스트잇
 - `assets/checklist.js` 멤버별 체크리스트
 - `nas/proxy/index.php` NAS Web Station에 올리는 연결 파일, `nas/README.md` 설치 안내
-- `nas/stock/` NAS 컨테이너로 띄우는 이카운트 재고 조회 서비스 (`stock.py`, `docker-compose.yml`, `.env.example`, 설치 안내 `README.md`)
+- `nas/stock/` NAS 컨테이너로 띄우는 이카운트 재고 조회 서비스 (`stock.py`, `docker-compose.yml`, `stock.env.example`, 설치 안내 `README.md`)
 - `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID, 체크리스트 멤버 목록, NAS·재고 서버 주소
 - `lib.js` 로그인 세션과 API 호출 (두 화면과 앱이 같이 씀)
 - `apps-script/Code.gs` 백엔드: 구글 로그인 확인, 세션, 구글 드라이브·`00_My Rubi Index` 시트(공지·체크리스트 탭 포함)

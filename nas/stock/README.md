@@ -6,7 +6,7 @@
 포털(my.rubiworkshop.com) ──HTTPS──▶ DSM 역방향 프록시 ──▶ rubi-stock 컨테이너(127.0.0.1:8790) ──▶ 이카운트 OpenAPI
 ```
 
-- 이카운트 API는 등록한 사무실 IP에서만 부를 수 있어서, 같은 회선의 NAS가 대신 부릅니다. API 인증키는 NAS의 `.env` 에만 있고 브라우저로 가지 않습니다.
+- 이카운트 API는 등록한 사무실 IP에서만 부를 수 있어서, 같은 회선의 NAS가 대신 부릅니다. API 인증키는 NAS의 `stock.env` 에만 있고 브라우저로 가지 않습니다.
 - 포털에 구글 계정으로 로그인한 직원만 쓸 수 있습니다. 서비스가 포털 세션을 Apps Script에 확인합니다.
 - 조회만 합니다. 이 서비스는 이카운트에 아무것도 쓰지 않습니다.
 - ecount-sync 와 따로 도는 컨테이너라 한쪽을 멈추거나 고쳐도 다른 쪽에 영향이 없습니다.
@@ -30,8 +30,8 @@
 
 ## NAS 설정 (DSM 7, 20분)
 
-1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), 이 저장소 `nas/stock/` 의 세 파일을 올립니다: `stock.py`, `docker-compose.yml`, `.env.example`
-2. **`.env` 만들기**: `.env.example` 을 내려받아 값을 채운 뒤 `.env` 라는 이름으로 같은 폴더에 올립니다.
+1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), 그 안에 빈 `data` 폴더도 하나 만듭니다.
+2. **파일 올리기**: `stock.py`, `docker-compose.yml`, `stock.env` 세 개를 `rubi-stock` 폴더에 올립니다. `stock.env` 는 저장소의 `stock.env.example` 을 이름만 바꿔 값을 채운 파일입니다(인증키가 들어가므로 저장소에는 올리지 않음). 맥에서 점으로 시작하는 파일(.env)은 숨겨져서 올리기 번거로워 이 이름을 씁니다.
    - `ECOUNT_COM_CODE`, `ECOUNT_USER_ID`, `ECOUNT_API_KEY`: 위 권장대로 받은 인증키
    - `ECOUNT_ZONE`: ecount-sync 설정에 있는 존 코드를 그대로 적으면 존 조회를 건너뜁니다
    - `PORTAL_API_URL` 은 미리 채워져 있습니다 (포털 `config.js` 의 `API_URL`)
@@ -63,14 +63,14 @@ STOCK_API: 'https://stock.rubibase.synology.me/',
 ## 고치거나 업데이트할 때
 
 - `stock.py` 를 새 버전으로 바꿔 올린 뒤 Container Manager에서 프로젝트를 **다시 시작**하면 됩니다. 세션과 품목 목록은 `data/` 폴더에 남아 있어 재시작해도 이카운트에 다시 로그인하지 않습니다.
-- `.env` 를 바꿨다면 프로젝트를 **중지 → 빌드(또는 정리 후 시작)** 해야 새 값이 들어갑니다.
+- `stock.env` 를 바꿨다면 프로젝트를 **중지 → 빌드(또는 정리 후 시작)** 해야 새 값이 들어갑니다.
 
 ## 문제가 생기면
 
 | 증상 | 확인할 것 |
 |---|---|
 | 재고 창에 "재고 서버에 연결할 수 없습니다" | 7번 확인 주소가 열리는지, 역방향 프록시 대상 포트 8790, 컨테이너가 실행 중인지 |
-| "포털 로그인을 확인할 수 없습니다" | `.env` 의 `PORTAL_API_URL` 이 포털 `config.js` 의 `API_URL` 과 같은지 |
+| "포털 로그인을 확인할 수 없습니다" | `stock.env` 의 `PORTAL_API_URL` 이 포털 `config.js` 의 `API_URL` 과 같은지 |
 | "이카운트 로그인 실패" | 인증키·사용자 ID, 그리고 이카운트 API IP 등록에 사무실 회선이 들어 있는지 |
 | "이카운트 로그인은 10분에 한 번만 됩니다" | 방금 재시작했거나 세션이 끝난 직후입니다. 10분 뒤 다시 |
 | "오류가 이어져 잠시 쉬는 중" | 컨테이너 로그에서 바로 앞 오류를 확인. 10분 뒤 자동으로 다시 시도 |

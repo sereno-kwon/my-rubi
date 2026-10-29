@@ -1,5 +1,5 @@
 # My Rubi 재고 조회 서비스 (Synology Container Manager 프로젝트)
-# 이 폴더(stock.py, .env 가 있는 곳)를 프로젝트 경로로 지정하면 됨. 설치 안내는 README.md
+# 이 폴더(stock.py, stock.env 가 있는 곳)를 프로젝트 경로로 지정하면 됨. 설치 안내는 README.md
 services:
   rubi-stock:
     image: python:3.12-slim
@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     working_dir: /app
     command: python -u stock.py serve
-    env_file: .env
+    env_file: stock.env
     environment:
       - TZ=Asia/Seoul
       - DATA_DIR=/data

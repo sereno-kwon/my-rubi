@@ -34,7 +34,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# ───────────────────────────── 설정 (.env) ─────────────────────────────
+# ───────────────────────────── 설정 (stock.env) ─────────────────────────────
 
 ENV = os.environ.get
 COM_CODE = ENV('ECOUNT_COM_CODE', '').strip()
@@ -237,7 +237,7 @@ class Ecount:
 
     def _login(self):
         if not (COM_CODE and USER_ID and API_KEY):
-            raise EcountError('.env 에 ECOUNT_COM_CODE, ECOUNT_USER_ID, ECOUNT_API_KEY 를 넣어 주세요')
+            raise EcountError('stock.env 에 ECOUNT_COM_CODE, ECOUNT_USER_ID, ECOUNT_API_KEY 를 넣어 주세요')
         if not self._slow_ok('login_at'):
             raise EcountError(f'이카운트 로그인은 10분에 한 번만 됩니다. {(self._wait_left("login_at") + 59) // 60}분 뒤 다시 시도해 주세요')
         base = self._base()
@@ -397,7 +397,7 @@ def portal_user(token):
     if c and now() - c[0] < (AUTH_TTL if c[1] else 30):
         return c[1]
     if not PORTAL_API_URL:
-        raise RuntimeError('.env 에 PORTAL_API_URL 이 없습니다')
+        raise RuntimeError('stock.env 에 PORTAL_API_URL 이 없습니다')
     url = PORTAL_API_URL + ('&' if '?' in PORTAL_API_URL else '?') + urllib.parse.urlencode({'action': 'me', 's': token})
     try:
         with urllib.request.urlopen(url, timeout=20) as r:
@@ -519,7 +519,7 @@ def main():
     missing = [k for k, v in (('ECOUNT_COM_CODE', COM_CODE), ('ECOUNT_USER_ID', USER_ID),
                               ('ECOUNT_API_KEY', API_KEY), ('PORTAL_API_URL', PORTAL_API_URL)) if not v]
     if missing:
-        log('.env 에 빠진 값:', ', '.join(missing))
+        log('stock.env 에 빠진 값:', ', '.join(missing))
     log(f'재고 조회 서비스 시작 :{PORT}  기준 창고 {MAIN_WH}  품목 {len(EC.index)}개(저장본)')
     threading.Thread(target=background, daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()
