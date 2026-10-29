@@ -1,1 +1,4 @@
 .DS_Store
+nas/stock/.env
+nas/stock/data/
+__pycache__/

@@ -125,6 +125,60 @@ svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stro
 .nas-msg.ok{color:var(--muted)}
 
 
+/* ---------- 재고 확인 (assets/stock.js) ---------- */
+.stk{display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--fg)}
+.stk-bar{height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--fg);color:var(--muted)}
+.stk-bar input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:18px;line-height:24px;letter-spacing:-.4px;color:var(--fg);user-select:text}
+.stk-bar input::placeholder{color:var(--faint)}
+.stk-bar:focus-within{color:var(--fg)}
+.stk-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+.stk-list{overflow:auto;border-right:1px solid var(--line);user-select:none}
+.stk-row{display:flex;align-items:center;gap:16px;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line);cursor:pointer}
+.stk-row:hover{background:var(--surface)}
+.stk-row.sel{background:var(--surface);box-shadow:inset 2px 0 0 var(--fg)}
+.stk-row.cur .n{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.stk-row .t{flex:1;min-width:0;display:flex;flex-direction:column}
+.stk-row .n{font-size:15px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stk-row .s{font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.stk-row .q{flex:none;min-width:40px;text-align:right;font-size:15px;line-height:22px;font-variant-numeric:tabular-nums}
+.stk-row .q.zero,.stk-row .q.none{color:var(--faint)}
+.stk-row.direct .n{color:var(--muted)}
+.stk-hint{padding:32px 20px;max-width:420px}
+.stk-hint p{margin:0 0 12px;font-size:14px;line-height:21px;color:var(--muted);word-break:keep-all}
+.stk-detail{overflow:auto;padding:32px 32px 40px;user-select:text}
+.stk-detail h2{margin:4px 0 4px;font-size:24px;line-height:28px;letter-spacing:-.6px;word-break:keep-all}
+.stk-detail .sz{margin:0;font-size:14px;line-height:20px;color:var(--muted)}
+.stk-back{display:none}
+.stk-empty{height:100%;display:flex;flex-direction:column;justify-content:center;gap:8px}
+.stk-empty p{margin:0;font-size:14px;line-height:21px;color:var(--muted)}
+.stk-wait{margin:32px 0 0;font-size:14px;line-height:20px;color:var(--muted)}
+.stk-err{margin:32px 0 16px;font-size:14px;line-height:21px;color:var(--danger);word-break:keep-all}
+.stk-main-wh{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:32px 0 0;padding:16px 0;border-top:1px solid var(--fg);border-bottom:1px solid var(--fg)}
+.stk-main-wh .lb{font-size:13px;line-height:18px;color:var(--muted)}
+.stk-main-wh .big{font-size:28px;line-height:32px;letter-spacing:var(--ls-title);font-variant-numeric:tabular-nums}
+.stk-main-wh .big.zero{color:var(--danger)}
+.stk-wh{width:100%;border-collapse:collapse;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums}
+.stk-wh th{text-align:left;font-weight:400;font-size:12px;line-height:16px;color:var(--muted);padding:16px 0 8px}
+.stk-wh th:last-child,.stk-wh td.n{text-align:right}
+.stk-wh td{padding:10px 0;border-bottom:1px solid var(--line)}
+.stk-wh td.c{width:88px;color:var(--muted)}
+.stk-wh td.zero,.stk-wh td.none{color:var(--faint)}
+.stk-wh td.neg{color:var(--danger)}
+.stk-wh tfoot td{border-bottom:none;padding-top:14px}
+.stk-at{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:24px 0 0;font-size:12px;line-height:16px;color:var(--muted)}
+.stk-status{height:32px;flex:none;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stk-status .st{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stk-status .ct{flex:none;display:flex;align-items:center;gap:12px;white-space:nowrap}
+@media (max-width:720px){
+  .stk-main{grid-template-columns:1fr}
+  .stk-detail{display:none;padding:20px 16px 32px}
+  .stk.show-detail .stk-list{display:none}
+  .stk.show-detail .stk-detail{display:block}
+  .stk-back{display:inline-flex;align-items:center;gap:4px;height:36px;margin:0 0 16px -8px;padding:0 8px;border:none;background:none;font-size:14px;color:var(--muted)}
+  .stk-bar,.stk-row,.stk-status{padding-left:16px;padding-right:16px}
+  .stk-status .ct .lnk{display:none}
+}
+
 /* ---------- 포스트잇 (공지·일정): 각진 카드, 색은 위쪽 선으로만 ---------- */
 .board.collapsed{width:auto}
 .bd-head{display:flex;align-items:center;justify-content:flex-end;gap:0;flex:none;border:1px solid var(--d-line)}

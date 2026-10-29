@@ -5,7 +5,7 @@
 //   link    : 새 탭으로 열림 (외부 사이트는 대부분 창 안에 넣을 수 없음)
 //   frame   : 바탕화면 안의 창으로 열림 (my.rubiworkshop.com 안의 페이지용, 예: url:'/consult/')
 //   folder  : 창 안에 아이콘 모음. 앱에 folder:'폴더 id' 를 적으면 그 폴더 안에 들어감
-//   builtin : 포털 내장 (체크리스트, NAS, 바탕화면 설정)
+//   builtin : 포털 내장 (체크리스트, 재고 확인, NAS, 바탕화면 설정)
 //   soon    : 준비 중 (아이콘만 보이고, 열면 안내 창)
 //
 // icon : server chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench check
@@ -16,6 +16,7 @@
 window.MYRUBI_APPS = [
   // 자주 여는 곳
   { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
+  { id: 'stock',     title: '재고 확인',    icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
   { id: 'ecount',    title: '이카운트 ERP', icon: 'box',   tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/' },
   { id: 'channel',   title: '채널톡',      icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },

@@ -75,6 +75,17 @@ APPS 목록의 **체크리스트**, 또는 오른쪽 CHECKLIST 칸의 이름을 
 - 지금 로그인된 사람 목록: `listSessions` 실행 후 실행 로그 확인
 - 로그인이 지키는 것은 Apps Script 데이터(상담 기록 등)입니다. 바탕화면 HTML과 링크 목록 자체는 GitHub Pages라서 주소를 알면 받아볼 수 있습니다.
 
+## 재고 확인 (이카운트)
+
+APPS 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어를 넣고 "이카운트 재고에서 찾기" 줄을 고르면 열립니다. 품목 이름·품목코드·규격·바코드로 찾고, 품목을 고르면(Enter·클릭) 그 순간의 이카운트 창고별 재고를 불러옵니다. RLD 창고가 맨 위에 크게, 나머지 창고와 전체 합계가 아래에 보입니다.
+
+- 바코드 스캐너로 찍으면 바로 조회됩니다. 목록에 없는 새 품목은 품목코드를 그대로 넣고 "코드로 바로 조회"를 고릅니다.
+- 검색 목록 오른쪽 숫자는 그 품목을 마지막으로 조회했을 때의 RLD 재고입니다(조회한 적 없으면 점).
+- 이카운트 API는 사무실 IP에서만 부를 수 있어서 NAS의 재고 조회 서비스(`nas/stock/`)가 대신 부릅니다. 포털에 구글 계정으로 로그인한 직원만 쓸 수 있고, 조회만 합니다.
+- 품목 목록은 NAS가 하루 한 번(아침 7시 이후) 받아 두고 검색은 그 목록에서 합니다. 재고는 고를 때마다 이카운트에 직접 묻고, 같은 품목은 30초 동안 다시 묻지 않습니다. 이카운트 호출 제한 때문에 ecount-sync 와 부딪히지 않게 맞춰 두었습니다.
+- NAS 쪽 설치는 [`nas/stock/README.md`](nas/stock/README.md), 다 되면 `config.js` 의 `STOCK_API` 를 채웁니다. 비어 있는 동안은 재고 확인 창에 설치 안내가 보입니다.
+- 코드: `assets/stock.js`, 모양은 `assets/common.css` 의 재고 확인 부분, 서버는 `nas/stock/stock.py`
+
 ## NAS (Synology)
 
 바탕화면의 **NAS** 앱에서 공유 폴더를 보고, 파일 이름으로 검색하고, 파일을 열거나 내려받을 수 있습니다. 시작 메뉴 검색창에 단어를 넣으면 "NAS에서 파일 찾기" 줄이 함께 나옵니다. 직원마다 자기 NAS 계정으로 로그인하고, 비밀번호는 저장하지 않습니다. NAS 쪽 설치는 [`nas/README.md`](nas/README.md), 다 되면 `config.js` 의 `NAS_API`, `NAS_WEB` 을 채웁니다.
@@ -87,7 +98,7 @@ APPS 목록의 **체크리스트**, 또는 오른쪽 CHECKLIST 칸의 이름을 
 { id: 'naver-ad', title: '네이버 광고', icon: 'globe', tint: 'green', kind: 'link', url: 'https://searchad.naver.com/' },
 ```
 
-- `kind`: `link` 새 탭 / `frame` 포털 안의 창(같은 도메인 페이지, 예 `url: '/consult/'`) / `folder` 아이콘 모음 / `builtin` 내장(체크리스트, NAS, 설정) / `soon` 준비 중
+- `kind`: `link` 새 탭 / `frame` 포털 안의 창(같은 도메인 페이지, 예 `url: '/consult/'`) / `folder` 아이콘 모음 / `builtin` 내장(체크리스트, 재고 확인, NAS, 설정) / `soon` 준비 중
 - 폴더에 넣으려면 `folder: 'brands'` 처럼 폴더 id를 적음
 - 아이콘 이름과 색 목록은 `apps.js` 맨 위 주석 참고. 브랜드처럼 글자로 표시하려면 `mono: 'Mo'`
 - 상담 현황 같은 업무 앱이 완성되면 `kind: 'frame'` 과 `url` 로 한 줄 추가하면 됨
@@ -100,10 +111,12 @@ APPS 목록의 **체크리스트**, 또는 오른쪽 CHECKLIST 칸의 이름을 
 - `assets/rubi-type.css` 서체와 기본 색, `assets/common.css` 두 화면이 같이 쓰는 부품 모양
 - `apps.js` 앱 목록
 - `assets/nas.js` NAS 앱 (DSM File Station API)
+- `assets/stock.js` 재고 확인 앱 (NAS 재고 조회 서비스를 거쳐 이카운트)
 - `assets/board.js` 공지·일정 포스트잇
 - `assets/checklist.js` 멤버별 체크리스트
 - `nas/proxy/index.php` NAS Web Station에 올리는 연결 파일, `nas/README.md` 설치 안내
-- `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID, 체크리스트 멤버 목록
+- `nas/stock/` NAS 컨테이너로 띄우는 이카운트 재고 조회 서비스 (`stock.py`, `docker-compose.yml`, `.env.example`, 설치 안내 `README.md`)
+- `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID, 체크리스트 멤버 목록, NAS·재고 서버 주소
 - `lib.js` 로그인 세션과 API 호출 (두 화면과 앱이 같이 씀)
 - `apps-script/Code.gs` 백엔드: 구글 로그인 확인, 세션, 구글 드라이브·`00_My Rubi Index` 시트(공지·체크리스트 탭 포함)
 - `CNAME` my.rubiworkshop.com (GitHub Pages, main / root)

@@ -31,6 +31,7 @@ const pad = n => String(n).padStart(2, '0');
 const hasKo = t => /[가-힣]/.test(t);
 const nas = () => window.MYRUBI_NAS;
 const chk = () => window.MYRUBI_CHECK;
+const stk = () => window.MYRUBI_STOCK;
 const host = u => { try { return new URL(u, location.href).host.replace(/^www\./, ''); } catch (e) { return ''; } };
 
 function applyTheme() {
@@ -43,7 +44,7 @@ applyTheme();
 // ─────────── 목록 ───────────
 const q = $('#q'), listEl = $('#list'), crumbEl = $('#crumb'), recentEl = $('#recent');
 let folder = null;   // 열려 있는 폴더 id
-let rows = [];       // 지금 보이는 줄 [{ id } | { nas: '검색어' }]
+let rows = [];       // 지금 보이는 줄 [{ id } | { stock: '검색어' } | { nas: '검색어' }]
 let sel = 0;         // 키보드로 고른 줄
 
 function meta(a) {
@@ -104,6 +105,12 @@ function render() {
     s.items.forEach(a => { html += rowHtml(a, rows.length); rows.push({ id: a.id }); });
     html += '</ol>';
   });
+  // 검색어가 있으면 이카운트 재고, NAS 파일 찾기 줄을 함께 보여줌
+  if (raw && byId.stock && stk() && stk().configured()) {
+    const i = rows.length; rows.push({ stock: raw });
+    html += `<h2 class="sec-h"><span>STOCK</span></h2><ol class="rows"><li><a class="row k-stock" href="#stock" data-i="${i}" role="option">
+      <span class="no">${pad(i + 1)}</span><span class="tt">이카운트 재고에서 “${esc(raw)}” 찾기</span><span class="mt">품목 이름·코드·바코드</span><span class="ar" aria-hidden="true">→</span></a></li></ol>`;
+  }
   if (raw && byId.nas && nas() && nas().configured()) {
     const i = rows.length; rows.push({ nas: raw });
     html += `<h2 class="sec-h"><span>NAS</span></h2><ol class="rows"><li><a class="row k-nas" href="#nas" data-i="${i}" role="option">
@@ -146,6 +153,7 @@ function move(d) { if (!rows.length) return; sel = (sel + d + rows.length) % row
 
 function activate(i) {
   const r = rows[i]; if (!r) return;
+  if (r.stock != null) { remember('stock'); openPanel(byId.stock, r.stock); return; }
   if (r.nas != null) { openPanel(byId.nas, r.nas); return; }
   open(r.id);
 }
@@ -230,6 +238,7 @@ let panelId = null;
 function openPanel(a, nasQ) {
   closeMenu();
   if (panelId === 'nas' && a.id === 'nas' && nasQ && nas()) { nas().search(nasQ); return; }
+  if (panelId === 'stock' && a.id === 'stock' && nasQ && stk()) { stk().search(nasQ); return; }
   teardown();
   panelId = a.id;
   $('#pTitle').textContent = a.title;
@@ -242,17 +251,19 @@ function openPanel(a, nasQ) {
   if (a.kind === 'frame') pBody.innerHTML = `<iframe src="${esc(a.url)}" title="${esc(a.title)}"></iframe>`;
   else if (a.kind === 'soon') pBody.innerHTML = `<div class="soon"><span class="tag">준비 중</span><h2>${esc(a.title)}</h2><p>${esc(a.note || '곧 이 자리에서 열립니다.')}</p></div>`;
   else if (a.id === 'nas') { if (nas()) nas().mount(pBody, nasQ || null); }
+  else if (a.id === 'stock') { if (stk()) stk().mount(pBody, nasQ || null); }
   else if (a.id === 'checklist') { if (chk()) chk().mount(pBody); }
   else if (a.id === 'settings') settingsView();
   else pBody.innerHTML = '<div class="soon"><p>열 수 없는 항목입니다.</p></div>';
 
   try { history.replaceState(null, '', '#' + a.id); } catch (e) {}
-  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist') setTimeout(() => f.focus(), 30);
+  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist' && a.id !== 'stock') setTimeout(() => f.focus(), 30);
   else $('#pClose').focus();
 }
 function teardown() {
   if (panelId === 'nas' && nas()) nas().unmount();
   if (panelId === 'checklist' && chk()) chk().unmount();
+  if (panelId === 'stock' && stk()) stk().unmount();
   pBody.innerHTML = '';
   panelId = null;
 }

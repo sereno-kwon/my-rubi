@@ -220,7 +220,7 @@ function openApp(id) {
   createWin(a);
 }
 
-const SIZE_FOR = { folder: [640, 420], nas: [920, 620], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
+const SIZE_FOR = { folder: [640, 420], nas: [920, 620], stock: [960, 640], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
 function createWin(a) {
   const kind = a.kind === 'builtin' ? a.id : a.kind;
   // 항목이 많은 폴더(BRAND 등)는 창을 크게 연다
@@ -263,6 +263,7 @@ function fillWin(w) {
   else if (a.id === 'settings') body.innerHTML = settingsView();
   else if (a.id === 'trash') body.innerHTML = trashView();
   else if (a.id === 'nas') { if (window.MYRUBI_NAS) window.MYRUBI_NAS.mount(body, w.nasQ); w.nasQ = null; return; }
+  else if (a.id === 'stock') { if (window.MYRUBI_STOCK) window.MYRUBI_STOCK.mount(body); return; }
   else if (a.id === 'checklist') body.innerHTML = `<div class="pane"><h2>체크리스트</h2><p>멤버별 체크리스트는 텍스트 화면에서 엽니다.</p><a class="btn" href="/#checklist">텍스트 화면에서 열기</a></div>`;
   bindWinBody(w);
 }
@@ -287,6 +288,7 @@ function minimize(id) {
 function closeWin(id) {
   const w = wins.get(id); if (!w) return;
   if (id === 'nas' && window.MYRUBI_NAS) window.MYRUBI_NAS.unmount();
+  if (id === 'stock' && window.MYRUBI_STOCK) window.MYRUBI_STOCK.unmount();
   w.el.remove(); wins.delete(id);
   const t = topWin(); if (t) focusWin(t); else renderTaskbar();
 }
