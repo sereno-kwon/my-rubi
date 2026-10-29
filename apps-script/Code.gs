@@ -85,7 +85,7 @@ const CONFIG = {
   //  비워두면 이 스크립트를 실행하는 계정의 기본 캘린더만 보여줌
   //  회사 공용 캘린더는 '…@group.calendar.google.com', 직원 캘린더는 이메일 그대로 (이 계정에 공유되어 있어야 읽힘)
   //  예: CALENDARS: ['primary', 'abc123@group.calendar.google.com', 'oryun@rubiworkshop.com'],
-  CALENDARS: [],
+  CALENDARS: ['rubiworkshop.com_dl9dl4aqajbc3gludolt5of1o8@group.calendar.google.com'],
   // 같은 달을 다시 물을 때 이 시간(초) 동안은 캘린더를 다시 읽지 않고 받아 둔 결과를 돌려줌
   CALENDAR_CACHE_SEC: 120,
 };
