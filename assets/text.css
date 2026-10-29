@@ -128,12 +128,8 @@ body.panel-open{overflow:hidden}
 .p-btn kbd{border-color:var(--line);color:var(--muted)}
 .p-body{flex:1;min-height:0;overflow:auto;position:relative;user-select:text}
 .p-body iframe{border:none;width:100%;height:100%;display:block;background:var(--bg)}
-.p-memo .p-body,.p-nas .p-body{overflow:hidden}
+.p-nas .p-body{overflow:hidden}
 .p-settings .pane{margin:0 auto;max-width:720px;padding-top:40px}
-.p-body .memo{display:flex;flex-direction:column;height:100%;max-width:880px;margin:0 auto}
-.p-body .memo textarea{flex:1;border:none;resize:none;outline:none;padding:40px var(--gutter) 24px;font-size:18px;line-height:30px;background:var(--bg);color:var(--fg)}
-.p-body .memo textarea::placeholder{color:var(--faint)}
-.p-body .memo .status{height:36px;flex:none;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 var(--gutter);font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums}
 .p-body .soon{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;max-width:560px;margin:0 auto;height:100%;padding:32px var(--gutter);gap:12px}
 .p-body .soon h2{margin:0;font-size:28px;line-height:32px;letter-spacing:var(--ls-title)}
 .p-body .soon p{margin:0;color:var(--muted)}

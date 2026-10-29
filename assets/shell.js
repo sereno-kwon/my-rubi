@@ -14,7 +14,7 @@ const TOP = APPS.filter(a => !a.folder && a.kind !== 'folder').map(a => byId[a.i
 const FOLDERS = APPS.filter(a => a.kind === 'folder');
 
 // ─────────── 저장 ───────────
-const K_UI = 'myrubi.text.v1', K_RECENT = 'myrubi.recent', MEMO_KEY = 'myrubi.memo';
+const K_UI = 'myrubi.text.v1', K_RECENT = 'myrubi.recent';
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -243,7 +243,6 @@ function openPanel(a, nasQ) {
   else if (a.kind === 'soon') pBody.innerHTML = `<div class="soon"><span class="tag">준비 중</span><h2>${esc(a.title)}</h2><p>${esc(a.note || '곧 이 자리에서 열립니다.')}</p></div>`;
   else if (a.id === 'nas') { if (nas()) nas().mount(pBody, nasQ || null); }
   else if (a.id === 'checklist') { if (chk()) chk().mount(pBody); }
-  else if (a.id === 'memo') memoView();
   else if (a.id === 'settings') settingsView();
   else pBody.innerHTML = '<div class="soon"><p>열 수 없는 항목입니다.</p></div>';
 
@@ -267,16 +266,6 @@ function closePanel() {
 }
 $('#pClose').onclick = closePanel;
 $('#pBack').onclick = closePanel;
-
-function memoView() {
-  pBody.innerHTML = `<div class="memo"><textarea id="memoTxt" placeholder="오늘 할 일, 전화 올 곳, 잊으면 안 되는 것">${esc(ls.get(MEMO_KEY) || '')}</textarea>
-    <div class="status"><span>이 브라우저에만 저장됩니다</span><span id="memoState"></span></div></div>`;
-  const memo = $('#memoTxt'), st = $('#memoState'); let t;
-  memo.addEventListener('input', () => {
-    clearTimeout(t); st.textContent = '저장 중';
-    t = setTimeout(() => { ls.set(MEMO_KEY, memo.value); st.textContent = '저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }, 400);
-  });
-}
 
 function settingsView() {
   const themes = [['dark', '다크'], ['light', '라이트']];

@@ -12,7 +12,7 @@ const TOP = APPS.filter(a => !a.folder).map(a => a.id);
 const childrenOf = fid => APPS.filter(a => a.folder === fid);
 
 // ─────────── 저장 ───────────
-const KEY = 'myrubi.desktop.v1', MEMO_KEY = 'myrubi.memo';
+const KEY = 'myrubi.desktop.v1';
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -220,7 +220,7 @@ function openApp(id) {
   createWin(a);
 }
 
-const SIZE_FOR = { folder: [640, 420], nas: [920, 620], memo: [560, 460], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
+const SIZE_FOR = { folder: [640, 420], nas: [920, 620], settings: [600, 560], trash: [520, 420], soon: [460, 380], frame: [1180, 760] };
 function createWin(a) {
   const kind = a.kind === 'builtin' ? a.id : a.kind;
   // 항목이 많은 폴더(BRAND 등)는 창을 크게 연다
@@ -260,7 +260,6 @@ function fillWin(w) {
   if (a.kind === 'folder') body.innerHTML = folderView(a);
   else if (a.kind === 'frame') body.innerHTML = `<iframe src="${esc(a.url)}" title="${esc(a.title)}"></iframe>`;
   else if (a.kind === 'soon') body.innerHTML = soonView(a);
-  else if (a.id === 'memo') body.innerHTML = memoView();
   else if (a.id === 'settings') body.innerHTML = settingsView();
   else if (a.id === 'trash') body.innerHTML = trashView();
   else if (a.id === 'nas') { if (window.MYRUBI_NAS) window.MYRUBI_NAS.mount(body, w.nasQ); w.nasQ = null; return; }
@@ -378,10 +377,6 @@ function folderView(f) {
 function soonView(a) {
   return `<div class="soon">${glyph(a)}<h2>${esc(a.title)}</h2><p>${esc(a.note || '')}</p><span class="tag">준비 중</span></div>`;
 }
-function memoView() {
-  return `<div class="memo"><textarea id="memoTxt" placeholder="오늘 할 일, 전화 올 곳, 잊으면 안 되는 것">${esc(ls.get(MEMO_KEY) || '')}</textarea>
-    <div class="status"><span>이 브라우저에만 저장됩니다</span><span id="memoState"></span></div></div>`;
-}
 function settingsView() {
   const walls = [['geometry', '블랙'], ['ruby', '그라파이트'], ['stone', '화이트']];
   const sizes = [['s', '작게'], ['m', '보통'], ['l', '크게']];
@@ -416,14 +411,6 @@ function bindWinBody(w) {
     b.addEventListener('dblclick', () => openApp(id));
     b.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); iconMenu(id, e.clientX, e.clientY, 'folder'); });
   });
-  const memo = body.querySelector('#memoTxt');
-  if (memo) {
-    let t; const st = body.querySelector('#memoState');
-    memo.addEventListener('input', () => {
-      clearTimeout(t); st.textContent = '저장 중';
-      t = setTimeout(() => { ls.set(MEMO_KEY, memo.value); st.textContent = '저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }, 400);
-    });
-  }
   body.querySelectorAll('[data-wall]').forEach(b => b.onclick = () => { S.wall = b.dataset.wall; save(); renderDesk(); refreshWin('settings'); });
   body.querySelectorAll('[data-size]').forEach(b => b.onclick = () => setSize(b.dataset.size));
   body.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
