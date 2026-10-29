@@ -19,7 +19,7 @@
 |---|---|---|
 | 품목 목록(이름·규격·바코드) | 하루 한 번, 아침 7시 이후 첫 확인 때. 포털에서 수동으로 다시 받기도 가능(10분 간격) | 품목조회 (목록) |
 | 창고별 재고 | 품목을 고를 때마다, 그 품목 하나만. 같은 품목은 30초 동안 다시 묻지 않음 | 창고별재고현황 (단건) |
-| 로그인 | 세션이 끝났을 때만. 세션은 `data/state.json` 에 두어 재시작해도 다시 씀 | 로그인 |
+| 로그인 | 세션이 끝났을 때만. 세션은 저장소 볼륨의 `state.json` 에 두어 재시작해도 다시 씀 | 로그인 |
 
 - 이카운트 오류가 5번 이어지면 10분 쉬고, 하루 호출은 `DAILY_LIMIT`(기본 1000)을 넘지 않습니다.
 - 검색은 NAS에 받아 둔 품목 목록에서 하므로 이카운트를 부르지 않습니다. 오늘 새로 등록한 품목이 검색에 안 나오면 재고 확인 창 아래 **품목 목록 다시 받기**를 누르거나, 품목코드를 그대로 넣고 **코드로 바로 조회**를 쓰면 됩니다.
@@ -30,7 +30,7 @@
 
 ## NAS 설정 (DSM 7, 20분)
 
-1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), 그 안에 빈 `data` 폴더도 하나 만듭니다.
+1. **폴더 만들기**: File Station에서 `docker` 공유 폴더 안에 `rubi-stock` 폴더를 만들고(ecount-sync 와 나란히), (따로 만들 하위 폴더는 없습니다).
 2. **파일 올리기**: `stock.py`, `docker-compose.yml`, `stock.env` 세 개를 `rubi-stock` 폴더에 올립니다. `stock.env` 는 저장소의 `stock.env.example` 을 이름만 바꾼 파일이고, 그대로 올려도 됩니다.
    - 이카운트 회사코드·사용자 ID·인증키·존은 **ecount-sync 폴더의 설정 파일에서 자동으로 읽습니다.** `docker-compose.yml` 이 옆 폴더 `../ecount-sync` 를 읽기 전용으로 붙이고, 서비스가 그 안의 `.env`, `*.env`, `config*.json` 에서 이카운트 값을 찾습니다(이름이 `COM_CODE`, `ECOUNT_COM_CODE`, `API_CERT_KEY` 처럼 조금 달라도 알아봄). ecount-sync 쪽 파일은 건드리지 않습니다.
    - ecount-sync 폴더가 `docker/ecount-sync` 가 아니면 `docker-compose.yml` 의 `../ecount-sync` 를 실제 위치로 고칩니다.
@@ -64,7 +64,7 @@ STOCK_API: 'https://stock.rubibase.synology.me:8443/',
 
 ## 고치거나 업데이트할 때
 
-- `stock.py` 를 새 버전으로 바꿔 올린 뒤 Container Manager에서 프로젝트를 **다시 시작**하면 됩니다. 세션과 품목 목록은 `data/` 폴더에 남아 있어 재시작해도 이카운트에 다시 로그인하지 않습니다.
+- `stock.py` 를 새 버전으로 바꿔 올린 뒤 Container Manager에서 프로젝트를 **다시 시작**하면 됩니다. 세션과 품목 목록은 Docker 볼륨(`rubi-stock-data`)에 남아 있어 재시작해도 이카운트에 다시 로그인하지 않습니다.
 - `stock.env` 를 바꿨다면 프로젝트를 **중지 → 빌드(또는 정리 후 시작)** 해야 새 값이 들어갑니다.
 
 ## 문제가 생기면
