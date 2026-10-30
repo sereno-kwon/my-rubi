@@ -139,6 +139,35 @@ kbd{font:inherit;font-size:12px;line-height:16px;display:inline-block;min-width:
 .cal-ev .cl{grid-column:2;font-size:12px;line-height:16px;color:var(--t-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-none{font-size:14px;line-height:20px;color:var(--t-faint)}
 .cal-msg{margin:0;font-size:12px;line-height:16px;color:#e58a96}
+/* 일정 넣기·고치기 */
+.cal-dl .ct{display:inline-flex;align-items:baseline;gap:10px}
+.cal-add{border:none;background:none;padding:0;border-radius:0;font-size:12px;line-height:16px;color:var(--t-muted);cursor:pointer}
+.cal-add:hover,.cal-add:focus-visible{color:var(--t-fg);text-decoration:underline;text-underline-offset:3px}
+.cal-ev{cursor:pointer}
+.cal-ev:hover .tt,.cal-ev:focus-visible .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.cal-ev:focus-visible{outline:none}
+.cal-ev.rec{cursor:default}
+.cal-ev.rec:hover .tt{text-decoration:none}
+.cal-f{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+.cal-f input:not([type=checkbox]),.cal-f textarea,.cal-f select{display:block;width:100%;min-width:0;height:34px;padding:0 8px;border:1px solid var(--t-line);border-radius:0;background:var(--t-bg);color:var(--t-fg);font-size:13px;line-height:18px;outline:none;user-select:text;-webkit-user-select:text}
+.cal-f textarea{height:auto;min-height:52px;padding:7px 8px;resize:vertical}
+.cal-f input:focus,.cal-f textarea:focus,.cal-f select:focus{border-color:var(--t-fg)}
+.cal-f ::placeholder{color:var(--t-faint)}
+.cal-f .cal-dl{align-items:center}
+.cal-ad{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--t-muted);cursor:pointer}
+.cal-ad input{margin:0;accent-color:var(--t-fg)}
+.cal-row{display:grid;grid-template-columns:28px minmax(0,1.15fr) minmax(0,1fr);gap:6px;align-items:center}
+.cal-row .lb{font-size:12px;line-height:16px;color:var(--t-muted)}
+.cal-f.ad .cal-row{grid-template-columns:28px minmax(0,1fr)}
+.cal-f.ad .t{display:none}
+.cal-fb{display:flex;align-items:center;gap:6px;margin-top:2px}
+.cal-b{height:32px;padding:0 14px;border:1px solid var(--t-fg);border-radius:0;background:none;color:var(--t-fg);font-size:13px;line-height:1;cursor:pointer;transition:background .15s,color .15s}
+.cal-b:hover,.cal-b.pri{background:var(--t-fg);color:var(--t-bg)}
+.cal-b.pri:hover{background:none;color:var(--t-fg)}
+.cal-b:disabled,.cal-del:disabled{opacity:.4;pointer-events:none}
+.cal-del{margin-left:auto;border:none;background:none;padding:0;border-radius:0;font-size:12px;line-height:16px;color:var(--t-muted);cursor:pointer}
+.cal-del:hover{color:#e58a96}
+.cal-del.arm{color:#e58a96}
 
 /* 오른쪽: 멤버별 체크리스트 요약 (assets/checklist.js) */
 .checks{padding-top:16px;border-top:1px solid var(--t-fg);display:flex;flex-direction:column;gap:10px}

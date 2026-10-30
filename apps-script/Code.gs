@@ -7,7 +7,8 @@
  *  - 바탕화면 오른쪽 위 포스트잇(공지·일정)을 Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *  - 멤버별 체크리스트(매일·매주·할 일)를 Index 스프레드시트의 '체크리스트' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *    CONFIG.PRIVATE_CHECKLISTS 에 적은 멤버의 목록은 본인에게만 돌려줌 (다른 직원에게는 응답에서 아예 빠짐)
- *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 포털 첫 화면 오른쪽 달력에 돌려줌 (읽기만, GET calendar)
+ *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 포털 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
+ *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
  * Drive 구조 (기존 그대로 유지)
  *  루트 / 브랜드 폴더 / Customer History_브랜드 / NNNN_[BRAND] MODEL (SPEC)_채널_고객명_YYYYMMDD /
@@ -156,6 +157,7 @@ function doPost(e) {
       case 'update':   return json_({ ok: true, row: updateRow_(body) });
       case 'note':     return json_({ ok: true, notes: saveNote_(body, user) });
       case 'check':    return json_({ ok: true, checks: saveCheck_(body, user), hide: hiddenMembers_(user) });
+      case 'event':    return json_({ ok: true, ...saveEvent_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -997,11 +999,14 @@ function listCalendar_(month) {
       const s = ev.getStartTime(), e = ev.getEndTime();
       // 종일 일정의 끝은 다음 날 0시(배타)라 하루를 빼서 마지막 날로 맞춤
       const endDay = allDay ? fmtDay(new Date(e.getTime() - 1)) : fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1)));
+      const d = splitDesc_(ev.getDescription());
       events.push({
         id: ev.getId(), cal: ci, title: ev.getTitle() || '(제목 없음)',
         allDay, date: fmtDay(s), endDate: endDay,
         start: allDay ? '' : fmtMin(s), end: allDay ? '' : fmtMin(e),
         location: ev.getLocation() || '',
+        desc: d.text.slice(0, 2000), by: d.tag.replace(/^\[My Rubi\]\s*/, ''),
+        rec: ev.isRecurringEvent(),
       });
     });
   });
@@ -1013,6 +1018,118 @@ function listCalendar_(month) {
   };
   if (sec) { try { cache.put(key, JSON.stringify(out), Math.min(sec, 21600)); } catch (e) {} }   // 100KB 넘으면 캐시만 건너뜀
   return out;
+}
+
+// ─── 달력에서 일정 넣기·고치기·지우기 (POST event) ───
+// op: add | update | delete. 넣는 캘린더는 CONFIG.CALENDARS 의 첫 번째(여러 개면 포털에서 고른 것)
+// 포털에서 넣거나 고친 일정은 메모 맨 끝에 '[My Rubi] 입력 이름' 줄이 붙음 (구글 캘린더에서는 실행 계정이 만든 것으로 보이므로)
+const EVENT_TAG_RE = /\n*\[My Rubi\][^\n]*\s*$/;
+
+/** 메모를 사용자가 쓴 부분과 [My Rubi] 줄로 나눔 */
+function splitDesc_(desc) {
+  const s = String(desc || '');
+  const m = s.match(EVENT_TAG_RE);
+  return m ? { text: s.slice(0, m.index).replace(/\s+$/, ''), tag: m[0].trim() } : { text: s.replace(/\s+$/, ''), tag: '' };
+}
+
+/** 포털에서 온 값 확인. 날짜·시간은 CONFIG.TZ 기준 */
+function eventInput_(b) {
+  const title = String(b.title || '').trim().slice(0, 200);
+  if (!title) throw new Error('제목을 입력해 주세요');
+  const date = String(b.date || ''), endDate = String(b.endDate || '') || date;
+  const D = /^\d{4}-\d{2}-\d{2}$/, T = /^\d{2}:\d{2}$/;
+  if (!D.test(date) || !D.test(endDate)) throw new Error('날짜를 확인해 주세요');
+  if (endDate < date) throw new Error('끝나는 날이 시작하는 날보다 앞입니다');
+  const at = (d, t) => new Date(`${d}T${t}:00${tzOffset_(new Date(d + 'T12:00:00Z'))}`);
+  const allDay = !!b.allDay;
+  let start, end;
+  if (allDay) {
+    // 종일 일정은 날짜만 쓰임. 정오로 잡아 두면 시간대가 조금 달라도 날짜가 밀리지 않음
+    start = at(date, '12:00'); end = new Date(at(endDate, '12:00').getTime() + 86400000);   // 끝은 다음 날(배타)
+  } else {
+    const st = String(b.start || ''), et = String(b.end || '');
+    if (!T.test(st)) throw new Error('시작 시간을 입력해 주세요');
+    start = at(date, st);
+    end = T.test(et) ? at(endDate, et) : new Date(start.getTime() + 3600000);
+    if (end <= start) throw new Error('끝나는 시간이 시작 시간보다 앞입니다');
+  }
+  return {
+    title, allDay, start, end, date, endDate,
+    location: String(b.location || '').trim().slice(0, 300),
+    desc: String(b.desc || '').replace(/\r/g, '').trim().slice(0, 4000),
+  };
+}
+
+/** 일정 저장 후, 그 일정이 보이는 달(앞뒤 한 달 포함)의 캐시를 지움 */
+function clearCalCache_(fromDay, toDay) {
+  const keys = [];
+  let [y, m] = fromDay.slice(0, 7).split('-').map(Number);
+  m -= 1; if (m < 1) { m = 12; y--; }
+  const [ty, tm0] = toDay.slice(0, 7).split('-').map(Number);
+  let ey = ty, em = tm0 + 1; if (em > 12) { em = 1; ey++; }
+  for (let i = 0; i < 26 && (y < ey || (y === ey && m <= em)); i++) {
+    keys.push('cal:' + y + '-' + String(m).padStart(2, '0'));
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  if (keys.length) CacheService.getScriptCache().removeAll(keys);
+}
+
+function findEvent_(cals, id, ci) {
+  if (!id) return null;
+  const order = cals[Number(ci)] ? [cals[Number(ci)]].concat(cals.filter((c, i) => i !== Number(ci))) : cals;
+  for (const c of order) {
+    try { const ev = c.cal.getEventById(id); if (ev) return ev; } catch (e) {}
+  }
+  return null;
+}
+
+function saveEvent_(b, user) {
+  const cals = calendars_();
+  if (!cals.length) throw new Error('일정을 넣을 캘린더가 없습니다. Code.gs 의 CALENDARS 를 확인해 주세요');
+  const name = user.name || user.email;
+  const fmtDay = d => Utilities.formatDate(d, CONFIG.TZ, 'yyyy-MM-dd');
+  const op = String(b.op || '');
+  let ev = null;
+
+  if (op === 'update' || op === 'delete') {
+    ev = findEvent_(cals, b.id, b.cal);
+    if (!ev) throw new Error('일정을 찾지 못했습니다. 이미 지워졌을 수 있습니다');
+    if (ev.isRecurringEvent()) throw new Error('반복 일정은 구글 캘린더에서 고쳐 주세요');
+    const s = ev.getStartTime(), e = ev.getEndTime();
+    clearCalCache_(fmtDay(s), fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1))));
+    if (op === 'delete') {
+      ev.deleteEvent();
+      return Object.assign(listCalendar_(b.month), { saved: '' });
+    }
+  } else if (op !== 'add') {
+    throw new Error('unknown op');
+  }
+
+  const v = eventInput_(b);
+  let tag;
+  if (op === 'add') {
+    tag = '[My Rubi] 입력 ' + name;
+    const c = cals[Number(b.cal) || 0] || cals[0];
+    const desc = v.desc + (v.desc ? '\n\n' : '') + tag;
+    const opt = { location: v.location, description: desc };
+    ev = v.allDay
+      ? (v.endDate === v.date ? c.cal.createAllDayEvent(v.title, v.start, opt) : c.cal.createAllDayEvent(v.title, v.start, v.end, opt))
+      : c.cal.createEvent(v.title, v.start, v.end, opt);
+  } else {
+    const old = splitDesc_(ev.getDescription()).tag;
+    const base = old ? old.replace(/\s*·\s*수정 .*$/, '') : '[My Rubi]';
+    tag = base + (old ? ' · 수정 ' : ' 수정 ') + name;
+    ev.setTitle(v.title);
+    ev.setLocation(v.location);
+    ev.setDescription(v.desc + (v.desc ? '\n\n' : '') + tag);
+    if (v.allDay) {
+      if (v.endDate === v.date) ev.setAllDayDate(v.start); else ev.setAllDayDates(v.start, v.end);
+    } else {
+      ev.setTime(v.start, v.end);
+    }
+  }
+  clearCalCache_(v.date, v.endDate);
+  return Object.assign(listCalendar_(b.month), { saved: ev.getId() });
 }
 
 /** 편집기에서 직접 실행용: 캘린더 권한 승인 + 이번 달 일정 확인 */
