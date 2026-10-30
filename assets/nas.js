@@ -72,7 +72,7 @@ const NAS = {
     return (d.files || []).map(norm);
   },
   async searchStart(paths, pattern) {
-    const d = await call({ api: 'SYNO.FileStation.Search', version: '1', method: 'start', folder_path: paths.join(','), pattern, recursive: 'true' });
+    const d = await call({ api: 'SYNO.FileStation.Search', version: '1', method: 'start', folder_path: paths.join(','), pattern, filetype: 'all', recursive: 'true' });
     return d.taskid;
   },
   async searchList(taskid) {
@@ -113,12 +113,13 @@ function norm(f) {
 }
 
 // ─────────── 검색어 넓히기 ───────────
-// DSM 검색은 이름의 대소문자를 그대로 비교해서, 'moulton' 으로는 'Moulton' 파일이 안 나옴.
-// 그래서 검색어 하나를 여러 글롭 패턴으로 풀어 쉼표로 묶어 보냄 (File Station Search는 쉼표로 여러 패턴을 받음)
-//  1) 대소문자 무시: *[mM][oO][uU]...* 형태 + 그대로·소문자·대문자·첫 글자만 대문자
+// DSM 검색은 대소문자를 그대로 비교하는 경우가 있어서 'moulton' 으로 'Moulton' 파일이 안 나올 수 있음.
+// 그래서 검색어 하나를 여러 개로 풀어, NAS 검색을 각각 따로(File Station 화면과 같은 단순한 검색어로) 돌리고 결과를 합침
+//  1) 대소문자: 그대로 · 소문자 · 첫 글자 대문자 · 대문자
 //  2) 한글 ↔ 영어: nas-words.js 의 단어 묶음으로 '몰튼' → 'Moulton' 처럼 바꾼 검색어도 함께
 //  3) 띄어쓰기는 * 로: 'sst wide' 가 SST_WIDE, SST-Wide 도 찾음
 //  4) 맥에서 올린 파일은 한글 이름이 자모로 풀려(NFD) 저장되는 경우가 있어 그 형태도 함께
+// 파일과 폴더를 모두 찾음
 const HANGUL = /[ᄀ-ᇿ㄰-㆏가-힯]/;
 const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const compact = s => s.replace(/[\s_\-]+/g, '').toLowerCase();
@@ -163,34 +164,37 @@ function expand(q) {
     }
   }
   hits.sort((a, b) => a.start - b.start);
-  // 바꾼 검색어 만들기 (원래 검색어가 맨 앞, 최대 12개)
-  let alts = [''], pos = 0;
-  for (const h of hits) {
-    const lead = q.slice(pos, h.start);
-    alts = alts.flatMap(a => [h.orig, ...h.opts].map(o => a + lead + o)).slice(0, 12);
-    pos = h.end;
-  }
-  alts = [...new Set(alts.map(a => a + q.slice(pos)))];
+  // 바꾼 검색어 만들기. 원래 검색어 → 모두 바꾼 것(Moulton Quote) → 하나만 바꾼 것 순서, 최대 12개
+  let combos = [[]];
+  hits.forEach(h => { combos = combos.flatMap(c => [h.orig, ...h.opts].map((_, i) => c.concat(i))).slice(0, 256); });
+  const subs = c => c.filter(i => i > 0).length;
+  const rank = c => (subs(c) === 0 ? 0 : subs(c) === hits.length ? 1 : 2) * 1000 + c.reduce((x, i) => x + i, 0);
+  combos.sort((a, b) => rank(a) - rank(b));
+  const build = c => { let out = '', pos = 0; hits.forEach((h, k) => { out += q.slice(pos, h.start) + [h.orig, ...h.opts][c[k]]; pos = h.end; }); return out + q.slice(pos); };
+  const alts = [...new Set(combos.slice(0, 12).map(build))];
   const ql = q.toLowerCase();
   const also = [...new Set(hits.flatMap(h => h.opts))].filter(x => !ql.includes(x.toLowerCase()));
-  return { q, alts, also, pattern: patternsFor(alts).join(',') };
+  return { q, alts, also, patterns: patternsFor(alts) };
 }
 
+// NAS에 보낼 검색어 목록. 중요한 것부터: 입력한 그대로 → 바꾼 말 → 대소문자 바꾼 것 → 자모(NFD). 최대 MAX_TASKS개
+const MAX_TASKS = 8;
 function patternsFor(alts) {
-  const out = new Set();
-  const add = p => { if (!p.replace(/\*/g, '')) return; out.add(p); const n = p.normalize('NFD'); if (n !== p) out.add(n); };
-  for (const s of alts) {
+  const forms = alts.map(s => {
     const glob = /[*?]/.test(s); // 직접 * ? 를 쓴 검색어는 그대로 패턴으로
-    const ws = glob ? [s.replace(/,/g, ' ')] : s.split(/[\s,]+/).filter(Boolean);
-    if (!ws.length) continue;
-    const join = f => { const core = ws.map(f).join('*'); return glob ? core : '*' + core + '*'; };
-    if (!s.includes('[')) add(join(w => w.replace(/[a-z]/gi, c => '[' + c.toLowerCase() + c.toUpperCase() + ']')));
-    add(join(w => w));
-    add(join(w => w.toLowerCase()));
-    add(join(w => w.toUpperCase()));
-    add(join(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()));
-  }
-  return [...out].slice(0, 90);
+    const ws = glob ? [s] : s.split(/\s+/).filter(Boolean);
+    // 한 단어는 그대로 보냄(DSM이 앞뒤에 * 를 붙여 '포함'으로 찾음), 여러 단어는 *a*b*
+    const join = f => { const w = ws.map(f); return glob || w.length === 1 ? w.join(' ') : '*' + w.join('*') + '*'; };
+    return [join(w => w), join(w => w.toLowerCase()), join(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()), join(w => w.toUpperCase())];
+  });
+  const out = [];
+  const add = p => { if (p && p.replace(/\*/g, '') && !out.includes(p)) out.push(p); };
+  for (let i = 0; i < 4; i++) forms.forEach(f => add(f[i]));
+  alts.forEach((s, i) => { const n = forms[i][0].normalize('NFD'); if (n !== forms[i][0]) add(n); });
+  // 자모(NFD) 형태는 개수 제한 안에서 밀려나지 않게 앞쪽 몇 개와 함께 넣음
+  const nfd = out.filter(p => p !== p.normalize('NFC'));
+  const main = out.filter(p => p === p.normalize('NFC'));
+  return main.slice(0, MAX_TASKS - Math.min(nfd.length, 2)).concat(nfd.slice(0, 2));
 }
 const alsoText = also => also.length ? also.slice(0, 3).join(' · ') + (also.length > 3 ? ' 외' : '') : '';
 
@@ -231,12 +235,12 @@ function search(q) { if (view) view.runSearch(q); }
 
 class View {
   constructor(body) {
-    this.body = body; this.path = ''; this.items = []; this.mode = 'browse'; this.task = null; this.sel = null; this.shares = [];
+    this.body = body; this.path = ''; this.items = []; this.mode = 'browse'; this.tasks = []; this.run = 0; this.sel = null; this.shares = [];
     this.searchQ = ''; this.searchAlso = []; this.alive = true;
     this.thumbs = new Map(); this.tip = null; this.tipFor = null; this.tipTimer = 0;
   }
   destroy() {
-    this.alive = false; if (this.task) NAS.searchStop(this.task); this.task = null;
+    this.alive = false; this.stopSearch();
     this.hideTip(); if (this.tip) { this.tip.remove(); this.tip = null; }
     this.thumbs.forEach(v => { if (v.url) URL.revokeObjectURL(v.url); }); this.thumbs.clear();
   }
@@ -303,7 +307,7 @@ class View {
 
   renderSetup() {
     this.body.innerHTML = `<div class="pane"><h2>NAS 연결 전입니다</h2>
-      <p>Synology NAS에 연결 파일을 올리고, <code>config.js</code> 의 <code>NAS_API</code> 에 그 주소를 넣으면 이 창에서 공유 폴더를 보고 파일 이름으로 검색할 수 있습니다.</p>
+      <p>Synology NAS에 연결 파일을 올리고, <code>config.js</code> 의 <code>NAS_API</code> 에 그 주소를 넣으면 이 창에서 공유 폴더를 보고 파일·폴더 이름으로 검색할 수 있습니다.</p>
       <p>설치 순서는 저장소의 <code>nas/README.md</code> 에 있습니다.</p></div>`;
   }
 
@@ -342,7 +346,7 @@ class View {
       <div class="nas-bar">
         <button class="nas-btn" data-a="up" title="위로" aria-label="위 폴더로"><svg class="i"><use href="#i-back"/></svg></button>
         <div class="nas-path" aria-label="현재 위치"></div>
-        <form class="nas-q" role="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="파일 이름으로 검색" aria-label="NAS 파일 검색" spellcheck="false"></form>
+        <form class="nas-q" role="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="파일·폴더 이름으로 검색" aria-label="NAS 파일 검색" spellcheck="false"></form>
       </div>
       <div class="nas-head"><span>이름</span><span>수정한 날짜</span><span>크기</span></div>
       <div class="nas-list" role="listbox" tabindex="0"></div>
@@ -379,7 +383,7 @@ class View {
   }
 
   async go(path) {
-    if (this.task) { NAS.searchStop(this.task); this.task = null; }
+    this.stopSearch();
     this.mode = 'browse'; this.path = path; this.sel = null;
     const inp = this.body.querySelector('.nas-q input'); if (inp) inp.value = '';
     this.crumbs(); this.status('불러오는 중'); this.draw([], true);
@@ -402,36 +406,50 @@ class View {
     q = String(q || '').trim(); if (!q) return;
     if (!store.get()) return this.renderLogin(q);
     if (!this.body.querySelector('.nas')) this.renderMain();
-    if (this.task) { NAS.searchStop(this.task); this.task = null; }
-    const ex = expand(q);
+    this.stopSearch();
+    const ex = expand(q), run = ++this.run;
     this.mode = 'search'; this.searchQ = q; this.searchAlso = ex.also; this.sel = null;
     const inp = this.body.querySelector('.nas-q input'); if (inp) inp.value = q;
     this.crumbs(); this.draw([], true); this.status('검색하는 중');
+    const live = () => this.alive && this.run === run;
     try {
       let roots = this.path ? [this.path] : (this.shares.length ? this.shares : await NAS.shares()).map(s => s.path);
       if (!roots.length) { this.draw([]); this.status('검색할 공유 폴더가 없습니다'); return; }
-      let id;
-      try { id = await NAS.searchStart(roots, ex.pattern); }
-      catch (e) { if (e.expired || ex.pattern === q) throw e; id = await NAS.searchStart(roots, q); } // 넓힌 패턴을 NAS가 거절하면 원래 검색어로
-      this.task = id;
-      const t0 = Date.now();
-      while (this.alive && this.task === id) {
+      // 검색어마다 NAS 검색을 하나씩 시작. 몇 개가 실패해도 나머지로 찾음
+      let firstErr = null;
+      const ids = (await Promise.all(ex.patterns.map(p => NAS.searchStart(roots, p).catch(e => { if (e.expired) throw e; firstErr = firstErr || e; return null; })))).filter(Boolean);
+      if (!live()) { ids.forEach(id => NAS.searchStop(id)); return; }
+      if (!ids.length) throw firstErr || new NasError('검색을 시작하지 못했습니다');
+      this.tasks = ids;
+      const t0 = Date.now(), done = new Set(), found = new Map(), totals = {};
+      while (live()) {
         await new Promise(r => setTimeout(r, 700));
-        if (!this.alive || this.task !== id) return;
-        const r = await NAS.searchList(id);
-        r.files.sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name, 'ko'));
-        this.draw(r.files);
-        const more = r.total > r.files.length ? ` (앞 ${r.files.length}개 표시)` : '';
-        if (r.finished || Date.now() - t0 > 90000) {
+        if (!live()) return;
+        const rs = await Promise.all(ids.filter(id => !done.has(id)).map(id => NAS.searchList(id).then(r => ({ id, r })).catch(e => { if (e.expired) throw e; return { id, r: { finished: true, total: 0, files: [] } }; })));
+        if (!live()) return;
+        rs.forEach(({ id, r }) => {
+          r.files.forEach(f => found.set(f.path, f));
+          totals[id] = r.total;
+          if (r.finished) { done.add(id); NAS.searchStop(id); }
+        });
+        const items = [...found.values()].sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name, 'ko'));
+        this.draw(items);
+        const more = Object.keys(totals).some(id => totals[id] > 500) ? ' (검색어마다 앞 500개까지 표시)' : '';
+        if (done.size === ids.length || Date.now() - t0 > 90000) {
           const al = alsoText(ex.also), alP = al ? ` (${al} 함께)` : '';
-          this.status(r.total ? `"${q}" ${r.total}개 찾음${alP}${more}` : `"${q}"${alP}와 이름이 맞는 파일이 없습니다`);
-          NAS.searchStop(id); if (this.task === id) this.task = null; return;
+          const nd = items.filter(f => f.dir).length;
+          this.status(items.length ? `"${q}" ${items.length}개 찾음${nd ? `, 폴더 ${nd}개 · 파일 ${items.length - nd}개` : ''}${alP}${more}` : `"${q}"${alP}와 이름이 맞는 파일이나 폴더가 없습니다`);
+          this.stopSearch(); return;
         }
-        this.status(`검색하는 중, 지금까지 ${r.total}개`);
+        this.status(`검색하는 중, 지금까지 ${items.length}개`);
       }
     } catch (e) { this.fail(e); }
   }
 
+  stopSearch() {
+    this.run++;
+    (this.tasks || []).forEach(id => NAS.searchStop(id)); this.tasks = [];
+  }
   fail(e) {
     if (e.expired) { this.renderLogin(this.mode === 'search' ? this.searchQ : '', e.message); return; }
     this.status(e.message); this.draw([]);

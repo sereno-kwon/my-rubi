@@ -31,7 +31,7 @@ const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&a
 const pad = n => String(n).padStart(2, '0');
 const hasKo = t => /[가-힣]/.test(t);
 const nas = () => window.MYRUBI_NAS;
-const nasAlso = q => { try { const al = nas().alsoText(nas().expand(q).also); return al ? al + ' 함께 찾기' : '파일 이름 검색'; } catch (e) { return '파일 이름 검색'; } };
+const nasAlso = q => { try { const al = nas().alsoText(nas().expand(q).also); return al ? al + ' 함께 찾기' : '파일·폴더 이름 검색'; } catch (e) { return '파일·폴더 이름 검색'; } };
 const chk = () => window.MYRUBI_CHECK;
 const stk = () => window.MYRUBI_STOCK;
 const host = u => { try { return new URL(u, location.href).host.replace(/^www\./, ''); } catch (e) { return ''; } };
@@ -117,7 +117,7 @@ function render() {
   if (raw && byId.nas && nas() && nas().configured()) {
     const i = rows.length; rows.push({ nas: raw });
     html += `<h2 class="sec-h"><span>NAS</span></h2><ol class="rows"><li><a class="row k-nas" href="#nas" data-i="${i}" role="option">
-      <span class="no">${pad(i + 1)}</span><span class="tt">NAS에서 “${esc(raw)}” 파일 찾기</span><span class="mt">${esc(nasAlso(raw))}</span><span class="ar" aria-hidden="true">→</span></a></li></ol>`;
+      <span class="no">${pad(i + 1)}</span><span class="tt">NAS에서 “${esc(raw)}” 파일·폴더 찾기</span><span class="mt">${esc(nasAlso(raw))}</span><span class="ar" aria-hidden="true">→</span></a></li></ol>`;
   }
   if (!rows.length) html = `<p class="empty">“${esc(raw)}”와 맞는 항목이 없습니다.</p>`;
   listEl.innerHTML = html;

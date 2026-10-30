@@ -470,7 +470,7 @@ function renderStart() {
   const q = startQ.value.trim().toLowerCase();
   const secs = sections(q);
   const nasRow = q && byId.nas && window.MYRUBI_NAS && window.MYRUBI_NAS.configured()
-    ? `<h3>NAS</h3><button class="s-nas" id="sNas">${glyph(byId.nas)}<span>NAS에서 "<b>${esc(startQ.value.trim())}</b>" 파일 찾기</span><kbd>${secs.length ? '' : 'Enter'}</kbd></button>` : '';
+    ? `<h3>NAS</h3><button class="s-nas" id="sNas">${glyph(byId.nas)}<span>NAS에서 "<b>${esc(startQ.value.trim())}</b>" 파일·폴더 찾기</span><kbd>${secs.length ? '' : 'Enter'}</kbd></button>` : '';
   if (!secs.length) {
     startBody.innerHTML = nasRow || `<div class="s-empty">"${esc(startQ.value)}"와 맞는 앱이 없습니다.</div>`;
     if (nasRow) $('#sNas').onclick = () => openNas(startQ.value.trim());
