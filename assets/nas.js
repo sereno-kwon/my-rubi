@@ -1,4 +1,5 @@
 // My Rubi NAS 앱: Synology DSM File Station API로 공유 폴더 탐색과 파일 이름 검색
+// - 검색은 대소문자를 가리지 않고, 한글로 찾으면 영어 이름도 함께 찾음 (단어 목록은 /nas-words.js)
 // - NAS 계정 비밀번호는 저장하지 않음. 로그인 후 NAS가 발급한 세션(sid)만 이 브라우저에 보관
 // - 요청은 config.js 의 NAS_API(NAS Web Station의 프록시 주소)로 보냄. 프록시 코드는 nas/proxy/index.php
 (() => {
@@ -70,8 +71,8 @@ const NAS = {
     const d = await call({ api: 'SYNO.FileStation.List', version: '1', method: 'list', folder_path: path, additional: 'size,time', sort_by: 'name', limit: '2000' });
     return (d.files || []).map(norm);
   },
-  async searchStart(paths, q) {
-    const d = await call({ api: 'SYNO.FileStation.Search', version: '1', method: 'start', folder_path: paths.join(','), pattern: q, recursive: 'true' });
+  async searchStart(paths, pattern) {
+    const d = await call({ api: 'SYNO.FileStation.Search', version: '1', method: 'start', folder_path: paths.join(','), pattern, recursive: 'true' });
     return d.taskid;
   },
   async searchList(taskid) {
@@ -111,6 +112,88 @@ function norm(f) {
   return { name: f.name, path: f.path, dir: !!f.isdir, size: a.size, mtime: a.time && a.time.mtime };
 }
 
+// ─────────── 검색어 넓히기 ───────────
+// DSM 검색은 이름의 대소문자를 그대로 비교해서, 'moulton' 으로는 'Moulton' 파일이 안 나옴.
+// 그래서 검색어 하나를 여러 글롭 패턴으로 풀어 쉼표로 묶어 보냄 (File Station Search는 쉼표로 여러 패턴을 받음)
+//  1) 대소문자 무시: *[mM][oO][uU]...* 형태 + 그대로·소문자·대문자·첫 글자만 대문자
+//  2) 한글 ↔ 영어: nas-words.js 의 단어 묶음으로 '몰튼' → 'Moulton' 처럼 바꾼 검색어도 함께
+//  3) 띄어쓰기는 * 로: 'sst wide' 가 SST_WIDE, SST-Wide 도 찾음
+//  4) 맥에서 올린 파일은 한글 이름이 자모로 풀려(NFD) 저장되는 경우가 있어 그 형태도 함께
+const HANGUL = /[ᄀ-ᇿ㄰-㆏가-힯]/;
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const compact = s => s.replace(/[\s_\-]+/g, '').toLowerCase();
+let WORDS = null;
+function words() {
+  if (WORDS) return WORDS;
+  WORDS = [];
+  (window.MYRUBI_NAS_WORDS || []).forEach(g => {
+    if (!Array.isArray(g)) return;
+    const members = [...new Set(g.map(w => String(w || '').trim()).filter(Boolean))];
+    if (members.length < 2) return;
+    members.forEach(m => {
+      const body = m.split(/\s+/).map(reEsc).join('[\\s_\\-]*');
+      let re;
+      if (HANGUL.test(m) && !/[a-z]/i.test(m)) {
+        // 한 글자 한글(폴, 휠)은 '폴더' 같은 다른 단어 안에서는 바꾸지 않음
+        re = compact(m).length === 1 ? new RegExp('(^|[^\\uac00-\\ud7af])(' + body + ')(?![\\uac00-\\ud7af])', 'g') : new RegExp('()(' + body + ')', 'g');
+      } else {
+        re = new RegExp('(^|[^a-z0-9])(' + body + ')(?![a-z0-9])', 'gi');
+      }
+      WORDS.push({ re, len: compact(m).length, group: members });
+    });
+  });
+  WORDS.sort((a, b) => b.len - a.len); // 긴 말부터 (폴 컴포넌트 → 폴)
+  return WORDS;
+}
+
+function expand(q) {
+  q = String(q || '').trim();
+  const hits = [];
+  for (const w of words()) {
+    if (hits.length >= 4) break;
+    w.re.lastIndex = 0;
+    let m;
+    while ((m = w.re.exec(q))) {
+      const start = m.index + m[1].length, end = start + m[2].length;
+      if (hits.some(h => start < h.end && end > h.start)) continue; // 이미 다른 말로 바꾼 자리
+      const seen = new Set([compact(m[2])]);
+      const opts = w.group.filter(x => { const k = compact(x); if (seen.has(k)) return false; seen.add(k); return true; });
+      if (opts.length) hits.push({ start, end, orig: m[2], opts });
+      break;
+    }
+  }
+  hits.sort((a, b) => a.start - b.start);
+  // 바꾼 검색어 만들기 (원래 검색어가 맨 앞, 최대 12개)
+  let alts = [''], pos = 0;
+  for (const h of hits) {
+    const lead = q.slice(pos, h.start);
+    alts = alts.flatMap(a => [h.orig, ...h.opts].map(o => a + lead + o)).slice(0, 12);
+    pos = h.end;
+  }
+  alts = [...new Set(alts.map(a => a + q.slice(pos)))];
+  const ql = q.toLowerCase();
+  const also = [...new Set(hits.flatMap(h => h.opts))].filter(x => !ql.includes(x.toLowerCase()));
+  return { q, alts, also, pattern: patternsFor(alts).join(',') };
+}
+
+function patternsFor(alts) {
+  const out = new Set();
+  const add = p => { if (!p.replace(/\*/g, '')) return; out.add(p); const n = p.normalize('NFD'); if (n !== p) out.add(n); };
+  for (const s of alts) {
+    const glob = /[*?]/.test(s); // 직접 * ? 를 쓴 검색어는 그대로 패턴으로
+    const ws = glob ? [s.replace(/,/g, ' ')] : s.split(/[\s,]+/).filter(Boolean);
+    if (!ws.length) continue;
+    const join = f => { const core = ws.map(f).join('*'); return glob ? core : '*' + core + '*'; };
+    if (!s.includes('[')) add(join(w => w.replace(/[a-z]/gi, c => '[' + c.toLowerCase() + c.toUpperCase() + ']')));
+    add(join(w => w));
+    add(join(w => w.toLowerCase()));
+    add(join(w => w.toUpperCase()));
+    add(join(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()));
+  }
+  return [...out].slice(0, 90);
+}
+const alsoText = also => also.length ? also.slice(0, 3).join(' · ') + (also.length > 3 ? ' 외' : '') : '';
+
 // ─────────── 화면 ───────────
 const KIND = [
   [/\.(jpe?g|png|gif|webp|heic|tiff?|bmp|svg)$/i, 'img', '이미지'],
@@ -149,7 +232,7 @@ function search(q) { if (view) view.runSearch(q); }
 class View {
   constructor(body) {
     this.body = body; this.path = ''; this.items = []; this.mode = 'browse'; this.task = null; this.sel = null; this.shares = [];
-    this.searchQ = ''; this.alive = true;
+    this.searchQ = ''; this.searchAlso = []; this.alive = true;
     this.thumbs = new Map(); this.tip = null; this.tipFor = null; this.tipTimer = 0;
   }
   destroy() {
@@ -288,7 +371,7 @@ class View {
   status(t) { const el = this.body.querySelector('.nas-status .st'); if (el) el.textContent = t; }
   crumbs() {
     const el = this.body.querySelector('.nas-path'); if (!el) return;
-    if (this.mode === 'search') { el.innerHTML = `<b>"${esc(this.searchQ)}" 검색 결과</b><span class="in">${esc(this.path || '모든 공유 폴더')}</span>`; return; }
+    if (this.mode === 'search') { const al = alsoText(this.searchAlso); el.innerHTML = `<b>"${esc(this.searchQ)}" 검색 결과</b><span class="in">${al ? esc(al) + ' 함께 · ' : ''}${esc(this.path || '모든 공유 폴더')}</span>`; return; }
     const parts = this.path.split('/').filter(Boolean);
     let acc = '';
     el.innerHTML = `<button data-p="">NAS</button>` + parts.map(p => { acc += '/' + p; return `<span>›</span><button data-p="${esc(acc)}">${esc(p)}</button>`; }).join('');
@@ -320,13 +403,16 @@ class View {
     if (!store.get()) return this.renderLogin(q);
     if (!this.body.querySelector('.nas')) this.renderMain();
     if (this.task) { NAS.searchStop(this.task); this.task = null; }
-    this.mode = 'search'; this.searchQ = q; this.sel = null;
+    const ex = expand(q);
+    this.mode = 'search'; this.searchQ = q; this.searchAlso = ex.also; this.sel = null;
     const inp = this.body.querySelector('.nas-q input'); if (inp) inp.value = q;
     this.crumbs(); this.draw([], true); this.status('검색하는 중');
     try {
       let roots = this.path ? [this.path] : (this.shares.length ? this.shares : await NAS.shares()).map(s => s.path);
       if (!roots.length) { this.draw([]); this.status('검색할 공유 폴더가 없습니다'); return; }
-      const id = await NAS.searchStart(roots, q);
+      let id;
+      try { id = await NAS.searchStart(roots, ex.pattern); }
+      catch (e) { if (e.expired || ex.pattern === q) throw e; id = await NAS.searchStart(roots, q); } // 넓힌 패턴을 NAS가 거절하면 원래 검색어로
       this.task = id;
       const t0 = Date.now();
       while (this.alive && this.task === id) {
@@ -337,7 +423,8 @@ class View {
         this.draw(r.files);
         const more = r.total > r.files.length ? ` (앞 ${r.files.length}개 표시)` : '';
         if (r.finished || Date.now() - t0 > 90000) {
-          this.status(r.total ? `"${q}" ${r.total}개 찾음${more}` : `"${q}"와 이름이 맞는 파일이 없습니다`);
+          const al = alsoText(ex.also), alP = al ? ` (${al} 함께)` : '';
+          this.status(r.total ? `"${q}" ${r.total}개 찾음${alP}${more}` : `"${q}"${alP}와 이름이 맞는 파일이 없습니다`);
           NAS.searchStop(id); if (this.task === id) this.task = null; return;
         }
         this.status(`검색하는 중, 지금까지 ${r.total}개`);
@@ -407,5 +494,5 @@ class View {
   }
 }
 
-window.MYRUBI_NAS = Object.assign(NAS, { mount, search, unmount() { if (view) view.destroy(); view = null; } });
+window.MYRUBI_NAS = Object.assign(NAS, { mount, search, expand, alsoText, unmount() { if (view) view.destroy(); view = null; } });
 })();

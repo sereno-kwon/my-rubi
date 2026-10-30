@@ -101,6 +101,10 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 
 바탕화면의 **NAS** 앱에서 공유 폴더를 보고, 파일 이름으로 검색하고, 파일을 열거나 내려받을 수 있습니다. 시작 메뉴 검색창에 단어를 넣으면 "NAS에서 파일 찾기" 줄이 함께 나옵니다. 직원마다 자기 NAS 계정으로 로그인하고, 비밀번호는 저장하지 않습니다. NAS 쪽 설치는 [`nas/README.md`](nas/README.md), 다 되면 `config.js` 의 `NAS_API`, `NAS_WEB` 을 채웁니다.
 
+- **검색은 대소문자를 가리지 않습니다.** `moulton`, `MOULTON`, `Moulton` 어느 것으로 찾아도 같은 파일이 나옵니다.
+- **한글로 찾으면 영어 이름도 함께 나옵니다.** `몰튼` 으로 찾으면 `Moulton` 파일도, `moulton` 으로 찾으면 `몰튼` 파일도 나옵니다. 검색 결과 위와 검색창의 NAS 줄에 "Moulton 함께"처럼 같이 찾은 말이 보입니다. 단어 묶음은 루트의 `nas-words.js` 에 있고, 한 줄에 `['몰튼', 'Moulton']` 처럼 추가하면 됩니다.
+- 띄어쓰기는 사이에 아무 글자가 있어도 되는 것으로 찾습니다. `sst wide` 로 `SST_WIDE`, `SST-Wide` 도 나옵니다.
+
 ## 앱 추가하기
 
 `apps.js` 에 한 줄을 넣으면 텍스트 화면 목록과 윈도우 화면 시작 메뉴에 함께 생깁니다. 폴더에 속하지 않은 앱은 텍스트 화면 Apps 목록과 윈도우 바탕화면에 놓입니다.
@@ -122,6 +126,7 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 - `assets/rubi-type.css` 서체와 기본 색, `assets/common.css` 두 화면이 같이 쓰는 부품 모양
 - `apps.js` 앱 목록
 - `assets/nas.js` NAS 앱 (DSM File Station API)
+- `nas-words.js` NAS 검색에서 한글과 영어를 같이 찾는 단어 묶음
 - `assets/stock.js` 재고 확인 앱 (NAS 재고 조회 서비스를 거쳐 이카운트)
 - `assets/board.js` 공지·일정 포스트잇
 - `assets/checklist.js` 멤버별 체크리스트
