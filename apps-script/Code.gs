@@ -442,7 +442,6 @@ function calendars_() {
   return out;
 }
 
-/** 한 달치 일정. { month, start, end, calendars:[{id,name,color}], events:[…] } */
 /** 일정 하나를 포털이 쓰는 모양으로 */
 function eventJson_(ev, ci) {
   const fmtDay = d => Utilities.formatDate(d, CONFIG.TZ, 'yyyy-MM-dd');
@@ -463,7 +462,8 @@ function eventJson_(ev, ci) {
 }
 const sortEvents_ = events => events.sort((a, b) => (a.date + (a.allDay ? '' : a.start)).localeCompare(b.date + (b.allDay ? '' : b.start)));
 
-/** fresh: 일정을 바꾼 직후. 캐시를 읽지도 쓰지도 않음 (바뀌기 전 목록이 2분 동안 남지 않게) */
+/** 한 달치 일정. { month, start, end, calendars:[{id,name,color}], events:[…] }
+ *  fresh: 일정을 바꾼 직후. 캐시를 읽지도 쓰지도 않음 (바뀌기 전 목록이 2분 동안 남지 않게) */
 function listCalendar_(month, fresh) {
   const r = calendarRange_(month);
   const cache = CacheService.getScriptCache(), key = 'cal:' + r.month;
