@@ -4,7 +4,7 @@
 
 ## 디자인
 
-rubi.kr과 같은 폴스타 스타일입니다. 첫 화면은 텍스트 목록형이고, 윈도우형 화면은 `/desktop/` 에 남아 있습니다. 서체는 영문·숫자 Pretendard, 한글 에스코어 드림, 굵기는 400 하나(로고만 700)이고, 모서리는 모두 각지게, 색 타일 대신 1px 선 아이콘을 씁니다. 서체와 기본 색은 `assets/rubi-type.css` 한 곳에 있고 두 화면과 상담 현황(`consult/`)이 함께 씁니다. 글자 크기는 28 · 24 · 18 · 15 · 14 · 13 · 12px만 씁니다. `apps.js` 의 `tint` 값은 남아 있지만 화면에는 쓰지 않습니다.
+rubi.kr과 같은 폴스타 스타일입니다. 첫 화면은 텍스트 목록형이고, 윈도우형 화면은 `/desktop/` 에 남아 있습니다. 서체는 영문·숫자 Pretendard, 한글 에스코어 드림, 굵기는 400 하나(로고만 700)이고, 모서리는 모두 각지게, 색 타일 대신 1px 선 아이콘을 씁니다. 서체와 기본 색은 `assets/rubi-type.css` 한 곳에 있고 두 화면이 함께 씁니다. 글자 크기는 28 · 24 · 18 · 15 · 14 · 13 · 12px만 씁니다. `apps.js` 의 `tint` 값은 남아 있지만 화면에는 쓰지 않습니다.
 
 ## 화면 두 가지
 
@@ -87,7 +87,7 @@ Apps 목록의 **체크리스트**, 또는 오른쪽 Checklist 칸의 이름을 
 - 퇴사자: 워크스페이스에서 계정을 정지하면 새 로그인은 막힙니다. 이미 로그인된 기기까지 바로 끊으려면 Apps Script에서 `clearAllSessions` 를 실행합니다(모두 다시 로그인).
 - 외부 계정을 예외로 허용하려면 `Code.gs` 의 `EXTRA_EMAILS` 에 이메일을 넣습니다.
 - 지금 로그인된 사람 목록: `listSessions` 실행 후 실행 로그 확인
-- 로그인이 지키는 것은 Apps Script 데이터(상담 기록 등)입니다. 바탕화면 HTML과 링크 목록 자체는 GitHub Pages라서 주소를 알면 받아볼 수 있습니다.
+- 로그인이 지키는 것은 Apps Script 데이터(공지, 체크리스트, 달력 일정)입니다. 바탕화면 HTML과 링크 목록 자체는 GitHub Pages라서 주소를 알면 받아볼 수 있습니다.
 
 ## 재고 확인 (이카운트)
 
@@ -117,10 +117,10 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 { id: 'naver-ad', title: '네이버 광고', icon: 'globe', tint: 'green', kind: 'link', url: 'https://searchad.naver.com/' },
 ```
 
-- `kind`: `link` 새 탭 / `frame` 포털 안의 창(같은 도메인 페이지, 예 `url: '/consult/'`) / `folder` 아이콘 모음 / `builtin` 내장(체크리스트, 재고 확인, NAS, 설정) / `soon` 준비 중
+- `kind`: `link` 새 탭 / `frame` 포털 안의 창(같은 도메인 페이지, 예 `url: '/customers/'`) / `folder` 아이콘 모음 / `builtin` 내장(체크리스트, 재고 확인, NAS, 설정) / `soon` 준비 중
 - 폴더에 넣으려면 `folder: 'brands'` 처럼 폴더 id를 적음
 - 아이콘 이름과 색 목록은 `apps.js` 맨 위 주석 참고. 브랜드처럼 글자로 표시하려면 `mono: 'Mo'`
-- 상담 현황 같은 업무 앱이 완성되면 `kind: 'frame'` 과 `url` 로 한 줄 추가하면 됨
+- 고객관리 같은 업무 앱이 완성되면 `kind: 'frame'` 과 `url` 로 한 줄 추가하면 됨
 - 처음 쓰는 기기의 작업 표시줄 고정 앱은 `MYRUBI_PINNED`
 
 ## 파일
@@ -139,12 +139,9 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 - `nas/stock/` NAS 컨테이너로 띄우는 이카운트 재고 조회 서비스 (`stock.py`, `docker-compose.yml`, `stock.env.example`, 설치 안내 `README.md`)
 - `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID, 체크리스트 멤버 목록, NAS·재고 서버 주소
 - `lib.js` 로그인 세션과 API 호출 (두 화면과 앱이 같이 씀)
-- `apps-script/Code.gs` 백엔드: 구글 로그인 확인, 세션, 구글 드라이브·`00_My Rubi Index` 시트(공지·체크리스트 탭 포함), 구글 캘린더 읽기
+- `apps-script/Code.gs` 백엔드: 구글 로그인 확인, 세션, `00_My Rubi Index` 스프레드시트의 공지·체크리스트 탭, 구글 캘린더 읽기·쓰기
 - `CNAME` my.rubiworkshop.com (GitHub Pages, main / root)
 
-## 지금은 연결되지 않은 이전 작업
+## 정리한 이전 작업
 
-바탕화면을 새로 만들면서 아래 파일은 남겨두되 바탕화면에서는 연결하지 않았습니다. 상담 현황 앱을 다시 붙일 때 씁니다.
-
-- `consult/index.html` 상담 현황 앱 (구글 로그인 세션을 쓰도록 맞춰 둠)
-- `tools/backfill.py` 기존 고객 폴더명으로 Index 시트를 채운 스크립트
+예전 상담 현황 앱(`consult/`, 고객 폴더·Log 시트 자동 생성)과 Index 시트 백필 스크립트(`tools/backfill.py`)는 2026-10-30에 지웠습니다. 포털에서 쓰지 않던 것이라 백엔드(`Code.gs`)에서도 함께 뺐습니다. 고객관리 앱을 만들 때 참고하려면 git 기록에서 꺼내 볼 수 있습니다. 구글 드라이브의 고객 폴더와 Index 스프레드시트의 'Index'·'상담 기록' 탭은 그대로 남아 있습니다.

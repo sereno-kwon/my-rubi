@@ -3,7 +3,7 @@
 //
 // kind
 //   link    : 새 탭으로 열림 (외부 사이트는 대부분 창 안에 넣을 수 없음)
-//   frame   : 바탕화면 안의 창으로 열림 (my.rubiworkshop.com 안의 페이지용, 예: url:'/consult/')
+//   frame   : 바탕화면 안의 창으로 열림 (my.rubiworkshop.com 안의 페이지용, 예: url:'/customers/')
 //   folder  : 창 안에 아이콘 모음. 앱에 folder:'폴더 id' 를 적으면 그 폴더 안에 들어감
 //   builtin : 포털 내장 (체크리스트, 재고 확인, NAS, 바탕화면 설정)
 //   soon    : 준비 중 (아이콘만 보이고, 열면 안내 창)

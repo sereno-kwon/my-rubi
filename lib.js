@@ -1,5 +1,5 @@
 // My Rubi 공용: 서버 주소, 구글 로그인 세션, API 호출
-// 바탕화면(/)과 각 앱(/consult/ …)이 같은 도메인이라 localStorage의 세션을 함께 씀
+// 바탕화면(/)과 각 앱(frame 페이지)이 같은 도메인이라 localStorage의 세션을 함께 씀
 (function () {
   const K_URL = 'myrubi.url', K_SESSION = 'myrubi.session';
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
