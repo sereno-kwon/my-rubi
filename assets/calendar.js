@@ -11,6 +11,8 @@ const K_CACHE_BASE = 'myrubi.cal.cache';
 const POLL_MS = 300000;   // 5분마다, 그리고 탭으로 돌아올 때 다시 불러옴
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 const MAX_DOTS = 3;
+/** 서버가 예전 버전이면 'unknown action' 이 옴. 무엇을 하면 되는지 알려 줌 */
+const errText = (e, d) => /unknown (action|op)/.test(e && e.message || '') ? 'Apps Script가 예전 버전입니다. 배포 관리에서 새 버전으로 배포해 주세요' : (e && e.message) || d;
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -67,7 +69,7 @@ async function load(m, quiet) {
     msg = '';
     saveCache(m);
   } catch (e) {
-    msg = e.message || '일정을 불러오지 못했습니다';
+    msg = errText(e, '일정을 불러오지 못했습니다');
   } finally {
     loading[m] = false;
     if (form) pending = true; else render();
@@ -228,7 +230,7 @@ async function submit(op) {
     render();
   } catch (e) {
     if (!form) return;
-    form.busy = false; form.delArm = false; form.err = e.message || '저장하지 못했습니다';
+    form.busy = false; form.delArm = false; form.err = errText(e, '저장하지 못했습니다');
     render();
   }
 }
