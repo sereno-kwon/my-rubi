@@ -217,7 +217,10 @@ async function submit(op) {
     });
     // 다른 달 자료는 다음에 볼 때 새로 불러옴
     Object.keys(data).forEach(k => { data[k].at = 0; });
-    data[j.month || showMonth] = { start: j.start, end: j.end, calendars: j.calendars || [], events: j.events || [], at: Date.now() };
+    // 지운 일정은 서버 목록에 남아 있더라도 화면에서 빼 둠
+    const gone = op === 'delete' ? (j.deleted || form.id) : '';
+    const evs = (j.events || []).filter(x => !gone || x.id !== gone);
+    data[j.month || showMonth] = { start: j.start, end: j.end, calendars: j.calendars || [], events: evs, at: Date.now() };
     month = j.month || showMonth;
     if (op !== 'delete') picked = v.date;
     saveCache(month);

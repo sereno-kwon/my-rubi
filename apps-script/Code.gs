@@ -981,36 +981,42 @@ function calendars_() {
 }
 
 /** 한 달치 일정. { month, start, end, calendars:[{id,name,color}], events:[…] } */
-function listCalendar_(month) {
+/** 일정 하나를 포털이 쓰는 모양으로 */
+function eventJson_(ev, ci) {
+  const fmtDay = d => Utilities.formatDate(d, CONFIG.TZ, 'yyyy-MM-dd');
+  const fmtMin = d => Utilities.formatDate(d, CONFIG.TZ, 'HH:mm');
+  const allDay = ev.isAllDayEvent();
+  const s = ev.getStartTime(), e = ev.getEndTime();
+  // 종일 일정의 끝은 다음 날 0시(배타)라 하루를 빼서 마지막 날로 맞춤
+  const endDay = allDay ? fmtDay(new Date(e.getTime() - 1)) : fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1)));
+  const d = splitDesc_(ev.getDescription());
+  return {
+    id: ev.getId(), cal: ci, title: ev.getTitle() || '(제목 없음)',
+    allDay, date: fmtDay(s), endDate: endDay,
+    start: allDay ? '' : fmtMin(s), end: allDay ? '' : fmtMin(e),
+    location: ev.getLocation() || '',
+    desc: d.text.slice(0, 2000), by: d.tag.replace(/^\[My Rubi\]\s*/, ''),
+    rec: ev.isRecurringEvent(),
+  };
+}
+const sortEvents_ = events => events.sort((a, b) => (a.date + (a.allDay ? '' : a.start)).localeCompare(b.date + (b.allDay ? '' : b.start)));
+
+/** fresh: 일정을 바꾼 직후. 캐시를 읽지도 쓰지도 않음 (바뀌기 전 목록이 2분 동안 남지 않게) */
+function listCalendar_(month, fresh) {
   const r = calendarRange_(month);
   const cache = CacheService.getScriptCache(), key = 'cal:' + r.month;
-  const sec = Number(CONFIG.CALENDAR_CACHE_SEC) || 0;
+  const sec = fresh ? 0 : Number(CONFIG.CALENDAR_CACHE_SEC) || 0;
   if (sec) { const hit = cache.get(key); if (hit) return JSON.parse(hit); }
 
   const fmtDay = d => Utilities.formatDate(d, CONFIG.TZ, 'yyyy-MM-dd');
-  const fmtMin = d => Utilities.formatDate(d, CONFIG.TZ, 'HH:mm');
   const cals = calendars_();
   const events = [];
   cals.forEach((c, ci) => {
     let list = [];
     try { list = c.cal.getEvents(r.start, r.end); } catch (e) { return; }
-    list.forEach(ev => {
-      const allDay = ev.isAllDayEvent();
-      const s = ev.getStartTime(), e = ev.getEndTime();
-      // 종일 일정의 끝은 다음 날 0시(배타)라 하루를 빼서 마지막 날로 맞춤
-      const endDay = allDay ? fmtDay(new Date(e.getTime() - 1)) : fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1)));
-      const d = splitDesc_(ev.getDescription());
-      events.push({
-        id: ev.getId(), cal: ci, title: ev.getTitle() || '(제목 없음)',
-        allDay, date: fmtDay(s), endDate: endDay,
-        start: allDay ? '' : fmtMin(s), end: allDay ? '' : fmtMin(e),
-        location: ev.getLocation() || '',
-        desc: d.text.slice(0, 2000), by: d.tag.replace(/^\[My Rubi\]\s*/, ''),
-        rec: ev.isRecurringEvent(),
-      });
-    });
+    list.forEach(ev => events.push(eventJson_(ev, ci)));
   });
-  events.sort((a, b) => (a.date + (a.allDay ? '' : a.start)).localeCompare(b.date + (b.allDay ? '' : b.start)));
+  sortEvents_(events);
   const out = {
     month: r.month, start: fmtDay(r.start), end: fmtDay(new Date(r.end.getTime() - 1)),
     calendars: cals.map(c => ({ id: c.id, name: c.name, color: c.color })),
@@ -1098,8 +1104,13 @@ function saveEvent_(b, user) {
     const s = ev.getStartTime(), e = ev.getEndTime();
     clearCalCache_(fmtDay(s), fmtDay(new Date(Math.max(s.getTime(), e.getTime() - 1))));
     if (op === 'delete') {
+      const id = ev.getId();
       ev.deleteEvent();
-      return Object.assign(listCalendar_(b.month), { saved: '' });
+      // 같은 실행 안에서 다시 읽으면 지운 일정이 아직 섞여 나올 수 있어 직접 빼고 돌려줌
+      const out = listCalendar_(b.month, true);
+      out.events = out.events.filter(x => x.id !== id);
+      clearCalCache_(out.start, out.end);
+      return Object.assign(out, { saved: '', deleted: id });
     }
   } else if (op !== 'add') {
     throw new Error('unknown op');
@@ -1129,7 +1140,14 @@ function saveEvent_(b, user) {
     }
   }
   clearCalCache_(v.date, v.endDate);
-  return Object.assign(listCalendar_(b.month), { saved: ev.getId() });
+  // 방금 넣거나 고친 일정이 목록에 바로 반영되지 않았을 수 있어 직접 끼워 넣음
+  const out = listCalendar_(b.month, true);
+  const id = ev.getId(), ci = Math.max(0, cals.findIndex(c => c.id === ev.getOriginalCalendarId()));
+  const item = eventJson_(ev, ci);
+  out.events = out.events.filter(x => x.id !== id);
+  if (item.endDate >= out.start && item.date <= out.end) out.events.push(item);
+  sortEvents_(out.events);
+  return Object.assign(out, { saved: id });
 }
 
 /** 편집기에서 직접 실행용: 캘린더 권한 승인 + 이번 달 일정 확인 */
