@@ -71,6 +71,7 @@ window.MYRUBI_APPS = [
   { id: 'b-surly',     folder: 'brands', group: '루비 운영 한국 사이트', title: '설리',                  mono: 'S',    tint: 'green',  kind: 'link', url: 'https://surly.rubiworkshop.com/' },
   { id: 'b-quoc',      folder: 'brands', group: '루비 운영 한국 사이트', title: 'QUOC',                mono: 'Q',    tint: 'paper',  kind: 'link', url: 'https://quoc.rubiworkshop.com/' },
   { id: 'b-gokiso',    folder: 'brands', group: '루비 운영 한국 사이트', title: '고키소',                 mono: 'G',    tint: 'teal',   kind: 'link', url: 'https://gokiso.rubiworkshop.com/' },
+  { id: 'b-thm-kr',    folder: 'brands', group: '루비 운영 한국 사이트', title: 'THM',                 mono: 'THM',  tint: 'slate',  kind: 'link', url: 'https://thm.rubiworkshop.com/' },
   // 자전거 브랜드 해외 사이트
   { id: 'b-moulton-g', folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '몰튼 Global',           mono: 'Mo',   tint: 'slate',  kind: 'link', url: 'https://moultonbicycles.co.uk/' },
   { id: 'b-bastion-g', folder: 'brands', group: '자전거 브랜드 해외 사이트', title: '바스티온 Global',         mono: 'B',    tint: 'paper',  kind: 'link', url: 'https://bastioncycles.com/' },
