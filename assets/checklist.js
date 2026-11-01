@@ -336,7 +336,18 @@ function bind() {
   host.addEventListener('keydown', onKey);
   host.addEventListener('contextmenu', onContext);
 }
+/** 패널 본문(#pBody)은 프로젝트·NAS 등 다른 앱과 같이 쓰므로, 닫을 때 반드시 떼어 냄
+ *  (남아 있으면 다른 앱의 클릭·입력을 체크리스트가 가로챔) */
+function unbind() {
+  if (!host) return;
+  host.removeEventListener('click', onClick);
+  host.removeEventListener('change', onChange);
+  host.removeEventListener('submit', onSubmit);
+  host.removeEventListener('keydown', onKey);
+  host.removeEventListener('contextmenu', onContext);
+}
 function onClick(e) {
+  if (!host || !host.querySelector('.ck:not(.pj)')) return;
   const t = e.target.closest('[data-tab]');
   if (t) { ui.tab = t.dataset.tab; saveUi(); editing = null; render(); return; }
   const o = e.target.closest('[data-open]');
@@ -355,12 +366,14 @@ function onClick(e) {
   if (c) { editing = null; render(); }
 }
 function onChange(e) {
+  if (!host || !host.querySelector('.ck:not(.pj)')) return;
   const cb = e.target.closest('[data-toggle]');
   if (!cb || busy) return;
   const it = items.find(x => x.id === cb.dataset.toggle); if (!it) return;
   run('toggle', { id: it.id, done: cb.checked });
 }
 function onSubmit(e) {
+  if (!host || !host.querySelector('.ck:not(.pj)')) return;
   e.preventDefault();
   const f = e.target;
   if (f.id === 'ckNewMember') {
@@ -401,12 +414,14 @@ function onSubmit(e) {
   }
 }
 function onKey(e) {
+  if (!host || !host.querySelector('.ck:not(.pj)')) return;
   if (e.key === 'Escape' && editing) { e.stopPropagation(); editing = null; render(); return; }
   if (e.key === 'Escape' && e.target.matches('input') && e.target.value) { e.stopPropagation(); e.target.value = ''; return; }
   const card = e.target.closest('.ck-card[data-open]');
   if (card && e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ui.tab = card.dataset.open; saveUi(); render(); }
 }
 function onContext(e) {
+  if (!host || !host.querySelector('.ck:not(.pj)')) return;
   if (e.target.closest('input,select,textarea')) return;
   const row = e.target.closest('.ck-row[data-id]'); if (!row) return;
   e.preventDefault(); e.stopPropagation();
@@ -491,7 +506,7 @@ window.MYRUBI_CHECK = {
     if (started) load();
     const first = host.querySelector('.ck-add input'); if (first && !matchMedia('(pointer:coarse)').matches) first.focus();
   },
-  unmount() { host = null; editing = null; },
+  unmount() { unbind(); host = null; editing = null; },
   /** 그 멤버 탭을 보여줌 (주소 #checklist/이름 으로 들어왔을 때) */
   show(tab) { if (tab) { ui.tab = tab; saveUi(); } if (host) render(); },
   shortcut,
