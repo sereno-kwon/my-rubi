@@ -5,7 +5,7 @@
 //   link    : 새 탭으로 열림 (외부 사이트는 대부분 창 안에 넣을 수 없음)
 //   frame   : 바탕화면 안의 창으로 열림 (my.rubiworkshop.com 안의 페이지용, 예: url:'/customers/')
 //   folder  : 창 안에 아이콘 모음. 앱에 folder:'폴더 id' 를 적으면 그 폴더 안에 들어감
-//   builtin : 포털 내장 (체크리스트, 재고 확인, NAS, 바탕화면 설정)
+//   builtin : 포털 내장 (체크리스트, 프로젝트, 재고 확인, NAS, 바탕화면 설정)
 //   soon    : 준비 중 (아이콘만 보이고, 열면 안내 창)
 //
 // icon : server chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench check
@@ -15,7 +15,8 @@
 
 window.MYRUBI_APPS = [
   // ESSENTIAL
-  { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 매일·매주·할 일' },
+  { id: 'checklist', title: '체크리스트',    icon: 'check',  tint: 'ruby',  kind: 'builtin', note: '멤버별 할 일' },
+  { id: 'project',   title: '프로젝트',     icon: 'note',   tint: 'amber', kind: 'builtin', note: '프로젝트 세부 항목, 멤버 체크리스트와 연동' },
   { id: 'stock',     title: '재고확인',     icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
 
@@ -112,7 +113,7 @@ window.MYRUBI_APPS = [
 
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
-  { label: 'Essential', ids: ['checklist', 'stock', 'nas'] },
+  { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas'] },
   { label: 'App',       ids: ['customers', 'inbound', 'imweb-update'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];

@@ -6,6 +6,8 @@
  *  - 첫 화면 공지·일정 포스트잇을 My Rubi Index 스프레드시트의 '공지' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *  - 멤버별 체크리스트를 같은 스프레드시트의 '체크리스트' 탭에 저장함 (탭은 처음 쓸 때 자동 생성)
  *    CONFIG.PRIVATE_CHECKLISTS 에 적은 멤버의 목록은 본인에게만 돌려줌 (다른 직원에게는 응답에서 아예 빠짐)
+ *  - 프로젝트를 같은 스프레드시트의 '프로젝트' 탭에 저장함. 프로젝트의 세부 항목은 '체크리스트' 탭의 줄이고
+ *    '프로젝트' 열에 프로젝트 ID가 들어감. 담당은 여러 명(쉼표로 구분)이고, 프로젝트 항목은 개인 목록 설정과 관계없이 모두에게 보임
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -61,10 +63,15 @@ const NOTE_COLS = ['id', 'type', 'text', 'date', 'time', 'color', 'author', 'ema
 const NOTE_HEADERS = ['ID', '종류(notice/event)', '내용', '날짜', '시간', '색', '작성자', '이메일', '작성일시', '수정일시'];
 const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'];
 
-// 체크리스트 탭 컬럼 (멤버별 체크리스트)
-const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order', 'author', 'email', 'createdAt', 'updatedAt'];
-const CHECK_HEADERS = ['ID', '담당', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시'];
+// 체크리스트 탭 컬럼 (멤버별 체크리스트). project·due 는 2026-11 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
+const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'project', 'due'];
+const CHECK_HEADERS = ['ID', '담당(여러 명은 쉼표)', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시', '프로젝트 ID', '마감일'];
 const CHECK_REPEATS = ['daily', 'weekly', 'once'];
+
+// 프로젝트 탭 컬럼
+const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'author', 'email', 'createdAt', 'updatedAt'];
+const PROJ_HEADERS = ['ID', '프로젝트', '책임자', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시'];
+const PROJ_STATUS = ['active', 'hold', 'done'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
 
@@ -77,7 +84,7 @@ function doGet(e) {
     switch (p.action) {
       case 'me':       return json_({ ok: true, user: publicUser_(user) });
       case 'notes':    return json_({ ok: true, notes: listNotes_() });
-      case 'checks':   return json_({ ok: true, checks: listChecks_(user), hide: hiddenMembers_(user) });
+      case 'checks':   return json_({ ok: true, ...checkData_(user) });
       case 'calendar': return json_({ ok: true, ...listCalendar_(p.month) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
@@ -97,7 +104,8 @@ function doPost(e) {
 
     switch (body.action) {
       case 'note':     return json_({ ok: true, notes: saveNote_(body, user) });
-      case 'check':    return json_({ ok: true, checks: saveCheck_(body, user), hide: hiddenMembers_(user) });
+      case 'check':    saveCheck_(body, user);   return json_({ ok: true, ...checkData_(user) });
+      case 'project':  { const saved = saveProject_(body, user) || ''; return json_({ ok: true, saved, ...checkData_(user) }); }
       case 'event':    return json_({ ok: true, ...saveEvent_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
@@ -296,7 +304,9 @@ function saveNote_(b, user) {
   throw new Error('unknown op');
 }
 
-// ───────────────────────────── 체크리스트 (멤버별) ─────────────────────────────
+// ───────────────────────────── 체크리스트 (멤버별) + 프로젝트 ─────────────────────────────
+// 한 줄 = 한 항목. 프로젝트 항목은 '프로젝트' 열에 프로젝트 ID가 있는 줄이고, 담당 칸에 여러 명(쉼표 구분)이 들어갈 수 있음
+// 개인 목록(PRIVATE_CHECKLISTS) 숨김은 프로젝트가 없는 줄에만 적용됨. 프로젝트 항목은 모두에게 보임
 
 function checkSheet_() {
   const ss = indexSs_();
@@ -306,17 +316,50 @@ function checkSheet_() {
     sh.getRange(1, 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange(1, 1, sh.getMaxRows(), CHECK_COLS.length).setNumberFormat('@');
+  } else if (sh.getLastColumn() < CHECK_COLS.length) {
+    // 예전 시트: 뒤에 새 열(프로젝트 ID, 마감일) 머리글을 채우고 글자 형식으로
+    if (sh.getMaxColumns() < CHECK_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), CHECK_COLS.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]).setFontWeight('bold');
+    sh.getRange(1, 1, sh.getMaxRows(), CHECK_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+function projectSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('프로젝트');
+  if (!sh) {
+    sh = ss.insertSheet('프로젝트');
+    sh.getRange(1, 1, 1, PROJ_HEADERS.length).setValues([PROJ_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), PROJ_COLS.length).setNumberFormat('@');
   }
   return sh;
 }
 
 const checkOwner_ = n => { n = String(n || '').trim(); return (CONFIG.CHECK_OWNER_ALIASES || {})[n] || n; };
+/** '권오현, 김현우' → ['권오현', '김현우'] (별칭 맞춤, 중복 제거) */
+function ownerList_(v) {
+  const arr = Array.isArray(v) ? v : String(v || '').split(/\s*,\s*/);
+  const out = [];
+  arr.forEach(n => { n = checkOwner_(String(n || '').slice(0, 40)); if (n && out.indexOf(n) < 0) out.push(n); });
+  return out;
+}
 
 function checkRows_(sh) {
   const last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, CHECK_COLS.length).getValues()
-    .map(r => { const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.owner = checkOwner_(o.owner); o.doneBy = checkOwner_(o.doneBy); return o; });
+    .map(r => { const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.owner = ownerList_(o.owner).join(', '); o.doneBy = checkOwner_(o.doneBy); return o; });
+}
+
+function projectRows_() {
+  const sh = projectSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, PROJ_COLS.length).getValues()
+    .map(r => { const o = {}; PROJ_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.lead = checkOwner_(o.lead); return o; })
+    .filter(o => o.id && o.name);
 }
 
 /** 이메일 아이디(@ 앞). 회사 도메인(ALLOWED_DOMAINS)이면 아이디만, 바깥 계정이면 이메일 전체로 비교 */
@@ -326,7 +369,7 @@ function emailKey_(email) {
   if (at < 0) return e;
   return CONFIG.ALLOWED_DOMAINS.includes(e.slice(at + 1)) ? e.slice(0, at) : e;
 }
-/** 이 사람이 그 멤버의 체크리스트를 볼 수 있는지. 개인 목록이 아닌 멤버는 모두 볼 수 있음 */
+/** 이 사람이 그 멤버의 개인 체크리스트를 볼 수 있는지. 개인 목록이 아닌 멤버는 모두 볼 수 있음 */
 function canSeeChecks_(owner, user) {
   const p = (CONFIG.PRIVATE_CHECKLISTS || {})[checkOwner_(owner)];
   if (!p) return true;
@@ -336,21 +379,36 @@ function canSeeChecks_(owner, user) {
   if (!(p.emails || []).length) return (p.names || []).includes(String(user.name || '').trim());
   return false;
 }
+/** 이 줄을 볼 수 있는지: 프로젝트 항목은 모두, 개인 항목은 담당이 개인 목록이면 본인만 */
+function canSeeRow_(o, user) {
+  if (o.project) return true;
+  return ownerList_(o.owner).every(n => canSeeChecks_(n, user));
+}
 /** 이 사람에게 탭을 숨길 멤버 */
 function hiddenMembers_(user) {
   return Object.keys(CONFIG.PRIVATE_CHECKLISTS || {}).filter(n => !canSeeChecks_(n, user));
 }
 
-/** 목록. 볼 수 없는 개인 목록과 끝낸 지 30일이 넘은 '할 일'은 빼고 돌려줌 (시트에는 남음) */
+/** 목록. 볼 수 없는 개인 항목과 끝낸 지 30일이 넘은 개인 '할 일'은 빼고 돌려줌 (시트에는 남음)
+ *  프로젝트 항목은 진행률을 세야 하므로 오래되어도 돌려줌 */
 function listChecks_(user) {
   const cutoff = Utilities.formatDate(new Date(Date.now() - 30 * 86400000), CONFIG.TZ, 'yyyy-MM-dd');
   return checkRows_(checkSheet_())
-    .filter(o => canSeeChecks_(o.owner, user))
+    .filter(o => canSeeRow_(o, user))
     .map(o => { delete o.email; return o; })
-    .filter(o => o.id && o.text && !(o.repeat === 'once' && o.doneAt && o.doneAt.slice(0, 10) < cutoff));
+    .filter(o => o.id && o.text && (o.project || !(o.repeat === 'once' && o.doneAt && o.doneAt.slice(0, 10) < cutoff)));
 }
 
-/** op: add / update / toggle / delete. 저장 후 전체 목록을 돌려줌 */
+function listProjects_() {
+  return projectRows_().map(o => { delete o.email; return o; });
+}
+
+/** 체크리스트·프로젝트 응답 한 벌 */
+function checkData_(user) {
+  return { checks: listChecks_(user), projects: listProjects_(), hide: hiddenMembers_(user) };
+}
+
+/** op: add / update / toggle / delete */
 function saveCheck_(b, user) {
   const sh = checkSheet_();
   const op = String(b.op || '');
@@ -365,13 +423,13 @@ function saveCheck_(b, user) {
   const readRow = row => { const cur = sh.getRange(row, 1, 1, CHECK_COLS.length).getValues()[0]; const o = {}; CHECK_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k)); return o; };
   const gone = '이미 지워진 항목입니다. 새로 고침해 주세요';
   /** 남의 개인 목록에 있는 줄은 없는 것처럼 다룸 */
-  const ownRow = id => { const row = findRow(id); if (row < 0) return -1; return canSeeChecks_(readRow(row).owner, user) ? row : -1; };
+  const ownRow = id => { const row = findRow(id); if (row < 0) return -1; return canSeeRow_(readRow(row), user) ? row : -1; };
   const writeRow = (row, o) => sh.getRange(row, 1, 1, CHECK_COLS.length).setNumberFormat('@').setValues([CHECK_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
 
   if (op === 'delete') {
     const row = ownRow(b.id);
     if (row > 0) sh.deleteRow(row);
-    return listChecks_(user);
+    return;
   }
   if (op === 'toggle') {
     const row = ownRow(b.id);
@@ -379,22 +437,31 @@ function saveCheck_(b, user) {
     const o = readRow(row);
     if (b.done) { o.doneAt = now_(); o.doneBy = who; } else { o.doneAt = ''; o.doneBy = ''; }
     writeRow(row, o);
-    return listChecks_(user);
+    return;
   }
 
-  const owner = checkOwner_(String(b.owner || '').slice(0, 40));
+  const project = String(b.project || '').trim();
+  const owners = ownerList_(b.owners != null ? b.owners : b.owner);
   const text = String(b.text || '').trim().slice(0, 200);
   const repeat = CHECK_REPEATS.indexOf(b.repeat) >= 0 ? b.repeat : 'once';
   const order = Number(b.order) || 0;
-  if (!owner) throw new Error('담당 멤버가 필요합니다');
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) ? String(b.due) : '';
+  if (!owners.length) throw new Error('담당 멤버가 필요합니다');
   if (!text) throw new Error('내용을 적어 주세요');
-  if (!canSeeChecks_(owner, user)) throw new Error(owner + '님의 체크리스트에는 넣을 수 없습니다');
+  if (project) {
+    if (!projectRows_().some(p => p.id === project)) throw new Error('프로젝트를 찾지 못했습니다. 새로 고침해 주세요');
+  } else {
+    // 개인 항목은 한 명만. 개인 목록인 멤버에게는 본인만 넣을 수 있음
+    if (owners.length > 1) throw new Error('담당을 여러 명 두는 항목은 프로젝트 안에서만 만들 수 있습니다');
+    if (!canSeeChecks_(owners[0], user)) throw new Error(owners[0] + '님의 체크리스트에는 넣을 수 없습니다');
+  }
+  const owner = owners.join(', ');
 
   if (op === 'add') {
     const o = { id: Utilities.getUuid().slice(0, 8), owner, text, repeat, doneAt: '', doneBy: '', order,
-      author: who, email: user.email, createdAt: now_(), updatedAt: '' };
+      author: who, email: user.email, createdAt: now_(), updatedAt: '', project, due };
     writeRow(sh.getLastRow() + 1, o);
-    return listChecks_(user);
+    return;
   }
   if (op === 'update') {
     const row = ownRow(b.id);
@@ -402,9 +469,63 @@ function saveCheck_(b, user) {
     const o = readRow(row);
     // 반복 종류가 바뀌면 끝낸 기록은 새로 시작
     if (o.repeat !== repeat) { o.doneAt = ''; o.doneBy = ''; }
-    Object.assign(o, { owner, text, repeat, order, updatedAt: now_() });
+    Object.assign(o, { owner, text, repeat, order, project, due, updatedAt: now_() });
     writeRow(row, o);
-    return listChecks_(user);
+    return;
+  }
+  throw new Error('unknown op');
+}
+
+/** 프로젝트 op: add / update / delete. 지우면 그 프로젝트의 항목도 함께 지움 */
+function saveProject_(b, user) {
+  const sh = projectSheet_();
+  const op = String(b.op || '');
+  const who = user.name || user.email;
+  const findRow = id => {
+    const last = sh.getLastRow();
+    if (!id || last < 2) return -1;
+    const ids = sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+    const i = ids.indexOf(String(id));
+    return i < 0 ? -1 : i + 2;
+  };
+  const writeRow = (row, o) => sh.getRange(row, 1, 1, PROJ_COLS.length).setNumberFormat('@').setValues([PROJ_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+
+  if (op === 'delete') {
+    const row = findRow(b.id);
+    if (row > 0) sh.deleteRow(row);
+    // 그 프로젝트의 항목 줄을 아래에서부터 지움
+    const csh = checkSheet_();
+    const last = csh.getLastRow();
+    if (last >= 2) {
+      const pi = CHECK_COLS.indexOf('project');
+      const vals = csh.getRange(2, pi + 1, last - 1, 1).getValues();
+      for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]) === String(b.id)) csh.deleteRow(i + 2);
+    }
+    return;
+  }
+
+  const name = String(b.name || '').trim().slice(0, 60);
+  const lead = checkOwner_(String(b.lead || '').slice(0, 40));
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) ? String(b.due) : '';
+  const status = PROJ_STATUS.indexOf(b.status) >= 0 ? b.status : 'active';
+  const memo = String(b.memo || '').replace(/\r/g, '').trim().slice(0, 1000);
+  const order = Number(b.order) || 0;
+  if (!name) throw new Error('프로젝트 이름을 적어 주세요');
+
+  if (op === 'add') {
+    const o = { id: 'p' + Utilities.getUuid().slice(0, 7), name, lead, due, status, memo, order,
+      author: who, email: user.email, createdAt: now_(), updatedAt: '' };
+    writeRow(sh.getLastRow() + 1, o);
+    return o.id;
+  }
+  if (op === 'update') {
+    const row = findRow(b.id);
+    if (row < 0) throw new Error('이미 지워진 프로젝트입니다. 새로 고침해 주세요');
+    const cur = sh.getRange(row, 1, 1, PROJ_COLS.length).getValues()[0];
+    const o = {}; PROJ_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k));
+    Object.assign(o, { name, lead, due, status, memo, order, updatedAt: now_() });
+    writeRow(row, o);
+    return o.id;
   }
   throw new Error('unknown op');
 }

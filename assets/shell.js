@@ -33,6 +33,7 @@ const hasKo = t => /[가-힣]/.test(t);
 const nas = () => window.MYRUBI_NAS;
 const nasAlso = q => { try { const al = nas().alsoText(nas().expand(q).also); return al ? al + ' 함께 찾기' : '파일·폴더 이름 검색'; } catch (e) { return '파일·폴더 이름 검색'; } };
 const chk = () => window.MYRUBI_CHECK;
+const prj = () => window.MYRUBI_PROJECT;
 const stk = () => window.MYRUBI_STOCK;
 const host = u => { try { return new URL(u, location.href).host.replace(/^www\./, ''); } catch (e) { return ''; } };
 
@@ -275,6 +276,7 @@ function openPanel(a, nasQ) {
   closeMenu();
   if (panelId === 'nas' && a.id === 'nas' && nasQ && nas()) { nas().search(nasQ); return; }
   if (panelId === 'stock' && a.id === 'stock' && nasQ && stk()) { stk().search(nasQ); return; }
+  if (panelId === 'project' && a.id === 'project' && prj()) { prj().show(nasQ || null); return; }
   teardown();
   panelId = a.id;
   $('#pTitle').textContent = a.title;
@@ -289,16 +291,18 @@ function openPanel(a, nasQ) {
   else if (a.id === 'nas') { if (nas()) nas().mount(pBody, nasQ || null); }
   else if (a.id === 'stock') { if (stk()) stk().mount(pBody, nasQ || null); }
   else if (a.id === 'checklist') { if (chk()) chk().mount(pBody); }
+  else if (a.id === 'project') { if (prj()) prj().mount(pBody, nasQ || null); }
   else if (a.id === 'settings') settingsView();
   else pBody.innerHTML = '<div class="soon"><p>열 수 없는 항목입니다.</p></div>';
 
   try { history.replaceState(null, '', '#' + a.id); } catch (e) {}
-  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist' && a.id !== 'stock') setTimeout(() => f.focus(), 30);
+  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist' && a.id !== 'stock' && a.id !== 'project') setTimeout(() => f.focus(), 30);
   else $('#pClose').focus();
 }
 function teardown() {
   if (panelId === 'nas' && nas()) nas().unmount();
   if (panelId === 'checklist' && chk()) chk().unmount();
+  if (panelId === 'project' && prj()) prj().unmount();
   if (panelId === 'stock' && stk()) stk().unmount();
   pBody.innerHTML = '';
   panelId = null;
@@ -352,6 +356,10 @@ document.addEventListener('pointerdown', e => { if (!e.target.closest('.ctx')) c
 function copy(t) { try { navigator.clipboard.writeText(t); } catch (e) {} }
 window.MYRUBI_DESK = { menu: showMenu, openNas: qq => openPanel(byId.nas, qq) };
 if (chk()) chk().onOpen = () => { if (byId.checklist) { remember('checklist'); openPanel(byId.checklist); } };
+// 체크리스트의 프로젝트 이름, 오른쪽 Project 칸에서 프로젝트 패널로
+const openProject = id => { if (byId.project) { remember('project'); openPanel(byId.project, id || null); } };
+if (chk()) chk().onProject = openProject;
+if (prj()) prj().onOpen = openProject;
 
 // ─────────── 시계 ───────────
 function tick() {
@@ -408,6 +416,7 @@ function unlock(animate) {
   if (window.MYRUBI_BOARD) window.MYRUBI_BOARD.start();
   if (window.MYRUBI_CAL) window.MYRUBI_CAL.start($('#cal'));
   if (chk()) chk().start($('#checks'));
+  if (prj()) prj().start($('#projs'));
   renderWho(); render(); focusQ(); openFromUrl();
 }
 function renderWho() {
@@ -423,6 +432,9 @@ function openFromUrl() {
   // #checklist/이름 : 그 멤버의 체크리스트 탭으로 바로 열기
   const m = hash.match(/^checklist\/(.+)$/);
   if (m && byId.checklist && chk()) { remember('checklist'); openPanel(byId.checklist); chk().show(m[1]); return; }
+  // #project/ID : 그 프로젝트를 바로 열기
+  const pm = hash.match(/^project\/(.+)$/);
+  if (pm && byId.project && prj()) { openProject(pm[1]); return; }
   if (hash && byId[hash]) { open(hash); return; }
   const next = new URLSearchParams(location.search).get('next');
   if (next) {

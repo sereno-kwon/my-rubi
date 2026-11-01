@@ -3,11 +3,14 @@
 // 구글 로그인을 켜면 Apps Script(00_My Rubi Index 시트의 '체크리스트' 탭)에 저장되어 모든 직원이 같은 목록을 봄
 // 로그인을 켜기 전에는 이 브라우저에만 저장됨
 // 패널(텍스트 화면)과 오른쪽 요약 칸이 같이 씀. 윈도우 화면은 쓰지 않음
+// 프로젝트(2026-11): 프로젝트 세부 항목도 이 목록의 줄임 (project 에 프로젝트 ID, 담당은 여러 명).
+//  멤버 탭에서는 프로젝트별 묶음으로 보이고, 프로젝트 화면(assets/project.js)은 window.MYRUBI_CHECK 의 data()·run()으로 같은 줄을 씀
+//  완료(done)로 옮긴 프로젝트의 항목은 멤버 탭과 요약에서 빠짐
 (() => {
 'use strict';
 
 const MR = window.MR, CFG = window.MYRUBI_CONFIG || {};
-const K_LOCAL = 'myrubi.checks', K_CACHE_BASE = 'myrubi.checks.cache', K_UI = 'myrubi.checks.ui';
+const K_LOCAL = 'myrubi.checks', K_LOCAL_P = 'myrubi.projects', K_CACHE_BASE = 'myrubi.checks.cache', K_UI = 'myrubi.checks.ui';
 /** 공유 PC에서 앞사람의 개인 목록이 보이지 않게 저장 칸을 계정마다 나눔 */
 const K_CACHE = () => K_CACHE_BASE + '.' + ((MR && MR.user().email) || '');
 try { localStorage.removeItem(K_CACHE_BASE); } catch (e) {}   // 계정 구분 없던 예전 저장 칸 정리
@@ -42,8 +45,10 @@ function me() {
 }
 const shared = () => !!(MR && MR.loginEnabled() && MR.session());
 
-let items = [];        // { id, owner, text, repeat, doneAt, doneBy, order, author, createdAt, updatedAt }
+let items = [];        // { id, owner, owners[], text, repeat, doneAt, doneBy, order, author, createdAt, updatedAt, project, due }
+let projects = [];     // { id, name, lead, due, status, memo, order, author, createdAt, updatedAt }
 let hide = [];         // 이 계정에 숨길 멤버 (개인 목록, 서버가 알려줌)
+const subs = [];       // 목록이 바뀔 때 다시 그릴 화면 (project.js)
 let msg = '', busy = false, started = false, editing = null;
 let host = null;       // 패널에 붙은 루트 요소
 let summaryEl = null;  // 오른쪽 요약 칸
@@ -64,16 +69,36 @@ function members() {
   const out = [];
   const add = n => { n = String(n || '').trim(); if (n && !out.includes(n)) out.push(n); };
   (CFG.MEMBERS || []).forEach(add);
-  items.forEach(it => add(it.owner));
+  items.forEach(it => it.owners.forEach(add));
   // MEMBERS 를 적어 두면 그 명단으로 고정. 비어 있을 때만 로그인한 사람을 자동으로 더함
   if (!(CFG.MEMBERS || []).length) add(me());
   // 다른 사람의 개인 목록은 탭도 보이지 않음
   return out.filter(n => !hide.includes(n));
 }
+/** 프로젝트 화면에서 담당으로 고를 수 있는 멤버: 개인 목록 멤버도 포함 (프로젝트 항목은 모두에게 공개) */
+function allMembers() {
+  const out = [];
+  const add = n => { n = String(n || '').trim(); if (n && !out.includes(n)) out.push(n); };
+  (CFG.MEMBERS || []).forEach(add);
+  items.forEach(it => it.owners.forEach(add));
+  if (!(CFG.MEMBERS || []).length) add(me());
+  return out;
+}
 const alias = n => (CFG.MEMBER_ALIASES || {})[n] || n;
-/** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게 */
-const fix = list => (list || []).map(it => Object.assign({}, it, { owner: alias(it.owner), doneBy: alias(it.doneBy), repeat: 'once' }));
-const ofMember = name => items.filter(it => it.owner === name);
+const splitOwners = v => { const out = []; String(v || '').split(/\s*,\s*/).forEach(n => { n = alias(n.trim()); if (n && !out.includes(n)) out.push(n); }); return out; };
+/** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게. 담당은 쉼표로 여러 명 */
+const fix = list => (list || []).map(it => {
+  const owners = splitOwners(it.owner);
+  return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '' });
+});
+const fixP = list => (list || []).map(p => Object.assign({}, p, { lead: alias(p.lead || ''), status: p.status || 'active', order: +p.order || 0 }));
+const projOf = id => projects.find(p => p.id === id);
+/** 멤버 탭·요약에 보일 항목인지: 개인 항목, 또는 완료로 옮기지 않은 프로젝트의 항목 */
+const live = it => !it.project || (projOf(it.project) && projOf(it.project).status !== 'done');
+const ofMember = name => items.filter(it => it.owners.includes(name) && live(it));
+/** 보이는 멤버 중 누구라도 담당인 항목 (전체 탭 진행률용) */
+const visible = () => items.filter(it => live(it) && it.owners.some(o => !hide.includes(o)));
+const sortProjects = list => list.slice().sort((a, b) => (a.order - b.order) || String(a.createdAt).localeCompare(String(b.createdAt)));
 function progress(list) {
   // 할 일은 끝낸 지 7일이 지나면 안 세고, 반복 항목은 전부 셈
   const live = list.filter(it => it.repeat !== 'once' || !isDone(it) || daysSince(it.doneAt) < 7);
@@ -109,12 +134,13 @@ function syncHash() {
 function shortcut(tab) { return location.origin + '/#checklist' + (tab === ALL ? '' : '/' + encodeURIComponent(tab)); }
 
 function render() {
+  subs.forEach(fn => { try { fn(); } catch (e) {} });
   renderSummary();
   if (!host) return;
   syncHash();
   const ms = members(), tab = currentTab();
   const tabs = [ALL, ...ms].map(n => {
-    const p = n === ALL ? progress(items) : progress(ofMember(n));
+    const p = n === ALL ? progress(visible()) : progress(ofMember(n));
     return `<button class="ck-tab" role="tab" data-tab="${esc(n)}" aria-selected="${tab === n}">
       <span class="nm">${n === ALL ? '전체' : esc(n)}</span><span class="ct">${p.done}/${p.total}</span></button>`;
   }).join('');
@@ -152,28 +178,46 @@ function overviewHtml(ms) {
   }).join('') + '</div>';
 }
 
+const byOrder = (a, b) => (a.order - b.order) || String(a.createdAt).localeCompare(String(b.createdAt));
+/** 끝낸 지 7일이 안 된 항목까지, 끝낸 것은 아래로 */
+const rowsOf = g => g.filter(it => !isDone(it) || daysSince(it.doneAt) < 7)
+  .sort((a, b) => (isDone(a) !== isDone(b)) ? (isDone(a) ? 1 : -1) : byOrder(a, b));
+
 function memberHtml(name) {
   const list = ofMember(name);
-  return REPEATS.map(r => {
-    const g = list.filter(it => it.repeat === r)
-      .filter(it => r !== 'once' || !isDone(it) || daysSince(it.doneAt) < 7)
-      .sort((a, b) => {
-        if (r === 'once' && isDone(a) !== isDone(b)) return isDone(a) ? 1 : -1;   // 할 일은 끝낸 것을 아래로
-        return (a.order - b.order) || String(a.createdAt).localeCompare(String(b.createdAt));
-      });
+  const own = REPEATS.map(r => {
+    const g = rowsOf(list.filter(it => !it.project && it.repeat === r));
     const done = g.filter(isDone).length;
     return `<section class="ck-group" data-repeat="${r}">
       <h2 class="sec-h ko"><span>${REPEAT_NAME[r]}<small>${REPEAT_HINT[r]}</small></span><span class="n">${g.length ? `${done}/${g.length}` : ''}</span></h2>
-      <ol class="ck-rows">${g.map(itemHtml).join('')}</ol>
+      <ol class="ck-rows">${g.map(it => itemHtml(it, name)).join('')}</ol>
       <form class="ck-add" data-repeat="${r}" autocomplete="off">
         <span class="box" aria-hidden="true"></span>
         <input name="text" placeholder="${r === 'once' ? '할 일 추가' : REPEAT_NAME[r] + ' 할 일 추가'}" aria-label="${REPEAT_NAME[r]} 항목 추가" maxlength="200" enterkeyhint="done">
       </form>
     </section>`;
   }).join('');
+  // 이 멤버가 담당인 프로젝트 항목: 프로젝트마다 한 묶음
+  const pjs = sortProjects(projects.filter(p => p.status !== 'done' && list.some(it => it.project === p.id)));
+  const pj = pjs.map(p => {
+    const g = rowsOf(list.filter(it => it.project === p.id));
+    const all = list.filter(it => it.project === p.id);
+    const done = all.filter(isDone).length;
+    const sub = ['프로젝트', p.status === 'hold' ? '보류' : '', p.due ? '마감 ' + fmtDay(p.due) : ''].filter(Boolean).join(' · ');
+    return `<section class="ck-group ck-pgroup" data-project="${esc(p.id)}">
+      <h2 class="sec-h ko"><span><button class="ck-plink" data-proj="${esc(p.id)}" title="프로젝트 열기">${esc(p.name)} <i aria-hidden="true">→</i></button><small>${esc(sub)}</small></span><span class="n">${done}/${all.length}</span></h2>
+      <ol class="ck-rows">${g.map(it => itemHtml(it, name)).join('')}</ol>
+      <form class="ck-add" data-project="${esc(p.id)}" autocomplete="off">
+        <span class="box" aria-hidden="true"></span>
+        <input name="text" placeholder="이 프로젝트에 할 일 추가" aria-label="${esc(p.name)} 프로젝트에 할 일 추가" maxlength="200" enterkeyhint="done">
+      </form>
+    </section>`;
+  }).join('');
+  return own + pj;
 }
+function fmtDay(s) { const m = String(s || '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : ''; }
 
-function itemHtml(it) {
+function itemHtml(it, ctx) {
   const done = isDone(it);
   if (editing === it.id) {
     return `<li class="ck-row edit"><form class="ck-edit" data-id="${esc(it.id)}" autocomplete="off">
@@ -183,12 +227,14 @@ function itemHtml(it) {
       <button type="submit" class="pri">저장</button><button type="button" data-a="cancel">취소</button>
     </form></li>`;
   }
-  const by = done ? [fmtDone(it.doneAt), it.doneBy && it.doneBy !== it.owner ? it.doneBy : ''].filter(Boolean).join(' · ') : '';
+  const others = it.owners.filter(o => o !== ctx);
+  const by = done ? [fmtDone(it.doneAt), it.doneBy && it.doneBy !== ctx ? it.doneBy : ''].filter(Boolean).join(' · ')
+    : (it.project && others.length ? '함께 ' + others.join(', ') : '');
   return `<li class="ck-row${done ? ' done' : ''}" data-id="${esc(it.id)}">
     <label class="ck-chk"><input type="checkbox" data-toggle="${esc(it.id)}"${done ? ' checked' : ''}${busy ? ' disabled' : ''} aria-label="${esc(it.text)}"><span class="box" aria-hidden="true"></span></label>
     <span class="tx">${esc(it.text)}</span>
     <span class="mt">${esc(by)}</span>
-    <button class="ck-more" data-more="${esc(it.id)}" aria-label="더 보기" title="고치기, 옮기기, 지우기">···</button>
+    <button class="ck-more" data-more="${esc(it.id)}" aria-label="더 보기" title="${it.project ? '끝냄 표시, 프로젝트 열기' : '고치기, 옮기기, 지우기'}">···</button>
   </li>`;
 }
 
@@ -211,13 +257,16 @@ function renderSummary() {
 // ─────────── 저장 ───────────
 const readLocal = () => fix(readJson(K_LOCAL, []));
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify(items));
+const readLocalP = () => fixP(readJson(K_LOCAL_P, []));
+const writeLocalP = () => ls.set(K_LOCAL_P, JSON.stringify(projects));
+const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ items, projects, hide }));
 
 async function load() {
-  if (!shared()) { items = readLocal(); if (!editing) render(); return; }
+  if (!shared()) { items = readLocal(); projects = readLocalP(); if (!editing) render(); return; }
   try {
     const j = await MR.get({ action: 'checks' });
-    items = fix(j.checks); hide = j.hide || [];
-    ls.set(K_CACHE(), JSON.stringify({ items, hide }));
+    items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || [];
+    saveCache();
     msg = '';
   } catch (e) {
     msg = /unknown action/.test(e.message)
@@ -227,30 +276,56 @@ async function load() {
   if (!editing) render();
 }
 
-/** op: add / update / delete / toggle */
+/** 체크리스트 항목 op: add / update / delete / toggle */
 async function persist(op, d) {
-  const fields = { id: d.id, owner: d.owner, text: d.text, repeat: d.repeat, order: d.order };
+  const owners = d.owners ? d.owners.slice() : splitOwners(d.owner);
+  const fields = { id: d.id, owner: owners.join(', '), owners, text: d.text, repeat: d.repeat || 'once', order: d.order, project: d.project || '', due: d.due || '' };
   if (shared()) {
     const j = await MR.post(Object.assign({ action: 'check', op }, fields, op === 'toggle' ? { done: !!d.done } : {}));
-    items = fix(j.checks); hide = j.hide || [];
-    ls.set(K_CACHE(), JSON.stringify({ items, hide }));
+    items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || [];
+    saveCache();
     return;
   }
-  const who = me() || d.owner;
+  const who = me() || owners[0];
   if (op === 'add') items.push(Object.assign(fields, { id: 'l' + Date.now().toString(36), doneAt: '', doneBy: '', author: who, createdAt: stamp(), updatedAt: '' }));
   else if (op === 'update') { const it = items.find(x => x.id === d.id); if (it) Object.assign(it, fields, { updatedAt: stamp() }); }
   else if (op === 'toggle') { const it = items.find(x => x.id === d.id); if (it) { it.doneAt = d.done ? stamp() : ''; it.doneBy = d.done ? who : ''; } }
   else if (op === 'delete') items = items.filter(x => x.id !== d.id);
   writeLocal();
 }
-async function run(op, d) {
+/** 프로젝트 op: add / update / delete. 지우면 그 프로젝트 항목도 지움. add 는 새 프로젝트 ID를 돌려줌 */
+async function persistProject(op, d) {
+  const fields = { id: d.id, name: d.name, lead: d.lead || '', due: d.due || '', status: d.status || 'active', memo: d.memo || '', order: d.order || 0 };
+  if (shared()) {
+    const j = await MR.post(Object.assign({ action: 'project', op }, fields));
+    items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || [];
+    saveCache();
+    return j.saved || d.id;
+  }
+  let id = d.id;
+  if (op === 'add') { id = 'lp' + Date.now().toString(36); projects.push(Object.assign(fields, { id, author: me(), createdAt: stamp(), updatedAt: '' })); }
+  else if (op === 'update') { const p = projOf(d.id); if (p) Object.assign(p, fields, { updatedAt: stamp() }); }
+  else if (op === 'delete') { projects = projects.filter(p => p.id !== d.id); items = items.filter(it => it.project !== d.id); writeLocal(); }
+  writeLocalP();
+  return id;
+}
+/** kind: 'check' | 'project'. 저장 중에는 busy, 실패하면 msg 에 남기고 false */
+async function run(op, d, kind) {
   busy = true; msg = ''; render();
-  try { await persist(op, d); }
-  catch (e) { msg = '저장하지 못했습니다. ' + e.message; }
+  let out = true;
+  try { out = kind === 'project' ? await persistProject(op, d) : (await persist(op, d), true); }
+  catch (e) {
+    msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 프로젝트를 저장할 수 있습니다' : '저장하지 못했습니다. ' + e.message;
+    out = false;
+  }
   busy = false; render();
+  return out;
 }
 function nextOrder(owner, repeat) {
-  return items.filter(it => it.owner === owner && it.repeat === repeat).reduce((m, it) => Math.max(m, +it.order || 0), 0) + 1;
+  return items.filter(it => !it.project && it.owner === owner && it.repeat === repeat).reduce((m, it) => Math.max(m, +it.order || 0), 0) + 1;
+}
+function nextProjectOrder(pid) {
+  return items.filter(it => it.project === pid).reduce((m, it) => Math.max(m, +it.order || 0), 0) + 1;
 }
 
 // ─────────── 조작 ───────────
@@ -266,6 +341,8 @@ function onClick(e) {
   if (t) { ui.tab = t.dataset.tab; saveUi(); editing = null; render(); return; }
   const o = e.target.closest('[data-open]');
   if (o) { ui.tab = o.dataset.open; saveUi(); editing = null; render(); return; }
+  const pl = e.target.closest('[data-proj]');
+  if (pl) { openProject(pl.dataset.proj); return; }
   const cp = e.target.closest('[data-copy]');
   if (cp) {
     try { navigator.clipboard.writeText(cp.dataset.copy); } catch (err) {}
@@ -294,6 +371,16 @@ function onSubmit(e) {
     }
     ui.tab = name; saveUi(); render();
     const inp = host.querySelector('.ck-add input'); if (inp) inp.focus();
+    return;
+  }
+  if (f.classList.contains('ck-add') && f.dataset.project) {
+    const text = f.elements.text.value.trim(); if (!text || busy) return;
+    const owner = currentTab(); if (owner === ALL) return;
+    const pid = f.dataset.project;
+    f.elements.text.value = '';
+    run('add', { owners: [owner], text, project: pid, order: nextProjectOrder(pid) }).then(() => {
+      const again = host && host.querySelector(`.ck-add[data-project="${pid}"] input`); if (again) again.focus();
+    });
     return;
   }
   if (f.classList.contains('ck-add')) {
@@ -329,7 +416,15 @@ function itemMenu(id, x, y) {
   const D = window.MYRUBI_DESK; if (!D) return;
   const it = items.find(z => z.id === id); if (!it) return;
   const done = isDone(it);
-  const siblings = items.filter(z => z.owner === it.owner && z.repeat === it.repeat).sort((a, b) => (a.order - b.order) || String(a.createdAt).localeCompare(String(b.createdAt)));
+  if (it.project) {
+    // 프로젝트 항목은 고치기·담당 바꾸기·지우기를 프로젝트 화면에서
+    D.menu(x, y, [
+      { label: done ? '다시 해야 함으로' : '끝냄으로 표시', bold: true, act: () => run('toggle', { id, done: !done }) },
+      { label: '프로젝트에서 열기', act: () => openProject(it.project) },
+    ]);
+    return;
+  }
+  const siblings = items.filter(z => !z.project && z.owner === it.owner && z.repeat === it.repeat).sort((a, b) => (a.order - b.order) || String(a.createdAt).localeCompare(String(b.createdAt)));
   const i = siblings.indexOf(it);
   const swap = async (j) => {
     if (!siblings[j]) return;
@@ -354,10 +449,14 @@ function itemMenu(id, x, y) {
     { label: '아래로', disabled: i >= siblings.length - 1, act: () => swap(i + 1) },
     '-',
     ...REPEATS.filter(r => r !== it.repeat).map(r => ({ label: `${REPEAT_NAME[r]}로 옮기기`, act: moveTo(r) })),
-    ...(others.length ? ['-', ...others.slice(0, 6).map(m => ({ label: `${m}에게 넘기기`, act: () => run('update', Object.assign({}, it, { owner: m, order: nextOrder(m, it.repeat) })) }))] : []),
+    ...(others.length ? ['-', ...others.slice(0, 6).map(m => ({ label: `${m}에게 넘기기`, act: () => run('update', Object.assign({}, it, { owner: m, owners: [m], order: nextOrder(m, it.repeat) })) }))] : []),
     '-',
     { label: '지우기', act: () => { if (confirm(shared() ? `“${it.text}”를 지울까요? 모든 직원 화면에서 사라집니다.` : `“${it.text}”를 지울까요?`)) run('delete', { id }); } },
   ]);
+}
+
+function openProject(pid) {
+  if (typeof window.MYRUBI_CHECK.onProject === 'function') window.MYRUBI_CHECK.onProject(pid);
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden && started && shared() && !editing) load(); });
@@ -380,8 +479,8 @@ window.MYRUBI_CHECK = {
     if (shared()) {
       // 서버가 알려주기 전까지는 개인 목록 멤버를 일단 숨겨 둠 (본인이면 불러온 뒤 바로 보임)
       const c = readJson(K_CACHE(), null);
-      items = fix(c && c.items); hide = c && c.hide ? c.hide : (CFG.PRIVATE_MEMBERS || []).filter(n => n !== me());
-    } else { items = readLocal(); hide = []; }
+      items = fix(c && c.items); projects = fixP(c && c.projects); hide = c && c.hide ? c.hide : (CFG.PRIVATE_MEMBERS || []).filter(n => n !== me());
+    } else { items = readLocal(); projects = readLocalP(); hide = []; }
     render(); load();
   },
   /** 패널 안에 붙이기. tab 을 주면 그 멤버 탭으로 */
@@ -396,9 +495,23 @@ window.MYRUBI_CHECK = {
   /** 그 멤버 탭을 보여줌 (주소 #checklist/이름 으로 들어왔을 때) */
   show(tab) { if (tab) { ui.tab = tab; saveUi(); } if (host) render(); },
   shortcut,
-  progress(name) { return progress(name ? ofMember(name) : items); },
+  progress(name) { return progress(name ? ofMember(name) : visible()); },
   members,
+  /** 프로젝트 화면(project.js)용 */
+  allMembers,
+  me,
+  isDone,
+  fmtDone,
+  data() { return { items, projects, hide, busy, msg, shared: shared(), started }; },
+  run,
+  nextProjectOrder,
+  /** 목록이 바뀌거나 저장 중 상태가 바뀔 때마다 fn 호출 */
+  subscribe(fn) { if (!subs.includes(fn)) subs.push(fn); },
+  /** 지금 화면을 새로 불러옴 */
+  reload() { if (started) load(); },
   /** 요약 칸에서 이름을 눌렀을 때 패널을 여는 함수 (shell.js 가 넣음) */
   onOpen: null,
+  /** 프로젝트 이름을 눌렀을 때 프로젝트 패널을 여는 함수 (shell.js 가 넣음) */
+  onProject: null,
 };
 })();
