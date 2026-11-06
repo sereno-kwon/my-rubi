@@ -29,4 +29,7 @@ window.MYRUBI_CONFIG = {
   // 이카운트 재고 조회 (nas/stock/README.md 참고)
   // STOCK_API: 재고 조회 연결 파일 주소 (NAS 앱 index.php 와 같은 폴더의 stock.php). 비워두면 재고 확인 창에 설치 안내가 보임
   STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
+
+  // 첫 화면 오른쪽 주간 날씨 위치 (assets/weather.js, Open-Meteo). 기본은 반포 쇼룸 근처
+  WEATHER: { NAME: '반포', LAT: 37.5065, LON: 127.0050 },
 };

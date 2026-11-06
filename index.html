@@ -10,7 +10,7 @@
 <script>try{var t=JSON.parse(localStorage.getItem('myrubi.text.v1')||'{}').theme;if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
 <link rel="stylesheet" href="/assets/common.css?v=20261029h">
-<link rel="stylesheet" href="/assets/text.css?v=20261102a">
+<link rel="stylesheet" href="/assets/text.css?v=20261106a">
 </head>
 <body>
 
@@ -43,6 +43,8 @@
       <p class="date" id="date"></p>
       <p class="hours">쇼룸·고객센터 월~금 12:00~18:00</p>
     </div>
+    <!-- 주간 날씨 (assets/weather.js). 지금 날씨 + 오늘부터 7일 예보, Open-Meteo -->
+    <div class="wx hidden" id="wx" aria-label="주간 날씨"></div>
     <!-- 구글 캘린더 한 달 격자 (assets/calendar.js). 로그인 뒤 Apps Script가 CONFIG.CALENDARS 의 일정을 돌려줌 -->
     <div class="cal hidden" id="cal" aria-label="달력"></div>
     <!-- 공지·일정(assets/board.js)이 이 자리 바로 앞에 붙음 -->
@@ -111,7 +113,7 @@
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/></symbol>
 </svg>
 
-<script src="/config.js?v=20261029h"></script>
+<script src="/config.js?v=20261106a"></script>
 <script src="/lib.js?v=20261029h"></script>
 <script src="/apps.js?v=20261102a"></script>
 <script src="/nas-words.js?v=20261030c"></script>
@@ -119,8 +121,9 @@
 <script src="/assets/stock.js?v=20261029h"></script>
 <script src="/assets/board.js?v=20261029h"></script>
 <script src="/assets/calendar.js?v=20261030e"></script>
+<script src="/assets/weather.js?v=20261106a"></script>
 <script src="/assets/checklist.js?v=20261102b"></script>
 <script src="/assets/project.js?v=20261102a"></script>
-<script src="/assets/shell.js?v=20261102a"></script>
+<script src="/assets/shell.js?v=20261106a"></script>
 </body>
 </html>
