@@ -5,7 +5,7 @@
 //   link    : 새 탭으로 열림 (외부 사이트는 대부분 창 안에 넣을 수 없음)
 //   frame   : 바탕화면 안의 창으로 열림 (my.rubiworkshop.com 안의 페이지용, 예: url:'/customers/')
 //   folder  : 창 안에 아이콘 모음. 앱에 folder:'폴더 id' 를 적으면 그 폴더 안에 들어감
-//   builtin : 포털 내장 (체크리스트, 프로젝트, 재고 확인, NAS, 바탕화면 설정)
+//   builtin : 포털 내장 (체크리스트, 프로젝트, 고객관리, 재고 확인, NAS, 바탕화면 설정)
 //   soon    : 준비 중 (아이콘만 보이고, 열면 안내 창)
 //
 // icon : server chat bike shield sheet folder box bubble mail calendar drive note gear store globe camera wrench check
@@ -21,7 +21,7 @@ window.MYRUBI_APPS = [
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
 
   // APP (준비 중)
-  { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'soon', note: '고객 상담·출고 관리, 준비 중입니다.' },
+  { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'builtin', note: '고객 CRM, 고객문의·구매진행중·구매완료 현황과 주간 보고' },
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 

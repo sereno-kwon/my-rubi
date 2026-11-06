@@ -8,6 +8,8 @@
  *    CONFIG.PRIVATE_CHECKLISTS 에 적은 멤버의 목록은 본인에게만 돌려줌 (다른 직원에게는 응답에서 아예 빠짐)
  *  - 프로젝트를 같은 스프레드시트의 '프로젝트' 탭에 저장함. 프로젝트의 세부 항목은 '체크리스트' 탭의 줄이고
  *    '프로젝트' 열에 프로젝트 ID가 들어감. 담당은 여러 명(쉼표로 구분)이고, 프로젝트 항목은 개인 목록 설정과 관계없이 모두에게 보임
+ *  - 고객관리: 고객 구매 건을 '고객' 탭에, 단계·상황이 바뀐 기록을 '고객로그' 탭에 저장함 (GET/POST crm)
+ *    단계는 상담 10단계(문의 → … → 루비케어) + 종료. 포털이 이를 고객문의·구매진행중·구매완료 세 층위로 묶어 보여줌
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -73,6 +75,16 @@ const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'auth
 const PROJ_HEADERS = ['ID', '프로젝트', '책임자', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시'];
 const PROJ_STATUS = ['active', 'hold', 'done'];
 
+// 고객 탭 컬럼 (고객관리). 한 줄 = 고객 한 명의 구매 건 하나 (한 사람이 두 건이면 두 줄)
+const CRM_COLS = ['id', 'name', 'info', 'group', 'item', 'stage', 'memo', 'flag', 'owner', 'amount', 'stageAt', 'author', 'email', 'createdAt', 'updatedAt'];
+const CRM_HEADERS = ['ID', '고객명', '고객 정보(소속·관계)', '구분', '브랜드·모델', '단계', '현재 상황', '확인 필요', '담당', '계약금(원)', '단계 바뀐 일시', '작성자', '이메일', '작성일시', '수정일시'];
+// 고객로그 탭: 단계·현재 상황·확인 필요가 바뀔 때마다 한 줄씩 쌓임 (주차별 변화와 고객별 이력을 여기서 계산)
+const CRM_LOG_COLS = ['id', 'cid', 'name', 'stage', 'memo', 'flag', 'by', 'at'];
+const CRM_LOG_HEADERS = ['ID', '고객 ID', '고객명', '단계', '현재 상황', '확인 필요', '기록한 사람', '기록 일시'];
+// 단계는 상담 10단계 + 종료(취소·보류). 시트에도 한글 그대로 저장함 (포털 assets/crm.js 의 STAGES 와 같게)
+const CRM_STAGES = ['문의', '상담', '견적', '계약금', '예약금', '발주', '입고', '조립', '출고', '루비케어', '종료'];
+const CRM_GROUPS = ['개별 아카이브', '루비 브랜드', '컴포넌트 및 기타 브랜드'];
+
 // ───────────────────────────── HTTP ─────────────────────────────
 
 function doGet(e) {
@@ -86,6 +98,7 @@ function doGet(e) {
       case 'notes':    return json_({ ok: true, notes: listNotes_() });
       case 'checks':   return json_({ ok: true, ...checkData_(user) });
       case 'calendar': return json_({ ok: true, ...listCalendar_(p.month) });
+      case 'crm':      return json_({ ok: true, ...crmData_() });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -107,6 +120,7 @@ function doPost(e) {
       case 'check':    saveCheck_(body, user);   return json_({ ok: true, ...checkData_(user) });
       case 'project':  { const saved = saveProject_(body, user) || ''; return json_({ ok: true, saved, ...checkData_(user) }); }
       case 'event':    return json_({ ok: true, ...saveEvent_(body, user) });
+      case 'crm':      { const saved = saveCrm_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -528,6 +542,144 @@ function saveProject_(b, user) {
     return o.id;
   }
   throw new Error('unknown op');
+}
+
+// ───────────────────────────── 고객관리 (고객·고객로그 탭) ─────────────────────────────
+// 고객 탭: 한 줄 = 구매 건 하나. 고객로그 탭: 새 건을 넣거나 단계·현재 상황·확인 필요가 바뀔 때마다 한 줄
+// 고객 정보는 로그인한 직원에게만 돌려줌 (포털 코드가 있는 GitHub 리포지토리에는 고객 정보를 두지 않음)
+
+function crmSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('고객');
+  if (!sh) {
+    sh = ss.insertSheet('고객');
+    sh.getRange(1, 1, 1, CRM_HEADERS.length).setValues([CRM_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), CRM_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+function crmLogSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('고객로그');
+  if (!sh) {
+    sh = ss.insertSheet('고객로그');
+    sh.getRange(1, 1, 1, CRM_LOG_HEADERS.length).setValues([CRM_LOG_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), CRM_LOG_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+function crmRows_(sh) {
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, CRM_COLS.length).getValues()
+    .map(r => { const o = {}; CRM_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); return o; })
+    .filter(o => o.id && o.name);
+}
+
+function crmLogRows_() {
+  const sh = crmLogSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, CRM_LOG_COLS.length).getValues()
+    .map(r => { const o = {}; CRM_LOG_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); return o; })
+    .filter(o => o.cid);
+}
+
+/** 고객관리 응답 한 벌. 기록은 최근 2년치만 (시트에는 모두 남음) */
+function crmData_() {
+  const cutoff = Utilities.formatDate(new Date(Date.now() - 730 * 86400000), CONFIG.TZ, 'yyyy-MM-dd');
+  return {
+    customers: crmRows_(crmSheet_()).map(o => { delete o.email; return o; }),
+    crmLogs: crmLogRows_().filter(l => String(l.at).slice(0, 10) >= cutoff),
+  };
+}
+
+/** 포털에서 온 값 확인 */
+function crmInput_(b) {
+  const name = String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!name) throw new Error('고객 이름을 적어 주세요');
+  const amount = String(b.amount == null ? '' : b.amount).replace(/[^\d]/g, '').slice(0, 13);
+  return {
+    name,
+    info: String(b.info || '').trim().slice(0, 100),
+    group: CRM_GROUPS.indexOf(b.group) >= 0 ? b.group : CRM_GROUPS[CRM_GROUPS.length - 1],
+    item: String(b.item || '').trim().slice(0, 120),
+    stage: CRM_STAGES.indexOf(b.stage) >= 0 ? b.stage : '문의',
+    memo: String(b.memo || '').replace(/\r/g, '').trim().slice(0, 2000),
+    flag: String(b.flag || '').trim().slice(0, 60),
+    owner: checkOwner_(String(b.owner || '').slice(0, 40)),
+    amount,
+  };
+}
+
+/** op: add / update / delete / bulk(rows: [{ id 있으면 고침, 없으면 새로 }]). add 는 새 ID를 돌려줌 */
+function saveCrm_(b, user) {
+  const sh = crmSheet_(), lsh = crmLogSheet_();
+  const op = String(b.op || '');
+  const who = user.name || user.email;
+  const findRow = id => {
+    const last = sh.getLastRow();
+    if (!id || last < 2) return -1;
+    const ids = sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+    const i = ids.indexOf(String(id));
+    return i < 0 ? -1 : i + 2;
+  };
+  const writeRow = (row, o) => sh.getRange(row, 1, 1, CRM_COLS.length).setNumberFormat('@').setValues([CRM_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+  const readRow = row => { const cur = sh.getRange(row, 1, 1, CRM_COLS.length).getValues()[0]; const o = {}; CRM_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k)); return o; };
+  const logs = [];
+  const log = o => logs.push({ id: Utilities.getUuid().slice(0, 8), cid: o.id, name: o.name, stage: o.stage, memo: o.memo, flag: o.flag, by: who, at: now_() });
+
+  const upsert = d => {
+    const v = crmInput_(d);
+    const row = d.id ? findRow(d.id) : -1;
+    if (d.id && row < 0) throw new Error('이미 지워진 고객입니다. 새로 고침해 주세요');
+    if (row < 0) {
+      const o = Object.assign({ id: 'c' + Utilities.getUuid().slice(0, 7) }, v,
+        { stageAt: now_(), author: who, email: user.email, createdAt: now_(), updatedAt: '' });
+      writeRow(sh.getLastRow() + 1, o);
+      log(o);
+      return o.id;
+    }
+    const o = readRow(row);
+    const changed = o.stage !== v.stage || o.memo !== v.memo || o.flag !== v.flag;
+    if (o.stage !== v.stage) o.stageAt = now_();
+    Object.assign(o, v, { updatedAt: now_() });
+    writeRow(row, o);
+    if (changed) log(o);
+    return o.id;
+  };
+
+  let out = '';
+  if (op === 'delete') {
+    const row = findRow(b.id);
+    if (row > 0) sh.deleteRow(row);
+    // 그 고객의 기록도 아래에서부터 지움
+    const last = lsh.getLastRow();
+    if (last >= 2) {
+      const ci = CRM_LOG_COLS.indexOf('cid');
+      const vals = lsh.getRange(2, ci + 1, last - 1, 1).getValues();
+      for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]) === String(b.id)) lsh.deleteRow(i + 2);
+    }
+    return '';
+  }
+  if (op === 'add' || op === 'update') out = upsert(op === 'add' ? Object.assign({}, b, { id: '' }) : b);
+  else if (op === 'bulk') {
+    const rows = Array.isArray(b.rows) ? b.rows.slice(0, 200) : [];
+    if (!rows.length) throw new Error('저장할 고객이 없습니다');
+    // 그 사이 지워진 고객을 가리키는 줄은 새 고객으로 넣음 (한 줄 때문에 나머지가 저장되지 않는 일이 없게)
+    rows.forEach(r => upsert(r.id && findRow(r.id) < 0 ? Object.assign({}, r, { id: '' }) : r));
+    out = String(rows.length);
+  } else throw new Error('unknown op');
+
+  if (logs.length) {
+    lsh.getRange(lsh.getLastRow() + 1, 1, logs.length, CRM_LOG_COLS.length).setNumberFormat('@')
+      .setValues(logs.map(l => CRM_LOG_COLS.map(k => String(l[k] == null ? '' : l[k]))));
+  }
+  return out;
 }
 
 // ───────────────────────────── 구글 캘린더 (첫 화면 달력) ─────────────────────────────

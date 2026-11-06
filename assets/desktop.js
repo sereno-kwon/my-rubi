@@ -265,6 +265,7 @@ function fillWin(w) {
   else if (a.id === 'nas') { if (window.MYRUBI_NAS) window.MYRUBI_NAS.mount(body, w.nasQ); w.nasQ = null; return; }
   else if (a.id === 'stock') { if (window.MYRUBI_STOCK) window.MYRUBI_STOCK.mount(body); return; }
   else if (a.id === 'project') body.innerHTML = `<div class="pane"><h2>프로젝트</h2><p>프로젝트는 텍스트 화면에서 엽니다.</p><a class="btn" href="/#project">텍스트 화면에서 열기</a></div>`;
+  else if (a.id === 'customers') body.innerHTML = `<div class="pane"><h2>고객관리</h2><p>고객관리는 텍스트 화면에서 엽니다.</p><a class="btn" href="/#customers">텍스트 화면에서 열기</a></div>`;
   else if (a.id === 'checklist') body.innerHTML = `<div class="pane"><h2>체크리스트</h2><p>멤버별 체크리스트는 텍스트 화면에서 엽니다.</p><a class="btn" href="/#checklist">텍스트 화면에서 열기</a></div>`;
   bindWinBody(w);
 }

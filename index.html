@@ -10,7 +10,7 @@
 <script>try{var t=JSON.parse(localStorage.getItem('myrubi.text.v1')||'{}').theme;if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
 <link rel="stylesheet" href="/assets/common.css?v=20261029h">
-<link rel="stylesheet" href="/assets/text.css?v=20261106a">
+<link rel="stylesheet" href="/assets/text.css?v=20261106b">
 </head>
 <body>
 
@@ -45,6 +45,8 @@
     </div>
     <!-- 주간 날씨 (assets/weather.js). 지금 날씨 + 오늘부터 7일 예보, Open-Meteo -->
     <div class="wx hidden" id="wx" aria-label="주간 날씨"></div>
+    <!-- 고객관리 요약 (assets/crm.js). 고객문의·구매진행중·구매완료 숫자, 누르면 고객관리 패널이 열림 -->
+    <div class="checks crms hidden" id="crm" aria-label="고객 현황"></div>
     <!-- 구글 캘린더 한 달 격자 (assets/calendar.js). 로그인 뒤 Apps Script가 CONFIG.CALENDARS 의 일정을 돌려줌 -->
     <div class="cal hidden" id="cal" aria-label="달력"></div>
     <!-- 공지·일정(assets/board.js)이 이 자리 바로 앞에 붙음 -->
@@ -56,7 +58,7 @@
   </aside>
 </main>
 
-<!-- 포털 안에서 여는 앱 (재고 확인, NAS, 체크리스트, 프로젝트, 설정) -->
+<!-- 포털 안에서 여는 앱 (재고 확인, NAS, 체크리스트, 프로젝트, 고객관리, 설정) -->
 <section class="panel hidden" id="panel" role="dialog" aria-modal="true" aria-labelledby="pTitle">
   <header class="p-bar">
     <button class="p-back" id="pBack" aria-label="목록으로"><svg class="i"><use href="#i-back"/></svg></button>
@@ -115,7 +117,7 @@
 
 <script src="/config.js?v=20261106a"></script>
 <script src="/lib.js?v=20261029h"></script>
-<script src="/apps.js?v=20261102a"></script>
+<script src="/apps.js?v=20261106a"></script>
 <script src="/nas-words.js?v=20261030c"></script>
 <script src="/assets/nas.js?v=20261030c"></script>
 <script src="/assets/stock.js?v=20261029h"></script>
@@ -124,6 +126,7 @@
 <script src="/assets/weather.js?v=20261106a"></script>
 <script src="/assets/checklist.js?v=20261102b"></script>
 <script src="/assets/project.js?v=20261102a"></script>
-<script src="/assets/shell.js?v=20261106a"></script>
+<script src="/assets/crm.js?v=20261106a"></script>
+<script src="/assets/shell.js?v=20261106b"></script>
 </body>
 </html>

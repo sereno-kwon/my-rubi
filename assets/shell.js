@@ -35,6 +35,7 @@ const nasAlso = q => { try { const al = nas().alsoText(nas().expand(q).also); re
 const chk = () => window.MYRUBI_CHECK;
 const prj = () => window.MYRUBI_PROJECT;
 const stk = () => window.MYRUBI_STOCK;
+const crm = () => window.MYRUBI_CRM;
 const host = u => { try { return new URL(u, location.href).host.replace(/^www\./, ''); } catch (e) { return ''; } };
 
 function applyTheme() {
@@ -277,6 +278,7 @@ function openPanel(a, nasQ) {
   if (panelId === 'nas' && a.id === 'nas' && nasQ && nas()) { nas().search(nasQ); return; }
   if (panelId === 'stock' && a.id === 'stock' && nasQ && stk()) { stk().search(nasQ); return; }
   if (panelId === 'project' && a.id === 'project' && prj()) { prj().show(nasQ || null); return; }
+  if (panelId === 'customers' && a.id === 'customers' && crm()) { crm().show(nasQ || ''); return; }
   teardown();
   panelId = a.id;
   $('#pTitle').textContent = a.title;
@@ -292,17 +294,19 @@ function openPanel(a, nasQ) {
   else if (a.id === 'stock') { if (stk()) stk().mount(pBody, nasQ || null); }
   else if (a.id === 'checklist') { if (chk()) chk().mount(pBody); }
   else if (a.id === 'project') { if (prj()) prj().mount(pBody, nasQ || null); }
+  else if (a.id === 'customers') { if (crm()) crm().mount(pBody, nasQ || ''); }
   else if (a.id === 'settings') settingsView();
   else pBody.innerHTML = '<div class="soon"><p>열 수 없는 항목입니다.</p></div>';
 
   try { history.replaceState(null, '', '#' + a.id); } catch (e) {}
-  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist' && a.id !== 'stock' && a.id !== 'project') setTimeout(() => f.focus(), 30);
+  const f = panelEl.querySelector('.p-body textarea, .p-body input'); if (f && a.id !== 'settings' && a.id !== 'checklist' && a.id !== 'stock' && a.id !== 'project' && a.id !== 'customers') setTimeout(() => f.focus(), 30);
   else $('#pClose').focus();
 }
 function teardown() {
   if (panelId === 'nas' && nas()) nas().unmount();
   if (panelId === 'checklist' && chk()) chk().unmount();
   if (panelId === 'project' && prj()) prj().unmount();
+  if (panelId === 'customers' && crm()) crm().unmount();
   if (panelId === 'stock' && stk()) stk().unmount();
   pBody.innerHTML = '';
   panelId = null;
@@ -360,6 +364,9 @@ if (chk()) chk().onOpen = () => { if (byId.checklist) { remember('checklist'); o
 const openProject = id => { if (byId.project) { remember('project'); openPanel(byId.project, id || null); } };
 if (chk()) chk().onProject = openProject;
 if (prj()) prj().onOpen = openProject;
+// 오른쪽 Customer 칸에서 고객관리 패널로 (층위 key 를 주면 그 구역으로)
+const openCrm = arg => { if (byId.customers) { remember('customers'); openPanel(byId.customers, arg || ''); } };
+if (crm()) crm().onOpen = openCrm;
 
 // ─────────── 시계 ───────────
 function tick() {
@@ -418,6 +425,7 @@ function unlock(animate) {
   if (window.MYRUBI_CAL) window.MYRUBI_CAL.start($('#cal'));
   if (chk()) chk().start($('#checks'));
   if (prj()) prj().start($('#projs'));
+  if (crm()) crm().start($('#crm'));
   renderWho(); render(); focusQ(); openFromUrl();
 }
 function renderWho() {
@@ -436,6 +444,9 @@ function openFromUrl() {
   // #project/ID : 그 프로젝트를 바로 열기
   const pm = hash.match(/^project\/(.+)$/);
   if (pm && byId.project && prj()) { openProject(pm[1]); return; }
+  // #customers/ID : 그 고객을 바로 열기
+  const cm = hash.match(/^customers\/(.+)$/);
+  if (cm && byId.customers && crm()) { openCrm(cm[1]); return; }
   if (hash && byId[hash]) { open(hash); return; }
   const next = new URLSearchParams(location.search).get('next');
   if (next) {
