@@ -30,8 +30,9 @@ window.MYRUBI_CONFIG = {
   // STOCK_API: 재고 조회 연결 파일 주소 (NAS 앱 index.php 와 같은 폴더의 stock.php). 비워두면 재고 확인 창에 설치 안내가 보임
   STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
 
-  // 견적 앱 (assets/quote.js) A4 견적서에 들어가는 회사 정보와 안내 문구
-  // 이 리포지토리는 공개라서 계좌번호 같은 정보는 넣지 않음. BIZ_NO·CEO 를 비워두면 견적서에 그 줄이 안 보임
+  // 견적 앱 (assets/quote.js) 문서(Purchase Journey Log)에 들어가는 회사 정보와 계산 기준
+  // 이 리포지토리는 공개라서 계좌번호는 여기 넣지 않음. 입금 계좌는 Apps Script 스크립트 속성 QUOTE_BANK 에 적음 (README 견적 참고)
+  // BIZ_NO·CEO 를 비워두면 문서에 그 줄이 안 보임
   QUOTE: {
     NAME: '루비워크샵',
     NAME_EN: 'Rubi Workshop',
@@ -42,12 +43,12 @@ window.MYRUBI_CONFIG = {
     BIZ_NO: '',       // 사업자등록번호
     CEO: '',          // 대표자 이름
     VALID_DAYS: 14,   // 새 견적의 유효기간 (오늘부터 며칠)
-    // 견적서 맨 아래 비고에 늘 붙는 안내 (한 줄에 하나)
-    TERMS: [
-      '견적 금액은 부가세를 포함한 금액입니다.',
-      '유효기간이 지나면 환율과 브랜드 가격 변동에 따라 금액이 달라질 수 있습니다.',
-      '계약금을 받은 뒤 발주를 진행하며, 입고 일정은 브랜드 사정에 따라 달라질 수 있습니다.',
-    ],
+    POINT_RATE: 0.05, // 적립금 비율 (최종 견적 금액 기준, 예전 DB 탭과 같게 5%)
+    CARE_YEARS: 1,    // 루비케어 무상 보증 기간 (출고일부터 몇 년)
+    // 문서 비고 아래에 늘 붙일 안내 (한 줄에 하나). 예: '견적 금액은 부가세를 포함한 금액입니다.'
+    TERMS: [],
+    // 문서 맨 아래 기밀 안내. 비워두면 예전 시트 문구를 씀
+    CONFIDENTIAL: '',
   },
 
   // 첫 화면 오른쪽 주간 날씨 위치 (assets/weather.js, Open-Meteo). 기본은 반포 쇼룸 근처

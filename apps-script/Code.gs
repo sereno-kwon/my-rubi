@@ -10,8 +10,11 @@
  *    '프로젝트' 열에 프로젝트 ID가 들어감. 담당은 여러 명(쉼표로 구분)이고, 프로젝트 항목은 개인 목록 설정과 관계없이 모두에게 보임
  *  - 고객관리: 고객 구매 건을 '고객' 탭에, 단계·상황이 바뀐 기록을 '고객로그' 탭에 저장함 (GET/POST crm)
  *    단계는 상담 10단계(문의 → … → 루비케어) + 종료. 포털이 이를 고객문의·구매진행중·구매완료 세 층위로 묶어 보여줌
- *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목은 JSON으로 한 칸에
+ *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
+ *    지불 현황에 계약금·예약금이 들어오면 고객 건 단계를 그만큼 넘기고, 고객 건의 계약금(원) 칸을 지불 합계로 맞춤
+ *    '견적기록' 탭에는 그 시점의 견적 전체를 남김 (예전 시트의 날짜별·결제 단계별 탭 대신, GET quotesnap)
+ *    입금 계좌는 스크립트 속성 QUOTE_BANK 에 적음 (리포지토리가 공개라서 코드에 두지 않음). 로그인한 직원에게만 돌려줌
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -87,12 +90,18 @@ const CRM_LOG_HEADERS = ['ID', '고객 ID', '고객명', '단계', '현재 상�
 const CRM_STAGES = ['문의', '상담', '견적', '계약금', '예약금', '발주', '입고', '조립', '출고', '루비케어', '종료'];
 const CRM_GROUPS = ['개별 아카이브', '루비 브랜드', '컴포넌트 및 기타 브랜드'];
 
-// 견적 탭 (assets/quote.js)
-const QUOTE_COLS = ['id', 'no', 'cid', 'name', 'title', 'items', 'subtotal', 'discount', 'total', 'memo', 'note', 'valid', 'status', 'owner', 'author', 'email', 'createdAt', 'updatedAt'];
-const QUOTE_HEADERS = ['ID', '견적 번호', '고객 건 ID', '고객명', '견적 제목', '품목(JSON)', '합계(원)', '할인(원)', '견적 금액(원)', '비고(견적서에 보임)', '내부 메모', '유효기간', '상태', '담당', '작성자', '이메일', '작성일시', '수정일시'];
+// 견적 탭 (assets/quote.js). 새 열은 뒤에만 붙임 (이미 만든 시트의 열 순서를 지키려고)
+const QUOTE_COLS = ['id', 'no', 'cid', 'name', 'title', 'items', 'subtotal', 'discount', 'total', 'memo', 'note', 'valid', 'status', 'owner', 'author', 'email', 'createdAt', 'updatedAt',
+  'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'final', 'payments', 'request', 'ship', 'spec', 'paid'];
+const QUOTE_HEADERS = ['ID', '견적 번호', '고객 건 ID', '고객명', '견적 제목(옵션 이름)', '품목(JSON)', '소비자가 합계(원)', '할인 합계(원)', '최종 견적 금액(원)', '비고(문서에 보임)', '내부 메모', '유효기간', '상태', '담당', '작성자', '이메일', '작성일시', '수정일시',
+  '브랜드', '모델', '컬러·사양', '고유 시리얼', '루비 시리얼', '프레임 넘버', '최종 금액 직접 입력(원)', '지불 현황(JSON)', '결제 요청(JSON)', '출고일', '빌드 사양(JSON)', '지불 합계(원)'];
 const QUOTE_STATUS = ['작성중', '보냄', '계약', '취소'];
-// 품목 구분. 포털 quote.js 의 CATS 와 같게 (견적서에는 이 순서로 묶여 나옴)
-const QUOTE_CATS = ['프레임셋', '구동계', '휠·타이어', '콕핏', '안장·시트포스트', '페달', '액세서리', '공임', '기타'];
+// 분류. 포털 quote.js 의 CATS 와 같게 (예전 견적 시트 DB 탭의 분류)
+const QUOTE_CATS = ['서비스', '완성차', '프레임', '드라이브트레인', '휠세트', '컴포넌트', '스몰 파츠', '자전거 악세사리', '라이더 이큅먼트'];
+// 첫 판(2026-11-08) 분류 이름을 지금 분류로
+const QUOTE_CAT_OLD = { '프레임셋': '프레임', '구동계': '드라이브트레인', '휠·타이어': '휠세트', '콕핏': '컴포넌트', '안장·시트포스트': '컴포넌트', '페달': '컴포넌트', '액세서리': '자전거 악세사리', '공임': '서비스', '기타': '컴포넌트' };
+const QUOTE_SNAP_COLS = ['id', 'qid', 'no', 'label', 'data', 'total', 'by', 'at'];
+const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
 
@@ -109,6 +118,7 @@ function doGet(e) {
       case 'calendar': return json_({ ok: true, ...listCalendar_(p.month) });
       case 'crm':      return json_({ ok: true, ...crmData_() });
       case 'quotes':   return json_({ ok: true, ...quoteData_() });
+      case 'quotesnap': return json_({ ok: true, snap: quoteSnap_(p.id) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -607,7 +617,7 @@ function crmData_() {
     customers: crmRows_(crmSheet_()).map(o => { delete o.email; return o; }),
     crmLogs: crmLogRows_().filter(l => String(l.at).slice(0, 10) >= cutoff),
     // 고객 상세 화면의 '견적' 묶음용 요약 (품목은 빼고)
-    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: q.title, total: q.total, status: q.status, at: q.updatedAt || q.createdAt })),
+    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, at: q.updatedAt || q.createdAt })),
   };
 }
 
@@ -696,43 +706,91 @@ function saveCrm_(b, user) {
 }
 
 // ───────────────────────────── 견적 (견적 탭) ─────────────────────────────
-// 한 줄 = 견적 하나. 품목은 [{ cat, name, spec, code, qty, price }] JSON 으로 '품목' 칸에 들어감
-// 금액(합계·견적 금액)은 포털이 보낸 값이 아니라 여기서 품목으로 다시 계산해 저장함
-// 고객 건(cid)에 연결하면 저장할 때 고객관리 단계·기록을 함께 고침 (quoteLinkCrm_)
+// 한 줄 = 견적 하나. 예전 견적 시트(마스터·DB 탭)의 내용을 담음
+//  품목(items)   : [{ cat 분류, slot 세부항목, name 모델명, list 소비자가, rate 할인율(%), price 견적가, qty, note 비고, sn 시리얼, slip 전표처리 날짜 }]
+//  지불(payments): [{ label 결제 내용, date, amount, method 결제 수단 }]
+//  결제 요청(request): { label, amount }, 빌드 사양(spec): { 항목 키: 값 }
+// 금액은 포털이 보낸 값이 아니라 여기서 품목으로 다시 계산해 저장함
+//  소비자가 합계(subtotal) = Σ 소비자가×수량, 최종 견적 금액(total) = 직접 입력한 최종 금액(final) 또는 Σ 견적가×수량
+//  할인 합계(discount) = 소비자가 합계 − 최종 견적 금액 (예전 시트의 '스페셜오퍼'와 줄별 할인을 합친 값)
+
+const quoteParse_ = (v, d) => { try { const x = JSON.parse(v || ''); return x == null ? d : x; } catch (e) { return d; } };
+const QUOTE_JSON = ['items', 'payments', 'request', 'spec'];
 
 function quoteSheet_() {
   const ss = indexSs_();
   let sh = ss.getSheetByName('견적');
   if (!sh) {
     sh = ss.insertSheet('견적');
-    sh.getRange(1, 1, 1, QUOTE_HEADERS.length).setValues([QUOTE_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
+  }
+  // 처음 만들 때, 그리고 열이 늘어난 판으로 바꾼 뒤 처음 쓸 때 머리글을 맞춤
+  if (sh.getLastColumn() < QUOTE_COLS.length || String(sh.getRange(1, 1).getValue()) !== QUOTE_HEADERS[0]) {
+    if (sh.getMaxColumns() < QUOTE_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), QUOTE_COLS.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, QUOTE_HEADERS.length).setValues([QUOTE_HEADERS]).setFontWeight('bold');
     sh.getRange(1, 1, sh.getMaxRows(), QUOTE_COLS.length).setNumberFormat('@');
   }
   return sh;
 }
+
+function quoteSnapSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('견적기록');
+  if (!sh) {
+    sh = ss.insertSheet('견적기록');
+    sh.getRange(1, 1, 1, QUOTE_SNAP_HEADERS.length).setValues([QUOTE_SNAP_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), QUOTE_SNAP_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+const quoteCell_ = (v, k) => noteCell_(v, k === 'valid' || k === 'ship' ? 'date' : k);
 
 function quoteRows_() {
   const sh = quoteSheet_();
   const last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, QUOTE_COLS.length).getValues()
-    .map(r => { const o = {}; QUOTE_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k === 'valid' ? 'date' : k)); return o; })
+    .map(r => { const o = {}; QUOTE_COLS.forEach((k, i) => o[k] = quoteCell_(r[i], k)); return o; })
     .filter(o => o.id);
 }
 
 const wonText_ = n => String(Math.round(+n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
 
-/** 견적 응답 한 벌: 견적 목록(품목 포함) + 고객 건 고르기용 고객 요약 */
+/** 시트 한 줄 → 포털에 줄 견적 (JSON 칸을 풀고 이메일은 뺌) */
+function quoteOut_(q) {
+  const o = Object.assign({}, q);
+  delete o.email;
+  o.items = quoteParse_(q.items, []);
+  o.payments = quoteParse_(q.payments, []);
+  o.request = quoteParse_(q.request, {});
+  o.spec = quoteParse_(q.spec, {});
+  return o;
+}
+
+/** 견적 응답 한 벌: 견적 목록 + 고객 건 고르기용 고객 요약 + 기록 목록(내용 없이) + 입금 계좌 */
 function quoteData_() {
-  const quotes = quoteRows_().map(q => {
-    let items = [];
-    try { items = JSON.parse(q.items || '[]'); } catch (e) { items = []; }
-    delete q.email;
-    return Object.assign(q, { items });
-  });
+  const quotes = quoteRows_().map(quoteOut_);
   const customers = crmRows_(crmSheet_()).map(c => ({ id: c.id, name: c.name, info: c.info, group: c.group, item: c.item, stage: c.stage, owner: c.owner }));
-  return { quotes, customers };
+  const ssh = quoteSnapSheet_(), last = ssh.getLastRow();
+  const snaps = last < 2 ? [] : ssh.getRange(2, 1, last - 1, QUOTE_SNAP_COLS.length).getValues()
+    .map(r => { const o = {}; QUOTE_SNAP_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); delete o.data; return o; })
+    .filter(o => o.id);
+  const bank = PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '';
+  return { quotes, customers, snaps, bank };
+}
+
+/** 기록 하나의 내용 (그 시점의 견적 전체) */
+function quoteSnap_(id) {
+  const sh = quoteSnapSheet_(), last = sh.getLastRow();
+  if (!id || last < 2) throw new Error('기록을 찾지 못했습니다');
+  const rows = sh.getRange(2, 1, last - 1, QUOTE_SNAP_COLS.length).getValues();
+  const r = rows.find(x => String(x[0]) === String(id));
+  if (!r) throw new Error('기록을 찾지 못했습니다');
+  const o = {}; QUOTE_SNAP_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k));
+  o.data = quoteParse_(o.data, {});
+  return o;
 }
 
 /** 포털에서 온 견적 확인. 금액은 품목으로 다시 계산 */
@@ -740,35 +798,47 @@ function quoteInput_(b) {
   const name = String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
   if (!name) throw new Error('고객 이름을 적어 주세요');
   const int = v => { const n = Math.round(Number(String(v == null ? '' : v).replace(/[^\d.\-]/g, ''))); return isFinite(n) ? n : 0; };
-  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 80).map(it => {
-    const qty = Math.max(0, Math.min(9999, Math.round((Number(it.qty) || 0) * 100) / 100));
-    return {
-      cat: QUOTE_CATS.indexOf(it.cat) >= 0 ? it.cat : '기타',
-      name: String(it.name || '').replace(/\s+/g, ' ').trim().slice(0, 120),
-      spec: String(it.spec || '').replace(/\s+/g, ' ').trim().slice(0, 160),
-      code: String(it.code || '').trim().slice(0, 40),
-      qty: qty || 1,
-      price: Math.max(-1e9, Math.min(1e10, int(it.price))),
-    };
+  const txt = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 120).map(it => {
+    const qty = Math.max(0, Math.min(9999, Math.round((Number(it.qty) || 0) * 100) / 100)) || 1;
+    const list = Math.max(0, Math.min(1e10, int(it.list != null ? it.list : it.price)));
+    const rate = Math.max(0, Math.min(100, Math.round((Number(it.rate) || 0) * 100) / 100));
+    const price = it.price != null && it.price !== '' ? Math.max(-1e9, Math.min(1e10, int(it.price))) : Math.round(list * (1 - rate / 100));
+    const cat = QUOTE_CATS.indexOf(it.cat) >= 0 ? it.cat : (QUOTE_CAT_OLD[it.cat] || '컴포넌트');
+    return { cat, slot: txt(it.slot, 40), name: txt(it.name, 160), list, rate, price, qty, note: txt(it.note, 200), sn: txt(it.sn, 60), slip: day(it.slip), code: txt(it.code, 40) };
   }).filter(it => it.name);
-  const subtotal = items.reduce((m, it) => m + Math.round(it.qty * it.price), 0);
-  const discount = Math.max(0, Math.min(Math.max(subtotal, 0), int(b.discount)));
-  const valid = /^\d{4}-\d{2}-\d{2}$/.test(String(b.valid || '')) ? String(b.valid) : '';
+  const listSum = items.reduce((m, it) => m + Math.round(it.list * it.qty), 0);
+  const priceSum = items.reduce((m, it) => m + Math.round(it.price * it.qty), 0);
+  const final = b.final === '' || b.final == null ? '' : Math.max(0, int(b.final));
+  const total = final === '' ? priceSum : final;
+  const payments = (Array.isArray(b.payments) ? b.payments : []).slice(0, 40)
+    .map(p => ({ label: txt(p.label, 60), date: day(p.date), amount: int(p.amount), method: txt(p.method, 30) }))
+    .filter(p => p.label || p.amount);
+  const paid = payments.reduce((m, p) => m + p.amount, 0);
+  const rq = b.request || {};
+  const request = { label: txt(rq.label, 40), amount: rq.amount === '' || rq.amount == null ? '' : int(rq.amount) };
+  const spec = {};
+  Object.keys(b.spec || {}).slice(0, 80).forEach(k => { const v = txt(b.spec[k], 120); if (v && /^[a-z0-9_]{1,30}$/i.test(k)) spec[k] = v; });
   return {
-    cid: String(b.cid || '').trim().slice(0, 20),
+    cid: txt(b.cid, 20),
     name,
-    title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+    title: txt(b.title, 120),
     items: JSON.stringify(items),
-    subtotal: String(subtotal), discount: String(discount), total: String(subtotal - discount),
-    memo: String(b.memo || '').replace(/\r/g, '').trim().slice(0, 2000),
-    note: String(b.note || '').replace(/\r/g, '').trim().slice(0, 2000),
-    valid,
+    subtotal: String(listSum), discount: String(listSum - total), total: String(total), final: String(final),
+    memo: String(b.memo || '').replace(/\r/g, '').trim().slice(0, 3000),
+    note: String(b.note || '').replace(/\r/g, '').trim().slice(0, 3000),
+    valid: day(b.valid),
     status: QUOTE_STATUS.indexOf(b.status) >= 0 ? b.status : QUOTE_STATUS[0],
     owner: checkOwner_(String(b.owner || '').slice(0, 40)),
+    brand: txt(b.brand, 60), model: txt(b.model, 80), color: txt(b.color, 80),
+    sn: txt(b.sn, 60), rubiSn: txt(b.rubiSn, 60), fn: txt(b.fn, 60),
+    payments: JSON.stringify(payments), paid: String(paid),
+    request: JSON.stringify(request), ship: day(b.ship), spec: JSON.stringify(spec),
   };
 }
 
-/** op: save(id 없으면 새로) / status(상태만) / delete. save 는 견적 ID를 돌려줌 */
+/** op: save(id 없으면 새로) / status(상태만) / delete / snap(지금 저장된 견적을 기록으로) / snapdel. save·snap 은 ID를 돌려줌 */
 function saveQuote_(b, user) {
   const sh = quoteSheet_();
   const op = String(b.op || '');
@@ -781,11 +851,17 @@ function saveQuote_(b, user) {
     return i < 0 ? -1 : i + 2;
   };
   const writeRow = (row, o) => sh.getRange(row, 1, 1, QUOTE_COLS.length).setNumberFormat('@').setValues([QUOTE_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
-  const readRow = row => { const cur = sh.getRange(row, 1, 1, QUOTE_COLS.length).getValues()[0]; const o = {}; QUOTE_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k === 'valid' ? 'date' : k)); return o; };
+  const readRow = row => { const cur = sh.getRange(row, 1, 1, QUOTE_COLS.length).getValues()[0]; const o = {}; QUOTE_COLS.forEach((k, i) => o[k] = quoteCell_(cur[i], k)); return o; };
 
   if (op === 'delete') {
     const row = findRow(b.id);
     if (row > 0) sh.deleteRow(row);
+    // 그 견적의 기록도 지움
+    const ssh = quoteSnapSheet_(), last = ssh.getLastRow();
+    if (last >= 2) {
+      const vals = ssh.getRange(2, 2, last - 1, 1).getValues();
+      for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]) === String(b.id)) ssh.deleteRow(i + 2);
+    }
     return '';
   }
   if (op === 'status') {
@@ -797,12 +873,31 @@ function saveQuote_(b, user) {
     writeRow(row, o);
     return o.id;
   }
+  if (op === 'snap') {
+    const row = findRow(b.id);
+    if (row < 0) throw new Error('저장한 견적만 기록으로 남길 수 있습니다');
+    const q = quoteOut_(readRow(row));
+    const ssh = quoteSnapSheet_();
+    const label = String(b.label || '').replace(/\s+/g, ' ').trim().slice(0, 40) || Utilities.formatDate(new Date(), CONFIG.TZ, 'yyMMdd');
+    const s = { id: 's' + Utilities.getUuid().slice(0, 7), qid: q.id, no: q.no, label, data: JSON.stringify(q), total: q.total, by: who, at: now_() };
+    ssh.getRange(ssh.getLastRow() + 1, 1, 1, QUOTE_SNAP_COLS.length).setNumberFormat('@').setValues([QUOTE_SNAP_COLS.map(k => String(s[k] == null ? '' : s[k]))]);
+    return s.id;
+  }
+  if (op === 'snapdel') {
+    const ssh = quoteSnapSheet_(), last = ssh.getLastRow();
+    if (last >= 2) {
+      const ids = ssh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+      const i = ids.indexOf(String(b.id));
+      if (i >= 0) ssh.deleteRow(i + 2);
+    }
+    return '';
+  }
   if (op !== 'save') throw new Error('unknown op');
 
   const v = quoteInput_(b);
   let row = b.id ? findRow(b.id) : -1;
   if (b.id && row < 0) throw new Error('이미 지워진 견적입니다. 새로 고침해 주세요');
-  let o, isNew = false, prevCid = '';
+  let o, isNew = false, prev = {};
   if (row < 0) {
     isNew = true;
     o = Object.assign({ id: 'q' + Utilities.getUuid().slice(0, 7), no: nextQuoteNo_(sh) }, v,
@@ -810,12 +905,11 @@ function saveQuote_(b, user) {
     row = sh.getLastRow() + 1;
   } else {
     o = readRow(row);
-    prevCid = o.cid;
+    prev = { cid: o.cid, payments: quoteParse_(o.payments, []) };
     Object.assign(o, v, { updatedAt: now_() });
   }
   writeRow(row, o);
-  // 처음 연결했을 때(새 견적이거나 고객 건을 새로 고른 경우) 고객관리에 기록
-  if (o.cid) quoteLinkCrm_(o, isNew || prevCid !== o.cid, who);
+  if (o.cid) quoteLinkCrm_(o, isNew || prev.cid !== o.cid, prev.payments || [], who);
   return o.id;
 }
 
@@ -833,8 +927,12 @@ function nextQuoteNo_(sh) {
   return prefix + ('0' + (n + 1)).slice(-2);
 }
 
-/** 견적을 고객 건에 연결: 단계가 문의·상담이면 '견적'으로, 브랜드·모델이 비어 있으면 견적 제목으로 채우고, 처음 연결할 때 기록을 남김 */
-function quoteLinkCrm_(q, first, who) {
+/** 견적을 고객 건에 연결
+ *  - 단계: 문의·상담이면 '견적'으로. 지불 현황에 계약금이 있으면 '계약금', 예약금이 있으면 '예약금'까지 (앞으로만)
+ *  - 브랜드·모델이 비어 있으면 견적의 모델(또는 제목)으로
+ *  - 계약금(원) 칸: 지불 합계로 맞춤 (고객관리의 '진행중 계약금' 숫자)
+ *  - 기록: 처음 연결할 때, 단계가 바뀔 때, 결제가 새로 들어올 때 고객로그에 한 줄 */
+function quoteLinkCrm_(q, first, prevPays, who) {
   const sh = crmSheet_();
   const last = sh.getLastRow();
   if (last < 2) return;
@@ -844,17 +942,32 @@ function quoteLinkCrm_(q, first, who) {
   const row = i + 2;
   const cur = sh.getRange(row, 1, 1, CRM_COLS.length).getValues()[0];
   const c = {}; CRM_COLS.forEach((k, j) => c[k] = noteCell_(cur[j], k));
-  const si = CRM_STAGES.indexOf(c.stage), qi = CRM_STAGES.indexOf('견적');
-  const moved = si >= 0 && si < qi;
-  if (!moved && !first && c.item) return;
-  if (moved) { c.stage = '견적'; c.stageAt = now_(); }
-  if (!c.item && q.title) c.item = q.title;
+  const pays = quoteParse_(q.payments, []);
+  const paid = pays.reduce((m, p) => m + (+p.amount || 0), 0);
+  const key = p => [p.label, p.date, p.amount].join('|');
+  const before = {}; (prevPays || []).forEach(p => before[key(p)] = 1);
+  const added = first ? pays : pays.filter(p => !before[key(p)]);
+
+  let target = '견적';
+  if (pays.some(p => /예약금/.test(p.label))) target = '예약금';
+  else if (pays.some(p => /계약금/.test(p.label)) || paid > 0) target = '계약금';
+  const si = CRM_STAGES.indexOf(c.stage), ti = CRM_STAGES.indexOf(target);
+  const moved = si >= 0 && c.stage !== '종료' && si < ti;
+  const model = [q.brand, q.model].filter(Boolean).join(' ') || q.title;
+  const amountChanged = paid > 0 && String(paid) !== String(c.amount);
+  if (!moved && !first && c.item && !amountChanged && !added.length) return;
+  if (moved) { c.stage = target; c.stageAt = now_(); }
+  if (!c.item && model) c.item = model;
+  if (paid > 0) c.amount = String(paid);
   c.updatedAt = now_();
   sh.getRange(row, 1, 1, CRM_COLS.length).setNumberFormat('@').setValues([CRM_COLS.map(k => c[k] == null ? '' : String(c[k]))]);
-  if (moved || first) {
+  if (moved || first || added.length) {
     const lsh = crmLogSheet_();
-    const memo = `견적서 ${q.no}${q.title ? ' ' + q.title : ''}, ${wonText_(q.total)}`;
-    const l = { id: Utilities.getUuid().slice(0, 8), cid: c.id, name: c.name, stage: c.stage, memo, flag: c.flag, by: who, at: now_() };
+    const parts = [];
+    if (first) parts.push(`견적서 ${q.no}${model ? ' ' + model : ''}, ${wonText_(q.total)}`);
+    added.forEach(p => parts.push(`${p.label || '결제'} ${wonText_(p.amount)} 받음`));
+    if (!parts.length) parts.push(`견적서 ${q.no}, ${wonText_(q.total)}`);
+    const l = { id: Utilities.getUuid().slice(0, 8), cid: c.id, name: c.name, stage: c.stage, memo: parts.join(' · '), flag: c.flag, by: who, at: now_() };
     lsh.getRange(lsh.getLastRow() + 1, 1, 1, CRM_LOG_COLS.length).setNumberFormat('@').setValues([CRM_LOG_COLS.map(k => String(l[k] == null ? '' : l[k]))]);
   }
 }

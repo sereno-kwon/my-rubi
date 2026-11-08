@@ -254,7 +254,7 @@ function quotesHtml(c) {
   const wonFull = v => (+v || 0).toLocaleString('ko-KR') + '원';
   return `<section class="ck-group crm-quotes"><h2 class="sec-h ko"><span>견적<small>견적 앱에서 이 고객 건으로 저장한 견적</small></span><span class="n">${mine.length || ''}</span></h2>
     ${mine.length ? `<ol class="crm-log">${mine.map(q => `<li><span class="at">${esc(fmtDay(q.at))}<small>${esc(String(q.at).slice(11, 16))}</small></span><span class="st">${esc(q.status)}</span>
-      <span class="tx"><button class="crm-qlink" data-quote="${esc(q.id)}">${esc(q.no)}${q.title ? ' ' + esc(q.title) : ''}</button></span><span class="by">${esc(wonFull(q.total))}</span></li>`).join('')}</ol>` : ''}
+      <span class="tx"><button class="crm-qlink" data-quote="${esc(q.id)}">${esc(q.no)}${q.title ? ' ' + esc(q.title) : ''}</button></span><span class="by">${esc(wonFull(q.total))}${+q.paid ? ` · 지불 ${esc(wonFull(q.paid))}` : ''}</span></li>`).join('')}</ol>` : ''}
     <button class="crm-more" data-quote-new="${esc(c.id)}">+ 이 고객 건으로 견적 만들기</button></section>`;
 }
 
