@@ -8,7 +8,8 @@ My Rubi 재고 조회 서비스 (NAS 컨테이너에서 실행)
   포털 ──HTTPS──▶ DSM 역방향 프록시 ──▶ 이 서비스(127.0.0.1:8790) ──▶ 이카운트 OAPI
 
 동작
-  - 품목 목록(이름·규격·바코드)은 하루 한 번 받아 두고(/data/catalog.json), 검색은 그 목록에서 함
+  - 품목 목록(이름·규격·바코드·판매단가)은 하루 한 번 받아 두고(/data/catalog.json), 검색은 그 목록에서 함
+    판매단가는 포털 견적 앱이 품목을 넣을 때 단가를 채우는 데 씀 (QUOTE_PRICE_FIELD)
   - 품목을 고르면 그 순간 이카운트에 창고별 재고를 물어봄 (단건 조회, 이카운트 제한 1초 1회)
   - 포털 로그인 세션을 Apps Script에 확인한 사람만 쓸 수 있음
 
@@ -146,6 +147,9 @@ PORT = int(ENV('PORT', '8790'))
 DATA_DIR = ENV('DATA_DIR', '/data')
 DAILY_LIMIT = int(ENV('DAILY_LIMIT', '1000'))
 CATALOG_HOUR = int(ENV('CATALOG_HOUR', '7'))                  # 매일 이 시각(한국 시간) 이후 첫 확인 때 품목 목록을 새로 받음
+# 포털 견적 앱에 넣을 판매단가 필드 (이카운트 품목조회 응답의 필드 이름). 기본은 출고단가 OUT_PRICE
+# 부가세 포함 여부는 같은 이름 뒤에 _VAT 를 붙인 필드(Y 포함, N 별도)에서 읽음. 소비자가를 OUT_PRICE1 같은 다른 단가에 넣어 쓴다면 여기만 바꿈
+PRICE_FIELD = ENV('QUOTE_PRICE_FIELD', 'OUT_PRICE').strip() or 'OUT_PRICE'
 TEST_HOST = ENV('ECOUNT_TEST_HOST', '').strip()               # 개발용 가짜 이카운트 주소. 실제 운영에서는 비워 둠
 
 # 이카운트 OAPI V2 경로 (자기설정 → OpenAPI 문서 기준)
@@ -446,6 +450,9 @@ class Ecount:
         at = self.catalog.get('at', 0)
         if not at:
             return True
+        items = self.catalog.get('items', [])
+        if items and 'price' not in items[0]:   # 판매단가가 들어가기 전에 받은 목록이면 새로 받음 (견적 앱)
+            return True
         today_mark = kst().replace(hour=CATALOG_HOUR, minute=0, second=0, microsecond=0).timestamp()
         return (now() >= today_mark and at < today_mark) or now() - at > 36 * 3600
 
@@ -459,14 +466,23 @@ class Ecount:
             self._save()
             d = self._call(EP_PRODUCTS, {'PROD_CD': '', 'PROD_TYPE': ''})
             items = []
-            for r in self._rows(d):
+            rows = self._rows(d)
+            for r in rows:
                 code = str(r.get('PROD_CD') or '').strip()
                 if not code:
                     continue
                 items.append({'code': code, 'name': str(r.get('PROD_DES') or '').strip(),
-                              'size': str(r.get('SIZE_DES') or '').strip(), 'barcode': str(r.get('BAR_CODE') or '').strip()})
+                              'size': str(r.get('SIZE_DES') or '').strip(), 'barcode': str(r.get('BAR_CODE') or '').strip(),
+                              # 견적 앱용 판매단가와 부가세 포함 여부 (Y 포함, N 별도, 빈칸은 알 수 없음)
+                              'price': num(r.get(PRICE_FIELD)),
+                              'vat': str(r.get(PRICE_FIELD + '_VAT') or r.get(PRICE_FIELD + '_VAT_YN') or '').strip().upper()[:1]})
             if not items:
                 raise EcountError('이카운트에서 품목을 하나도 받지 못했습니다')
+            if rows and isinstance(rows[0], dict):
+                # 어떤 단가 필드가 오는지 한 번 남김 (값은 남기지 않음). 견적 단가가 비어 있으면 이 목록을 보고 QUOTE_PRICE_FIELD 를 고름
+                keys = sorted(k for k in rows[0].keys() if 'PRICE' in str(k).upper())
+                priced = sum(1 for p in items if p['price'])
+                log(f'단가 필드: {", ".join(keys) or "없음"} · 견적 단가({PRICE_FIELD})가 있는 품목 {priced}개')
             items.sort(key=lambda p: p['name'])
             self.catalog = {'at': now(), 'items': items}
             write_json(CATALOG_FILE, self.catalog)

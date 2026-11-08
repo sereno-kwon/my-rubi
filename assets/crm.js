@@ -60,6 +60,7 @@ function weekOf(d) {
 // ─────────── 상태 ───────────
 let customers = [];   // { id, name, info, group, item, stage, memo, flag, owner, amount, stageAt, author, createdAt, updatedAt }
 let logs = [];        // { id, cid, name, stage, memo, flag, by, at }
+let quotes = [];      // 견적 요약 { id, no, cid, title, total, status, at } (견적 앱 assets/quote.js, 서버 crm 응답에 함께 옴)
 let msg = '', busy = false, started = false, loaded = false;
 let host = null, summaryEl = null, bound = false;
 let view = 'list';    // list | detail | new | import | report
@@ -242,7 +243,19 @@ function detailHtml(c) {
   </div>
   ${stepper(c)}
   ${formHtml(c)}
+  ${quotesHtml(c)}
   <section class="ck-group"><h2 class="sec-h ko"><span>기록<small>단계, 현재 상황, 확인 필요가 바뀔 때마다 남습니다</small></span><span class="n">${hist.length || ''}</span></h2>${histHtml}</section>`;
+}
+
+/** 이 고객 건의 견적 (견적 앱에서 고객 건을 고르고 저장한 것). 누르면 견적 패널로 */
+function quotesHtml(c) {
+  if (!window.MYRUBI_QUOTE) return '';
+  const mine = quotes.filter(q => q.cid === c.id).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const wonFull = v => (+v || 0).toLocaleString('ko-KR') + '원';
+  return `<section class="ck-group crm-quotes"><h2 class="sec-h ko"><span>견적<small>견적 앱에서 이 고객 건으로 저장한 견적</small></span><span class="n">${mine.length || ''}</span></h2>
+    ${mine.length ? `<ol class="crm-log">${mine.map(q => `<li><span class="at">${esc(fmtDay(q.at))}<small>${esc(String(q.at).slice(11, 16))}</small></span><span class="st">${esc(q.status)}</span>
+      <span class="tx"><button class="crm-qlink" data-quote="${esc(q.id)}">${esc(q.no)}${q.title ? ' ' + esc(q.title) : ''}</button></span><span class="by">${esc(wonFull(q.total))}</span></li>`).join('')}</ol>` : ''}
+    <button class="crm-more" data-quote-new="${esc(c.id)}">+ 이 고객 건으로 견적 만들기</button></section>`;
 }
 
 // ─── 주간 보고 붙여넣기 ───
@@ -383,7 +396,7 @@ function renderSummary() {
 }
 
 // ─────────── 저장 ───────────
-const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs }));
+const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs, quotes }));
 function readLocal() { const d = readJson(K_LOCAL, {}); customers = d.customers || []; logs = d.logs || []; }
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify({ customers, logs }));
 
@@ -391,7 +404,7 @@ async function load() {
   if (!shared()) { readLocal(); loaded = true; if (!dirty) render(); else renderSummary(); return; }
   try {
     const j = await MR.get({ action: 'crm' });
-    customers = j.customers || []; logs = j.crmLogs || []; loaded = true;
+    customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || []; loaded = true;
     saveCache(); msg = '';
   } catch (e) {
     msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 고객관리를 쓸 수 있습니다' : '고객 목록을 불러오지 못했습니다. ' + e.message;
@@ -426,7 +439,7 @@ async function run(op, d) {
     if (shared()) {
       const body = op === 'bulk' ? { rows: d.rows.map(r => Object.assign({ id: r.id || '' }, pickFields(r))) } : op === 'delete' ? { id: d.id } : Object.assign({ id: d.id || '' }, pickFields(d));
       const j = await MR.post(Object.assign({ action: 'crm', op }, body));
-      customers = j.customers || []; logs = j.crmLogs || []; loaded = true;
+      customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || quotes; loaded = true;
       saveCache();
       out = j.saved || true;
     } else {
@@ -472,6 +485,9 @@ function bind() {
 async function onClick(e) {
   const t = e.target;
   const g = t.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
+  // 견적 묶음: 주소를 바꾸면 shell.js 가 견적 패널을 엶
+  const qo = t.closest('[data-quote]'); if (qo) { location.hash = '#quote/' + encodeURIComponent(qo.dataset.quote); return; }
+  const qn = t.closest('[data-quote-new]'); if (qn) { location.hash = '#quote/new/' + encodeURIComponent(qn.dataset.quoteNew); return; }
   const o = t.closest('[data-open]'); if (o) { go('detail', o.dataset.open); return; }
   const gr = t.closest('[data-group]'); if (gr) { ui.group = gr.dataset.group; saveUi(); render(); return; }
   const st = t.closest('[data-stage]'); if (st) { ui.stage = ui.stage === st.dataset.stage ? '' : st.dataset.stage; render(); return; }
@@ -602,7 +618,7 @@ window.MYRUBI_CRM = {
       });
     }
     started = true;
-    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; } }
+    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; quotes = c.quotes || []; } }
     else readLocal();
     render(); load();
   },

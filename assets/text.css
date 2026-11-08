@@ -458,6 +458,9 @@ body.panel-open{overflow:hidden}
 .crm-df select,.crm-df input{min-width:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--fg);font:inherit;font-size:13px;outline:none}
 .crm-df select:focus,.crm-df input:focus{border-color:var(--fg)}
 .crm-dbtn{margin-top:20px}
+.crm-quotes .crm-more{margin-top:12px}
+.crm-qlink{border:none;border-bottom:1px solid var(--line);background:none;padding:0;border-radius:0;font-size:14px;line-height:20px;color:var(--fg);text-align:left}
+.crm-qlink:hover{border-bottom-color:var(--fg)}
 @media (max-width:720px){
   .crm-ms{grid-template-columns:repeat(2,minmax(0,1fr))}
   .crm-m:nth-child(2){border-right:none}

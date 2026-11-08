@@ -261,5 +261,6 @@ class View {
 
 function mount(body, q) { if (view) view.destroy(); view = new View(body); view.start(q); }
 function search(q) { if (view && view.inp) { view.inp.value = q; view.find(q, true); view.inp.focus(); } }
-window.MYRUBI_STOCK = { configured, mount, search, unmount() { if (view) view.destroy(); view = null; } };
+// api: 견적 앱(assets/quote.js)이 이카운트 품목 찾기(search)에 같이 씀
+window.MYRUBI_STOCK = { configured, mount, search, api, unmount() { if (view) view.destroy(); view = null; } };
 })();
