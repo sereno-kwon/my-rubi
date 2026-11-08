@@ -52,7 +52,7 @@ const SPEC = [
 ];
 const STATUS = ['작성중', '보냄', '계약', '취소'];
 const PAY_LABELS = ['계약금', '50% 예약금', '프레임 잔금', '최종 잔금', '완성차 지불', '차액결제'];
-const PAY_METHODS = ['신용카드', '계좌이체', '현금 (현금영수증)', '현금', '루비워크샵 사이트', '네이버페이'];
+const PAY_METHODS = ['신용카드', '계좌이체', '현금 (현금영수증)', '현금', '적립금', '루비워크샵 사이트', '네이버페이'];
 const SNAP_LABELS = ['견적', '50% 예약금', '프레임 잔금', '최종 잔금', '출고'];
 const LIVE_STAGES = ['문의', '상담', '견적', '계약금', '예약금', '발주', '입고', '조립', '출고', '루비케어'];
 const CONFIDENTIAL = Q.CONFIDENTIAL || '본 문서는 루비컴퍼니와 고객 간에 교환된 기밀 정보를 담고 있으므로, 어떠한 경우에도 루비컴퍼니의 사전 허가 없이 외부로 유출되어서는 안 됩니다. 이에 대한 엄중한 준수를 요청드립니다.';
@@ -120,6 +120,7 @@ let quotes = [];      // 서버 견적 (Code.gs quoteOut_)
 let customers = [];   // 고객관리 고객 건 요약 { id, name, info, group, item, stage, owner }
 let snaps = [];       // 기록 목록 { id, qid, no, label, total, by, at } (내용은 열 때 받아옴)
 let bank = '';        // 입금 계좌 (서버 스크립트 속성 QUOTE_BANK)
+let pointBal = {};    // 고객 이름(띄어쓰기 뺌)별 적립금 잔액 (고객관리 적립금 탭)
 let loaded = false, busy = false, msg = '', okMsg = '';
 let host = null, bound = false;
 let view = 'list';    // list | edit | paper | compare
@@ -295,7 +296,8 @@ function moneyHtml(d) {
           <span class="rd"><button type="button" data-round="10000">만원 내림</button><button type="button" data-round="100000">10만원 내림</button>${c.hasFinal ? '<button type="button" data-round="0">지우기</button>' : ''}</span></dd></div>
       <div class="tt"><dt>견적 금액<small>부가세 포함</small></dt><dd data-v="F">${won(c.F)}</dd></div>
       <div class="sx"><dt>스페셜오퍼 <small data-v="rate">총 할인 ${pct(c.rate)}%</small></dt><dd data-v="offer">${paren(c.offer)}</dd></div>
-      <div class="vx"><dt>적립금 ${esc(pct((+Q.POINT_RATE || 0) * 100))}% · 공급가액 · 부가세</dt><dd data-v="vx">${won(c.points)} · ${won(c.supply)} · ${won(c.vat)}</dd></div>
+      <div class="vx"><dt>적립 예정 ${esc(pct((+Q.POINT_RATE || 0) * 100))}% · 공급가액 · 부가세</dt><dd data-v="vx">${won(c.points)} · ${won(c.supply)} · ${won(c.vat)}</dd></div>
+      ${d.name ? `<div class="vx pb"><dt>${esc(d.name)} 고객 적립금 잔액<small>지불 현황에서 결제 수단을 '적립금'으로 적으면 사용으로 기록</small></dt><dd>${won(pointBal[String(d.name).replace(/\s+/g, '')] || 0)}</dd></div>` : ''}
     </dl>
   </div>`;
 }
@@ -581,12 +583,13 @@ const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ quotes, customers, sn
 function readLocal() {
   quotes = readJson(K_LOCAL, []);
   snaps = readJson(K_SNAP, []).map(s => { const o = Object.assign({}, s); delete o.data; return o; });
+  pointBal = {}; (readJson('myrubi.crm', {}).points || []).forEach(p => { const k = String(p.name).replace(/\s+/g, ''); pointBal[k] = (pointBal[k] || 0) + (+p.amount || 0); });
   customers = (readJson('myrubi.crm', {}).customers || []).map(c => ({ id: c.id, name: c.name, info: c.info, group: c.group, item: c.item, stage: c.stage, owner: c.owner }));
 }
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify(quotes));
 
 function take(j) {
-  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; loaded = true;
+  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; pointBal = j.pointBalance || {}; loaded = true;
   saveCache();
 }
 async function load() {

@@ -10,6 +10,8 @@
  *    '프로젝트' 열에 프로젝트 ID가 들어감. 담당은 여러 명(쉼표로 구분)이고, 프로젝트 항목은 개인 목록 설정과 관계없이 모두에게 보임
  *  - 고객관리: 고객 구매 건을 '고객' 탭에, 단계·상황이 바뀐 기록을 '고객로그' 탭에 저장함 (GET/POST crm)
  *    단계는 상담 10단계(문의 → … → 루비케어) + 종료. 포털이 이를 고객문의·구매진행중·구매완료 세 층위로 묶어 보여줌
+ *  - 적립금: 고객별 적립·사용 내역을 '적립금' 탭에 저장함 (POST point, 목록은 crm 응답의 points). 잔액은 포털이 고객 이름으로 묶어 더함
+ *    견적의 지불 현황에서 결제 수단이 '적립금'인 금액은 그 견적의 '사용' 줄로 자동 기록됨
  *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
  *    지불 현황에 계약금·예약금이 들어오면 고객 건 단계를 그만큼 넘기고, 고객 건의 계약금(원) 칸을 지불 합계로 맞춤
@@ -90,6 +92,12 @@ const CRM_LOG_HEADERS = ['ID', '고객 ID', '고객명', '단계', '현재 상�
 const CRM_STAGES = ['문의', '상담', '견적', '계약금', '예약금', '발주', '입고', '조립', '출고', '루비케어', '종료'];
 const CRM_GROUPS = ['개별 아카이브', '루비 브랜드', '컴포넌트 및 기타 브랜드'];
 
+// 적립금 탭 (assets/crm.js). 한 줄 = 적립·사용 한 번. 금액은 적립 +, 사용·소멸 −, 조정은 적은 부호 그대로
+const POINT_COLS = ['id', 'name', 'cid', 'qid', 'type', 'amount', 'memo', 'date', 'expire', 'by', 'email', 'createdAt'];
+const POINT_HEADERS = ['ID', '고객명', '고객 건 ID', '견적 ID', '구분', '금액(원)', '내용', '날짜', '유효기한', '기록한 사람', '이메일', '기록 일시'];
+const POINT_TYPES = ['적립', '사용', '조정', '소멸'];
+const POINT_AUTO_USE = '[견적 결제]';   // 견적 지불 현황에서 자동으로 만든 사용 줄 표시
+
 // 견적 탭 (assets/quote.js). 새 열은 뒤에만 붙임 (이미 만든 시트의 열 순서를 지키려고)
 const QUOTE_COLS = ['id', 'no', 'cid', 'name', 'title', 'items', 'subtotal', 'discount', 'total', 'memo', 'note', 'valid', 'status', 'owner', 'author', 'email', 'createdAt', 'updatedAt',
   'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'final', 'payments', 'request', 'ship', 'spec', 'paid'];
@@ -141,6 +149,7 @@ function doPost(e) {
       case 'project':  { const saved = saveProject_(body, user) || ''; return json_({ ok: true, saved, ...checkData_(user) }); }
       case 'event':    return json_({ ok: true, ...saveEvent_(body, user) });
       case 'crm':      { const saved = saveCrm_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
+      case 'point':    { const saved = savePoint_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
       case 'quote':    { const saved = saveQuote_(body, user) || ''; return json_({ ok: true, saved, ...quoteData_() }); }
       default:         return json_({ ok: false, error: 'unknown action' });
     }
@@ -617,7 +626,8 @@ function crmData_() {
     customers: crmRows_(crmSheet_()).map(o => { delete o.email; return o; }),
     crmLogs: crmLogRows_().filter(l => String(l.at).slice(0, 10) >= cutoff),
     // 고객 상세 화면의 '견적' 묶음용 요약 (품목은 빼고)
-    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, at: q.updatedAt || q.createdAt })),
+    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, ship: q.ship, at: q.updatedAt || q.createdAt })),
+    points: pointRows_().map(o => { delete o.email; return o; }),
   };
 }
 
@@ -668,6 +678,7 @@ function saveCrm_(b, user) {
       return o.id;
     }
     const o = readRow(row);
+    if (o.name !== v.name) pointRename_(o.id, v.name);
     const changed = o.stage !== v.stage || o.memo !== v.memo || o.flag !== v.flag;
     if (o.stage !== v.stage) o.stageAt = now_();
     Object.assign(o, v, { updatedAt: now_() });
@@ -703,6 +714,97 @@ function saveCrm_(b, user) {
       .setValues(logs.map(l => CRM_LOG_COLS.map(k => String(l[k] == null ? '' : l[k]))));
   }
   return out;
+}
+
+// ───────────────────────────── 적립금 (적립금 탭) ─────────────────────────────
+// 고객관리 화면에서 적립·사용·조정·소멸을 한 줄씩 기록함. 잔액 = 그 고객 이름(띄어쓰기 무시)의 금액 합
+// 견적과 연결: 적립 줄에 견적 ID(qid)를 남겨 같은 견적을 두 번 적립하지 않게 함
+// 견적 지불 현황의 '적립금' 결제는 저장할 때마다 그 견적의 자동 사용 줄 하나로 맞춤 (pointSyncQuote_)
+
+function pointSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('적립금');
+  if (!sh) {
+    sh = ss.insertSheet('적립금');
+    sh.getRange(1, 1, 1, POINT_HEADERS.length).setValues([POINT_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), POINT_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+
+function pointRows_() {
+  const sh = pointSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, POINT_COLS.length).getValues()
+    .map(r => { const o = {}; POINT_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k === 'expire' ? 'date' : k)); return o; })
+    .filter(o => o.id && o.name);
+}
+
+const pointWrite_ = (sh, row, o) => sh.getRange(row, 1, 1, POINT_COLS.length).setNumberFormat('@').setValues([POINT_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+const pointFind_ = (sh, test) => {
+  const last = sh.getLastRow();
+  if (last < 2) return -1;
+  const rows = sh.getRange(2, 1, last - 1, POINT_COLS.length).getValues();
+  for (let i = 0; i < rows.length; i++) { const o = {}; POINT_COLS.forEach((k, j) => o[k] = String(rows[i][j])); if (test(o)) return i + 2; }
+  return -1;
+};
+
+/** op: add / delete. add 는 새 ID를 돌려줌 */
+function savePoint_(b, user) {
+  const sh = pointSheet_();
+  const op = String(b.op || '');
+  const who = user.name || user.email;
+  if (op === 'delete') {
+    const row = pointFind_(sh, o => o.id === String(b.id));
+    if (row > 0) sh.deleteRow(row);
+    return '';
+  }
+  if (op !== 'add') throw new Error('unknown op');
+  const name = String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!name) throw new Error('고객 이름이 없습니다');
+  const type = POINT_TYPES.indexOf(b.type) >= 0 ? b.type : '적립';
+  let amount = Math.round(Number(String(b.amount == null ? '' : b.amount).replace(/[^\d.\-]/g, '')) || 0);
+  if (!amount) throw new Error('금액을 적어 주세요');
+  if (type === '적립') amount = Math.abs(amount);
+  if (type === '사용' || type === '소멸') amount = -Math.abs(amount);
+  const qid = String(b.qid || '').trim().slice(0, 20);
+  if (qid && type === '적립' && pointFind_(sh, o => o.qid === qid && o.type === '적립') > 0) throw new Error('이미 적립한 견적입니다');
+  const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+  const o = {
+    id: 'p' + Utilities.getUuid().slice(0, 7), name, cid: String(b.cid || '').trim().slice(0, 20), qid, type, amount: String(amount),
+    memo: String(b.memo || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+    date: day(b.date) || Utilities.formatDate(new Date(), CONFIG.TZ, 'yyyy-MM-dd'), expire: day(b.expire),
+    by: who, email: user.email, createdAt: now_(),
+  };
+  pointWrite_(sh, sh.getLastRow() + 1, o);
+  return o.id;
+}
+
+/** 고객 건의 이름을 바꾸면 그 건으로 남긴 적립금 줄의 이름도 같이 */
+function pointRename_(cid, name) {
+  const sh = pointSheet_(), last = sh.getLastRow();
+  if (!cid || last < 2) return;
+  const ci = POINT_COLS.indexOf('cid'), ni = POINT_COLS.indexOf('name');
+  const vals = sh.getRange(2, 1, last - 1, POINT_COLS.length).getValues();
+  vals.forEach((r, i) => { if (String(r[ci]) === String(cid)) sh.getRange(i + 2, ni + 1).setValue(name); });
+}
+
+/** 견적 지불 현황에서 결제 수단이 '적립금'인 금액을 그 견적의 사용 줄 하나로 맞춤 (없으면 지움) */
+function pointSyncQuote_(q, who, email) {
+  const pays = quoteParse_(q.payments, []);
+  const used = pays.filter(p => /적립금/.test(p.method || '')).reduce((m, p) => m + (+p.amount || 0), 0);
+  const sh = pointSheet_();
+  const row = pointFind_(sh, o => o.qid === String(q.id) && o.type === '사용' && o.memo.indexOf(POINT_AUTO_USE) === 0);
+  if (!used) { if (row > 0) sh.deleteRow(row); return; }
+  let name = q.name;
+  if (q.cid) { const c = crmRows_(crmSheet_()).find(x => x.id === q.cid); if (c) name = c.name; }
+  const o = row > 0 ? (() => { const cur = sh.getRange(row, 1, 1, POINT_COLS.length).getValues()[0]; const x = {}; POINT_COLS.forEach((k, j) => x[k] = noteCell_(cur[j], k)); return x; })()
+    : { id: 'p' + Utilities.getUuid().slice(0, 7), qid: q.id, type: '사용', by: who, email, createdAt: now_(), expire: '' };
+  const lastDate = pays.filter(p => /적립금/.test(p.method || '')).map(p => p.date).filter(Boolean).sort().pop();
+  Object.assign(o, { name, cid: q.cid || '', amount: String(-Math.abs(used)), memo: `${POINT_AUTO_USE} 견적 ${q.no} 결제`, date: lastDate || Utilities.formatDate(new Date(), CONFIG.TZ, 'yyyy-MM-dd') });
+  pointWrite_(sh, row > 0 ? row : sh.getLastRow() + 1, o);
 }
 
 // ───────────────────────────── 견적 (견적 탭) ─────────────────────────────
@@ -778,7 +880,10 @@ function quoteData_() {
     .map(r => { const o = {}; QUOTE_SNAP_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); delete o.data; return o; })
     .filter(o => o.id);
   const bank = PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '';
-  return { quotes, customers, snaps, bank };
+  // 고객별 적립금 잔액 (이름의 띄어쓰기를 빼고 묶음). 견적 화면에서 잔액을 보여주는 데 씀
+  const pointBalance = {};
+  pointRows_().forEach(p => { const k = String(p.name).replace(/\s+/g, ''); pointBalance[k] = (pointBalance[k] || 0) + (+p.amount || 0); });
+  return { quotes, customers, snaps, bank, pointBalance };
 }
 
 /** 기록 하나의 내용 (그 시점의 견적 전체) */
@@ -856,6 +961,9 @@ function saveQuote_(b, user) {
   if (op === 'delete') {
     const row = findRow(b.id);
     if (row > 0) sh.deleteRow(row);
+    // 그 견적 결제로 자동 기록한 적립금 사용 줄도 지움 (손으로 적은 적립 줄은 남김)
+    const psh = pointSheet_(), prow = pointFind_(psh, x => x.qid === String(b.id) && x.type === '사용' && x.memo.indexOf(POINT_AUTO_USE) === 0);
+    if (prow > 0) psh.deleteRow(prow);
     // 그 견적의 기록도 지움
     const ssh = quoteSnapSheet_(), last = ssh.getLastRow();
     if (last >= 2) {
@@ -910,6 +1018,7 @@ function saveQuote_(b, user) {
   }
   writeRow(row, o);
   if (o.cid) quoteLinkCrm_(o, isNew || prev.cid !== o.cid, prev.payments || [], who);
+  pointSyncQuote_(o, who, user.email);
   return o.id;
 }
 

@@ -1,6 +1,8 @@
 // My Rubi 고객관리
 // 고객 구매 건을 상담 10단계로 관리하고, 고객문의·구매진행중·구매완료 세 층위로 묶어 숫자로 보여줌
 // 저장: 로그인하면 Index 스프레드시트의 '고객'·'고객로그' 탭 (Apps Script Code.gs 의 crm 동작), 로그인을 켜기 전에는 이 브라우저
+// 적립금: 고객별 적립·사용 내역과 잔액 ('적립금' 탭, Code.gs 의 point 동작). 잔액은 고객 이름(띄어쓰기 무시)으로 묶음
+//   다 받은 계약 견적은 '적립 예정'으로 보이고 한 번 눌러 적립. 견적 지불 현황의 '적립금' 결제는 사용으로 자동 기록됨
 // 매주 쓰던 주간 보고 텍스트를 붙여넣으면 고객별로 나눠 단계를 추정하고, 반대로 지금 데이터를 주간 보고 형식으로 뽑아냄
 // 고객 정보는 서버(시트)에만 있음. 이 파일이 올라가는 GitHub 리포지토리는 공개라서 고객 이름을 코드에 적지 않음
 (() => {
@@ -60,10 +62,12 @@ function weekOf(d) {
 // ─────────── 상태 ───────────
 let customers = [];   // { id, name, info, group, item, stage, memo, flag, owner, amount, stageAt, author, createdAt, updatedAt }
 let logs = [];        // { id, cid, name, stage, memo, flag, by, at }
+let points = [];      // 적립금 내역 { id, name, cid, qid, type, amount(+적립 −사용), memo, date, expire, by, createdAt }
+let ptArmed = '';     // 지우기를 한 번 누른 적립금 줄
 let quotes = [];      // 견적 요약 { id, no, cid, title, total, status, at } (견적 앱 assets/quote.js, 서버 crm 응답에 함께 옴)
 let msg = '', busy = false, started = false, loaded = false;
 let host = null, summaryEl = null, bound = false;
-let view = 'list';    // list | detail | new | import | report
+let view = 'list';    // list | detail | new | import | report | points
 let cur = null;       // 보고 있는 고객 id
 let preset = null;    // 새 건 만들 때 미리 채울 값 (같은 고객 다른 건)
 let draft = null;     // 붙여넣기에서 읽은 줄들
@@ -76,6 +80,36 @@ const byId = id => customers.find(c => c.id === id);
 // 같은 분에 쌓인 기록은 시트에 들어간 순서로 (나중 줄이 위)
 const logsOf = id => logs.map((l, i) => [l, i]).filter(([l]) => l.cid === id)
   .sort((a, b) => String(b[0].at).localeCompare(String(a[0].at)) || b[1] - a[1]).map(x => x[0]);
+
+// ─────────── 적립금 ───────────
+const POINT_TYPES = ['적립', '사용', '조정', '소멸'];
+const POINT_RATE = (CFG.QUOTE && CFG.QUOTE.POINT_RATE != null) ? +CFG.QUOTE.POINT_RATE : 0.05;
+const wonFull = v => (Math.round(+v || 0)).toLocaleString('ko-KR') + '원';
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString('ko-KR');
+const pointsOf = name => points.filter(p => normName(p.name) === normName(name))
+  .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt)));
+const balanceOf = name => pointsOf(name).reduce((m, p) => m + (+p.amount || 0), 0);
+/** 적립 예정: 계약 상태로 다 받은(지불 ≥ 견적 금액) 견적 중 아직 적립 줄이 없는 것 */
+function pendingPoints(name) {
+  const done = new Set(points.filter(p => p.type === '적립' && p.qid).map(p => p.qid));
+  return quotes.filter(q => q.status === '계약' && +q.total > 0 && +q.paid >= +q.total && !done.has(q.id)).map(q => {
+    const c = byId(q.cid);
+    return c ? { q, c, amount: Math.round(+q.total * POINT_RATE) } : null;
+  }).filter(x => x && x.amount > 0 && (!name || normName(x.c.name) === normName(name)));
+}
+/** 고객(이름)별 적립금 묶음 */
+function pointPeople() {
+  const m = {};
+  points.forEach(p => {
+    const k = normName(p.name);
+    const o = m[k] || (m[k] = { name: p.name, earn: 0, use: 0, bal: 0, last: '', soon: 0 });
+    const a = +p.amount || 0;
+    o.bal += a; if (a > 0) o.earn += a; else o.use += -a;
+    if (String(p.date) > o.last) o.last = String(p.date);
+  });
+  pendingPoints('').forEach(x => { const k = normName(x.c.name); (m[k] || (m[k] = { name: x.c.name, earn: 0, use: 0, bal: 0, last: '' })).pending = ((m[k].pending || 0) + x.amount); });
+  return Object.values(m);
+}
 
 // ─────────── 계산 ───────────
 /** 이번 주 시작 시점의 단계 (그 전 기록이 없으면 null = 이번 주에 새로 들어온 건) */
@@ -119,7 +153,7 @@ const recentDone = c => { const t = Date.parse(String(c.stageAt || c.updatedAt |
 // ─────────── 화면 ───────────
 function syncHash() {
   if (!host) return;
-  try { history.replaceState(null, '', '#customers' + (view === 'detail' && cur ? '/' + encodeURIComponent(cur) : '')); } catch (e) {}
+  try { history.replaceState(null, '', '#customers' + (view === 'detail' && cur ? '/' + encodeURIComponent(cur) : view === 'points' ? '/points' : '')); } catch (e) {}
 }
 
 function render() {
@@ -127,7 +161,7 @@ function render() {
   if (!host) return;
   if (view === 'detail' && !byId(cur) && loaded && !busy) { view = 'list'; cur = null; }
   syncHash();
-  const body = view === 'detail' ? detailHtml(byId(cur)) : view === 'new' ? formPage(null) : view === 'import' ? importHtml() : view === 'report' ? reportHtml() : listHtml();
+  const body = view === 'detail' ? detailHtml(byId(cur)) : view === 'new' ? formPage(null) : view === 'import' ? importHtml() : view === 'report' ? reportHtml() : view === 'points' ? pointsPage() : listHtml();
   const foot = msg ? `<p class="ck-msg err" role="status">${esc(msg)}</p>` : busy ? '<p class="ck-msg">저장하는 중</p>' : !shared() ? '<p class="ck-msg">이 브라우저에만 저장됩니다</p>' : '';
   const keep = host.querySelector('.ck-body'); const top = keep ? keep.scrollTop : 0;
   host.innerHTML = `<div class="ck crm"><div class="ck-body">${body}</div>${foot}</div>`;
@@ -152,7 +186,7 @@ function listHtml() {
 
   const week = `<div class="crm-week">
     <div><h2>${esc(s.wk.label)}</h2><p>${fmtDay(s.wk.from)}~${fmtDay(s.wk.to)}<i class="dot">·</i>${s.people}명 ${s.total}건<i class="dot">·</i>이번 주 새 건 ${s.fresh}<i class="dot">·</i>단계 이동 ${s.moved}${s.deposit ? `<i class="dot">·</i>진행중 계약금 ${won(s.deposit)}` : ''}</p></div>
-    <div class="crm-acts"><button class="pj-btn" data-go="import">주간 보고 붙여넣기</button><button class="pj-btn" data-go="report">주간 보고 만들기</button><button class="pj-btn pri" data-go="new">+ 고객</button></div>
+    <div class="crm-acts"><button class="pj-btn" data-go="points">적립금${pendingPoints('').length ? ` <i class="crm-badge">적립 예정 ${pendingPoints('').length}</i>` : ''}</button><button class="pj-btn" data-go="import">주간 보고 붙여넣기</button><button class="pj-btn" data-go="report">주간 보고 만들기</button><button class="pj-btn pri" data-go="new">+ 고객</button></div>
   </div>`;
 
   const filt = ui.stage || ui.q || ui.group !== ALL;
@@ -225,7 +259,8 @@ function detailHtml(c) {
   if (!c) return '<p class="ck-none">고객을 불러오는 중입니다.</p>';
   const tier = TIERS.find(t => t.key === tierOf(c.stage));
   const others = customers.filter(x => x.id !== c.id && normName(x.name) === normName(c.name));
-  const meta = [c.group, tier ? tier.name : '종료', c.stageAt ? `${fmtDay(c.stageAt)}부터 ${c.stage}` : '', c.amount ? '계약금 ' + won(c.amount) : '', c.owner ? '담당 ' + c.owner : '']
+  const bal = balanceOf(c.name);
+  const meta = [c.group, tier ? tier.name : '종료', c.stageAt ? `${fmtDay(c.stageAt)}부터 ${c.stage}` : '', c.amount ? '계약금 ' + won(c.amount) : '', bal ? '적립금 ' + wonFull(bal) : '', c.owner ? '담당 ' + c.owner : '']
     .filter(Boolean).map(esc).join('<i class="dot">·</i>');
   const hist = logsOf(c.id);
   const histHtml = hist.length ? `<ol class="crm-log">${hist.map((l, i) => {
@@ -243,8 +278,67 @@ function detailHtml(c) {
   </div>
   ${stepper(c)}
   ${formHtml(c)}
+  ${pointsHtml(c)}
   ${quotesHtml(c)}
   <section class="ck-group"><h2 class="sec-h ko"><span>기록<small>단계, 현재 상황, 확인 필요가 바뀔 때마다 남습니다</small></span><span class="n">${hist.length || ''}</span></h2>${histHtml}</section>`;
+}
+
+/** 상세 화면의 적립금: 잔액, 적립 예정, 내역, 넣기 */
+function pointsHtml(c) {
+  const list = pointsOf(c.name), bal = list.reduce((m, p) => m + (+p.amount || 0), 0);
+  const pend = pendingPoints(c.name);
+  const soon = list.filter(p => p.expire && +p.amount > 0 && p.expire >= ymd(new Date()) && p.expire <= ymd(new Date(Date.now() + 30 * 864e5)));
+  const rows = list.map(p => `<li class="t-${POINT_TYPES.indexOf(p.type)}"><span class="at">${esc(fmtDay(p.date))}<small>${esc(String(p.date).slice(0, 4))}</small></span><span class="st">${esc(p.type)}</span>
+    <span class="tx">${esc(String(p.memo || '').replace(/^\[견적 결제\]\s*/, ''))}${p.expire ? `<small class="ex">${esc(fmtDay(p.expire))}까지</small>` : ''}${/^\[견적 결제\]/.test(p.memo || '') ? '<small class="ex">견적 지불 현황에서 자동</small>' : ''}</span>
+    <span class="by"><b class="${+p.amount < 0 ? 'neg' : ''}">${signed(+p.amount)}</b> ${esc(p.by)}${/^\[견적 결제\]/.test(p.memo || '') ? '' : ` <button class="crm-pdel" data-pdel="${esc(p.id)}">${ptArmed === p.id ? '한 번 더 누르면 지워짐' : '지우기'}</button>`}</span></li>`).join('');
+  const today = ymd(new Date());
+  return `<section class="ck-group crm-points"><h2 class="sec-h ko"><span>적립금<small>${esc(c.name)} 고객의 모든 건 합계 · 이름으로 묶음</small></span><span class="n">${list.length || ''}</span></h2>
+    <div class="crm-pbal"><div><span class="lb">잔액</span><span class="v">${wonFull(bal)}</span></div>
+      <div><span class="lb">적립 합계</span><span class="s">${wonFull(list.filter(p => +p.amount > 0).reduce((m, p) => m + +p.amount, 0))}</span></div>
+      <div><span class="lb">사용 · 소멸 합계</span><span class="s">${wonFull(-list.filter(p => +p.amount < 0).reduce((m, p) => m + +p.amount, 0))}</span></div>
+      ${soon.length ? `<div class="warn"><span class="lb">30일 안에 기한</span><span class="s">${soon.length}건</span></div>` : ''}</div>
+    ${pend.map(x => `<p class="crm-ppend">견적 ${esc(x.q.no)}${x.q.title ? ' ' + esc(x.q.title) : ''} 결제 완료, ${esc(Math.round(POINT_RATE * 100))}% 적립 예정 <b>${wonFull(x.amount)}</b>
+      <button class="pj-btn pri" data-accrue="${esc(x.q.id)}"${busy ? ' disabled' : ''}>적립하기</button></p>`).join('')}
+    ${rows ? `<ol class="crm-log crm-plog">${rows}</ol>` : '<p class="ck-none">아직 적립금 내역이 없습니다.</p>'}
+    <form class="crm-pt-form" autocomplete="off">
+      <select name="type" aria-label="구분">${POINT_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
+      <input name="amount" inputmode="numeric" placeholder="금액" aria-label="금액" required>
+      <input name="date" type="date" value="${today}" aria-label="날짜">
+      <input name="memo" placeholder="내용 (구매 적립, 부품 구매에 사용, 행사 적립)" aria-label="내용" maxlength="200">
+      <label class="ex"><span>유효기한</span><input name="expire" type="date" aria-label="유효기한 (적립일 때, 비워두면 없음)"></label>
+      <button type="submit" class="pj-btn"${busy ? ' disabled' : ''}>넣기</button>
+    </form>
+    <p class="crm-phint">조정은 적은 부호 그대로(늘리면 +, 줄이면 −) 들어갑니다. 견적 지불 현황에서 결제 수단을 '적립금'으로 적으면 사용으로 자동 기록됩니다.</p>
+  </section>`;
+}
+
+/** 적립금 화면: 고객별 잔액과 적립 예정 */
+function pointsPage() {
+  const people = pointPeople();
+  const q = (ui.pq || '').trim().toLowerCase();
+  const list = people.filter(p => !q || p.name.toLowerCase().includes(q)).sort((a, b) => (b.pending ? 1 : 0) - (a.pending ? 1 : 0) || b.bal - a.bal);
+  const month = ymd(new Date()).slice(0, 7);
+  const mEarn = points.filter(p => String(p.date).slice(0, 7) === month && +p.amount > 0).reduce((m, p) => m + +p.amount, 0);
+  const mUse = -points.filter(p => String(p.date).slice(0, 7) === month && +p.amount < 0).reduce((m, p) => m + +p.amount, 0);
+  const total = people.reduce((m, p) => m + p.bal, 0);
+  const pend = pendingPoints('');
+  // 이름으로 고객 건 하나를 찾아 상세로 (가장 최근 건)
+  const caseOf = name => customers.filter(c => normName(c.name) === normName(name)).sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))[0];
+  const rows = list.map(p => {
+    const c = caseOf(p.name);
+    return `<li><button class="crm-prow"${c ? ` data-open="${esc(c.id)}"` : ' disabled'}>
+      <span class="nm">${esc(p.name)}${p.pending ? `<small class="pd">적립 예정 ${wonFull(p.pending)}</small>` : ''}</span>
+      <span class="n">${wonFull(p.earn)}</span><span class="n">${wonFull(p.use)}</span><span class="n b">${wonFull(p.bal)}</span><span class="n d">${esc(fmtDay(p.last))}</span></button></li>`;
+  }).join('');
+  return `<div class="pj-head"><button class="pj-back" data-go="list"><span aria-hidden="true">←</span> 고객 목록</button></div>
+  <div class="crm-week"><div><h2>적립금</h2><p>${people.filter(p => p.bal).length}명<i class="dot">·</i>총 잔액 ${wonFull(total)}<i class="dot">·</i>이번 달 적립 ${wonFull(mEarn)}<i class="dot">·</i>사용 ${wonFull(mUse)}${pend.length ? `<i class="dot">·</i>적립 예정 ${pend.length}건 ${wonFull(pend.reduce((m, x) => m + x.amount, 0))}` : ''}</p></div></div>
+  ${pend.length ? `<section class="ck-group"><h2 class="sec-h ko"><span>적립 예정<small>계약 상태로 결제를 다 받은 견적, 최종 견적 금액의 ${esc(Math.round(POINT_RATE * 100))}%</small></span><span class="n">${pend.length}</span></h2>
+    ${pend.map(x => `<p class="crm-ppend"><button class="crm-qlink" data-open="${esc(x.c.id)}">${esc(x.c.name)}</button> 견적 ${esc(x.q.no)}${x.q.title ? ' ' + esc(x.q.title) : ''}, ${wonFull(x.q.total)} → <b>${wonFull(x.amount)}</b>
+      <button class="pj-btn pri" data-accrue="${esc(x.q.id)}"${busy ? ' disabled' : ''}>적립하기</button></p>`).join('')}</section>` : ''}
+  <div class="ck-tabs crm-tabs"><span class="ck-tab" aria-selected="true"><span class="nm">고객별 잔액</span><span class="ct">${list.length}</span></span>
+    <label class="crm-q"><input class="crm-pq" value="${esc(ui.pq || '')}" placeholder="고객 이름 찾기" aria-label="적립금 고객 찾기" autocomplete="off"></label></div>
+  ${list.length ? `<div class="crm-phead" aria-hidden="true"><span>고객</span><span class="n">적립</span><span class="n">사용 · 소멸</span><span class="n">잔액</span><span class="n">최근</span></div><ol class="crm-prows">${rows}</ol>`
+    : `<p class="ck-none">${points.length ? '맞는 고객이 없습니다.' : '아직 적립금 내역이 없습니다. 고객 상세 화면의 적립금 칸에서 넣거나, 결제를 다 받은 견적을 적립하면 여기에 모입니다.'}</p>`}`;
 }
 
 /** 이 고객 건의 견적 (견적 앱에서 고객 건을 고르고 저장한 것). 누르면 견적 패널로 */
@@ -396,15 +490,19 @@ function renderSummary() {
 }
 
 // ─────────── 저장 ───────────
-const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs, quotes }));
-function readLocal() { const d = readJson(K_LOCAL, {}); customers = d.customers || []; logs = d.logs || []; }
-const writeLocal = () => ls.set(K_LOCAL, JSON.stringify({ customers, logs }));
+const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs, quotes, points }));
+function readLocal() {
+  const d = readJson(K_LOCAL, {}); customers = d.customers || []; logs = d.logs || []; points = d.points || [];
+  // 로그인 전에는 견적 앱이 이 브라우저에 둔 견적에서 요약을 만듦
+  quotes = readJson('myrubi.quote', []).filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, at: q.updatedAt || q.createdAt }));
+}
+const writeLocal = () => ls.set(K_LOCAL, JSON.stringify({ customers, logs, points }));
 
 async function load() {
   if (!shared()) { readLocal(); loaded = true; if (!dirty) render(); else renderSummary(); return; }
   try {
     const j = await MR.get({ action: 'crm' });
-    customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || []; loaded = true;
+    customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || []; points = j.points || []; loaded = true;
     saveCache(); msg = '';
   } catch (e) {
     msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 고객관리를 쓸 수 있습니다' : '고객 목록을 불러오지 못했습니다. ' + e.message;
@@ -439,7 +537,7 @@ async function run(op, d) {
     if (shared()) {
       const body = op === 'bulk' ? { rows: d.rows.map(r => Object.assign({ id: r.id || '' }, pickFields(r))) } : op === 'delete' ? { id: d.id } : Object.assign({ id: d.id || '' }, pickFields(d));
       const j = await MR.post(Object.assign({ action: 'crm', op }, body));
-      customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || quotes; loaded = true;
+      customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || quotes; points = j.points || points; loaded = true;
       saveCache();
       out = j.saved || true;
     } else {
@@ -454,6 +552,32 @@ async function run(op, d) {
   }
   busy = false;
   return out;
+}
+
+/** 적립금 op: add / delete */
+async function runPoint(op, d) {
+  busy = true; msg = ''; render();
+  let ok = true;
+  try {
+    if (shared()) {
+      const j = await MR.post(Object.assign({ action: 'point', op }, d));
+      customers = j.customers || customers; logs = j.crmLogs || logs; quotes = j.quotes || quotes; points = j.points || []; loaded = true;
+      saveCache();
+    } else if (op === 'delete') { points = points.filter(p => p.id !== d.id); writeLocal(); }
+    else {
+      if (d.qid && d.type === '적립' && points.some(p => p.qid === d.qid && p.type === '적립')) throw new Error('이미 적립한 견적입니다');
+      let a = Math.round(+String(d.amount).replace(/[^\d.\-]/g, '') || 0);
+      if (!a) throw new Error('금액을 적어 주세요');
+      if (d.type === '적립') a = Math.abs(a); if (d.type === '사용' || d.type === '소멸') a = -Math.abs(a);
+      points.push({ id: 'lp' + Date.now().toString(36), name: d.name, cid: d.cid || '', qid: d.qid || '', type: d.type, amount: String(a), memo: d.memo || '', date: d.date || ymd(new Date()), expire: d.expire || '', by: me() || '나', createdAt: stamp() });
+      writeLocal();
+    }
+  } catch (e) {
+    msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 적립금을 저장할 수 있습니다' : '적립금을 저장하지 못했습니다. ' + e.message;
+    ok = false;
+  }
+  busy = false; ptArmed = '';
+  return ok;
 }
 
 // ─────────── 조작 ───────────
@@ -489,6 +613,17 @@ async function onClick(e) {
   const qo = t.closest('[data-quote]'); if (qo) { location.hash = '#quote/' + encodeURIComponent(qo.dataset.quote); return; }
   const qn = t.closest('[data-quote-new]'); if (qn) { location.hash = '#quote/new/' + encodeURIComponent(qn.dataset.quoteNew); return; }
   const o = t.closest('[data-open]'); if (o) { go('detail', o.dataset.open); return; }
+  const ac = t.closest('[data-accrue]');
+  if (ac && !busy) {   // 결제를 다 받은 견적을 적립
+    const x = pendingPoints('').find(y => y.q.id === ac.dataset.accrue); if (!x) return;
+    await runPoint('add', { name: x.c.name, cid: x.c.id, qid: x.q.id, type: '적립', amount: x.amount, date: ymd(new Date()), memo: `견적 ${x.q.no} 구매 적립 (${Math.round(POINT_RATE * 100)}%)` });
+    render(); return;
+  }
+  const pd = t.closest('[data-pdel]');
+  if (pd && !busy) {
+    if (ptArmed !== pd.dataset.pdel) { ptArmed = pd.dataset.pdel; render(); return; }
+    await runPoint('delete', { id: pd.dataset.pdel }); render(); return;
+  }
   const gr = t.closest('[data-group]'); if (gr) { ui.group = gr.dataset.group; saveUi(); render(); return; }
   const st = t.closest('[data-stage]'); if (st) { ui.stage = ui.stage === st.dataset.stage ? '' : st.dataset.stage; render(); return; }
   const tr = t.closest('[data-tier]');
@@ -547,6 +682,15 @@ function onInput(e) {
     const q = host.querySelector('.crm-q input'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) {} }
     return;
   }
+  if (t.classList.contains('crm-pq')) {
+    ui.pq = t.value; const pos = t.selectionStart; render();
+    const q = host.querySelector('.crm-pq'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) {} }
+    return;
+  }
+  if (t.closest('.crm-pt-form')) {
+    if (t.name === 'amount') { const neg = /^\s*-/.test(t.value), n = t.value.replace(/[^\d]/g, ''); t.value = (neg ? '-' : '') + (n ? (+n).toLocaleString('ko-KR') : ''); }
+    return;
+  }
   if (t.closest('.crm-paste')) { pasted = t.value; return; }
   if (t.closest('.crm-form')) {
     dirty = true;
@@ -582,6 +726,14 @@ async function onSubmit(e) {
     msg = ''; draft = d; render();
     return;
   }
+  if (f.classList.contains('crm-pt-form')) {
+    const c = byId(cur); if (!c) return;
+    const v = k => (f.elements.namedItem(k) || {}).value || '';
+    const ok = await runPoint('add', { name: c.name, cid: c.id, type: v('type'), amount: v('amount'), date: v('date'), memo: v('memo').trim(), expire: v('type') === '적립' ? v('expire') : '' });
+    render();
+    if (ok) { const a = host.querySelector('.crm-pt-form [name=amount]'); if (a) a.focus(); }
+    return;
+  }
   if (f.classList.contains('crm-form')) {
     const d = formData(f);
     if (!d.name) return;
@@ -598,7 +750,7 @@ async function onSubmit(e) {
 function onKey(e) {
   if (e.key !== 'Escape') return;
   // 목록 밖이면 목록으로, 찾기 칸에 글이 있으면 지움. 목록에서는 패널 닫기(shell.js)
-  if (e.target.matches('.crm-q input') && e.target.value) { e.stopPropagation(); ui.q = ''; render(); return; }
+  if (e.target.matches('.crm-q input') && e.target.value) { e.stopPropagation(); if (e.target.classList.contains('crm-pq')) ui.pq = ''; else ui.q = ''; render(); return; }
   if (view !== 'list') { e.stopPropagation(); if (view === 'import' && draft) { draft = null; render(); } else go('list'); }
 }
 
@@ -618,7 +770,7 @@ window.MYRUBI_CRM = {
       });
     }
     started = true;
-    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; quotes = c.quotes || []; } }
+    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; quotes = c.quotes || []; points = c.points || []; } }
     else readLocal();
     render(); load();
   },
@@ -626,8 +778,9 @@ window.MYRUBI_CRM = {
   mount(el, arg) {
     host = el; bind();
     view = 'list'; cur = null; dirty = false; draft = null; msg = '';
-    if (arg && byId(arg)) { view = 'detail'; cur = arg; }
-    else if (arg && !TIERS.some(t => t.key === arg) && arg !== 'flag') { view = 'detail'; cur = arg; }   // 아직 안 불러온 고객 id
+    if (arg === 'points') { view = 'points'; }
+    else if (arg && byId(arg)) { view = 'detail'; cur = arg; }
+    else if (arg && arg !== 'points' && !TIERS.some(t => t.key === arg) && arg !== 'flag') { view = 'detail'; cur = arg; }   // 아직 안 불러온 고객 id
     render();
     if (arg && (TIERS.some(t => t.key === arg) || arg === 'flag')) {
       const b = host.querySelector(arg === 'flag' ? '[data-flag]' : `[data-tier="${arg}"]`); if (b) setTimeout(() => b.click(), 30);
