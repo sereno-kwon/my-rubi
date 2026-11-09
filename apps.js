@@ -23,6 +23,7 @@ window.MYRUBI_APPS = [
   // APP (준비 중)
   { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'builtin', note: '고객 CRM, 고객문의·구매진행중·구매완료 현황과 주간 보고' },
   { id: 'quote',        title: '견적',        icon: 'note',  tint: 'paper', kind: 'builtin', note: '자전거 견적 세팅, 이카운트 품목·판매단가, A4 견적서 인쇄·PDF' },
+  { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
@@ -115,7 +116,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas'] },
-  { label: 'App',       ids: ['customers', 'quote', 'inbound', 'imweb-update'] },
+  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'inbound', 'imweb-update'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 

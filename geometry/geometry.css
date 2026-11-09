@@ -1,0 +1,166 @@
+/* My Rubi 지오메트리 (BikeCAD Pro 인터페이스를 따른 화면)
+   메뉴바 → 두 줄 아이콘 툴바 → 흰 도면, 그 위에 떠 있는 회색 대화상자.
+   서체만 포털과 같게(assets/rubi-type.css), 나머지 모양은 BikeCAD의 밝은 회색 데스크톱 화면을 따름 */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font); font-size: 12px; letter-spacing: 0; color: #1b1b1b;
+  background: #fff; overflow: hidden; display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased; user-select: none;
+}
+input, select, button, textarea { font: inherit; color: inherit; letter-spacing: 0; }
+button { cursor: default; }
+
+/* ── 메뉴바 ───────────────────────────── */
+.mbar { display: flex; align-items: stretch; height: 24px; background: linear-gradient(#fdfdfd, #ececec); border-bottom: 1px solid #d4d4d4; flex: none; position: relative; z-index: 30; }
+.mbar .mi { position: relative; }
+.mbar .mi > button { height: 24px; padding: 0 9px; border: 0; background: none; font-size: 12px; }
+.mbar .mi > button:hover, .mbar .mi.open > button { background: #c6dcf2; }
+.mbar .menu { position: absolute; top: 24px; left: 0; min-width: 230px; background: #fff; border: 1px solid #9a9a9a; box-shadow: 2px 3px 8px rgba(0,0,0,.18); padding: 3px 0; display: none; }
+.mbar .mi.open .menu { display: block; }
+.menu button, .menu label { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 5px 14px 5px 26px; font-size: 12px; position: relative; white-space: nowrap; }
+.menu button:hover, .menu label:hover { background: #c6dcf2; }
+.menu button[disabled] { color: #a4a4a4; background: none; }
+.menu .kb { margin-left: auto; color: #77797d; padding-left: 24px; }
+.menu hr { border: 0; border-top: 1px solid #dedede; margin: 3px 0; }
+.menu .on::before { content: "✓"; position: absolute; left: 9px; }
+.mbar .doc { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: #55575b; white-space: nowrap; overflow: hidden; }
+.mbar .doc b { font-weight: 400; color: #1b1b1b; }
+.mbar .doc .dirty { color: #b0303f; }
+
+/* ── 툴바 (두 줄) ─────────────────────── */
+.tbar { flex: none; background: linear-gradient(#fafafa, #dedede); border-bottom: 1px solid #bdbdbd; padding: 2px 3px 3px; position: relative; z-index: 20; }
+.trow { display: flex; flex-wrap: wrap; align-items: center; gap: 1px; min-height: 44px; }
+.tb { width: 42px; height: 42px; border: 1px solid transparent; border-radius: 2px; background: none; padding: 0; display: grid; place-items: center; position: relative; }
+.tb svg { width: 36px; height: 36px; display: block; }
+.tb:hover { border-color: #9cb6d1; background: linear-gradient(#f4f9ff, #d9e8f7); }
+.tb:active, .tb.on { border-color: #6f8eaf; background: linear-gradient(#d3e3f3, #eaf2fb); }
+.tb[disabled] { opacity: .35; pointer-events: none; }
+.tb.split { width: 54px; }
+.tb.split::after { content: ""; position: absolute; right: 3px; top: 19px; border: 4px solid transparent; border-top-color: #333; }
+.tsep { width: 1px; height: 34px; background: #c3c3c3; margin: 0 4px; box-shadow: 1px 0 0 #fff; }
+
+/* ── 도면 ─────────────────────────────── */
+.stage { flex: 1; position: relative; overflow: hidden; background: #fff; }
+#cv { width: 100%; height: 100%; display: block; touch-action: none; cursor: default; }
+#cv.panning { cursor: grabbing; }
+#cv .hit { cursor: pointer; }
+#cv .dimg { cursor: move; }
+#cv .dimg:hover text { fill: #0a5fb4; }
+.status { position: absolute; left: 8px; bottom: 6px; color: #7b7d82; font-size: 12px; pointer-events: none; display: flex; gap: 14px; }
+.status .warn { color: #b0303f; }
+.zoombtns { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 2px; }
+.zoombtns button { width: 28px; height: 28px; border: 1px solid #b9b9b9; background: linear-gradient(#fff, #e9e9e9); font-size: 14px; line-height: 1; }
+.zoombtns button:hover { border-color: #7f9cbc; }
+
+/* ── 떠 있는 대화상자 ─────────────────── */
+.dlg { position: absolute; background: #eeeeee; border: 1px solid #8f8f8f; box-shadow: 2px 4px 14px rgba(0,0,0,.22); min-width: 200px; max-width: calc(100vw - 8px); z-index: 50; display: flex; flex-direction: column; }
+.dlg.front { z-index: 60; }
+.dlg .dt { height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 0 0 9px; background: linear-gradient(#ffffff, #e6e6e6); border-bottom: 1px solid #c4c4c4; cursor: move; flex: none; }
+.dlg.front .dt { background: linear-gradient(#f3f8fd, #d8e6f4); }
+.dlg .dt span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dlg .dt button { width: 34px; height: 25px; border: 0; background: none; font-size: 16px; line-height: 1; color: #333; }
+.dlg .dt button:hover { background: #e81123; color: #fff; }
+.dlg .db { padding: 8px 10px 10px; overflow: auto; max-height: calc(100vh - 150px); }
+
+/* 대화상자 안 부품: BikeCAD 스윙 화면 모양 */
+.eye { width: 40px; height: 28px; border: 0; background: none; padding: 0; display: grid; place-items: center; flex: none; }
+.eye svg { width: 36px; height: 22px; }
+.eye:hover { background: rgba(0,0,0,.05); }
+.row { display: flex; align-items: center; gap: 4px; min-height: 26px; }
+.row + .row { margin-top: 2px; }
+.row .lb { flex: 1; text-align: right; white-space: nowrap; padding-right: 2px; }
+.row .lb.l { text-align: left; }
+.num { width: 58px; height: 20px; border: 1px solid #7a8a99; background: #fff; text-align: right; padding: 0 4px; font-variant-numeric: tabular-nums; outline: none; user-select: text; }
+.num:focus { border-color: #3b74b4; box-shadow: 0 0 0 1px #9cc0e6; }
+.num.ro { background: #f7f7f7; color: #55575b; border-color: #b6bec6; }
+.num.bad { border-color: #b0303f; background: #fff3f4; }
+.unit { width: 22px; color: #333; }
+.spin { display: inline-flex; align-items: stretch; }
+.spin .num { border-right: 0; }
+.spin .sb { display: flex; flex-direction: column; width: 13px; border: 1px solid #7a8a99; background: linear-gradient(#fff, #e3e3e3); }
+.spin .sb button { flex: 1; border: 0; background: none; padding: 0; font-size: 7px; line-height: 1; color: #333; }
+.spin .sb button + button { border-top: 1px solid #b7b7b7; }
+.spin .sb button:active { background: #c6dcf2; }
+.combo { height: 22px; border: 1px solid #7a8a99; background: linear-gradient(#ffffff, #dfe6ee); padding: 0 20px 0 5px; appearance: none; -webkit-appearance: none; border-radius: 0; background-image: linear-gradient(45deg, transparent 50%, #222 50%), linear-gradient(135deg, #222 50%, transparent 50%), linear-gradient(#ffffff, #dfe6ee); background-position: right 9px top 9px, right 5px top 9px, 0 0; background-size: 4px 4px, 4px 4px, 100% 100%; background-repeat: no-repeat; max-width: 250px; }
+.combo:focus { outline: 1px solid #3b74b4; }
+.grp { border: 1px solid #c8c8c8; padding: 6px 8px; margin: 4px 0; background: rgba(255,255,255,.25); }
+.grp > .gt { color: #55575b; margin: -2px 0 4px; }
+.cols { display: flex; gap: 10px; align-items: flex-start; }
+.cols > * { flex: 1; min-width: 0; }
+.btn { height: 24px; padding: 0 10px; border: 1px solid #8a9aab; background: linear-gradient(#fff, #dde3ea); border-radius: 2px; white-space: nowrap; }
+.btn:hover { border-color: #5d82ab; background: linear-gradient(#f4f9ff, #d1e2f3); }
+.btn.pri { border-color: #3b74b4; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+.chk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.chk input { margin: 0; }
+.hint { color: #6e6f73; line-height: 17px; margin: 6px 0 0; }
+.ico { width: 30px; height: 26px; flex: none; }
+.diagram { display: block; margin: 0 auto; }
+.diagram text { font-family: "RubiLatin", sans-serif; }
+.sw { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.sw button { width: 20px; height: 20px; border: 1px solid #777; padding: 0; }
+.sw button:hover { outline: 2px solid #3b74b4; }
+input[type=color] { width: 40px; height: 22px; border: 1px solid #7a8a99; padding: 0; background: #fff; }
+input[type=range] { accent-color: #3b74b4; }
+input[type=text].txt { height: 22px; border: 1px solid #7a8a99; background: #fff; padding: 0 5px; outline: none; user-select: text; }
+input[type=text].txt:focus { border-color: #3b74b4; }
+
+/* 치수 대화상자 탭과 체크 목록 */
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid #9a9a9a; margin-top: 6px; }
+.tabs button { border: 1px solid #9a9a9a; border-bottom: 0; background: linear-gradient(#fff, #dedede); padding: 3px 12px; margin-right: -1px; height: 23px; }
+.tabs button.on { background: #fff; position: relative; top: 1px; }
+.dimlist { background: #fff; border: 1px solid #9a9a9a; border-top: 0; max-height: 380px; overflow: auto; }
+.dimlist label { display: grid; grid-template-columns: 18px 1fr 86px; align-items: center; gap: 4px; padding: 3px 8px; border-bottom: 1px solid #efefef; }
+.dimlist label:hover { background: #eef5fc; }
+.dimlist .v { text-align: right; color: #55575b; font-variant-numeric: tabular-nums; }
+
+/* 표 (지오메트리 표, 라이브러리, 핏 후보) */
+.gtab { width: 100%; border-collapse: collapse; background: #fff; font-variant-numeric: tabular-nums; }
+.gtab th, .gtab td { border: 1px solid #c9c9c9; padding: 3px 7px; text-align: right; white-space: nowrap; font-weight: 400; }
+.gtab th { background: linear-gradient(#fafafa, #e4e4e4); text-align: center; }
+.gtab td.k { text-align: left; }
+.gtab td .d { color: #8a8b8f; margin-left: 6px; }
+.gtab td .d.p { color: #1f6fb5; }
+.gtab td .d.m { color: #b0303f; }
+.gtab tr.sec td { background: #f3f3f3; text-align: left; color: #55575b; }
+.gtab tr.pick { cursor: pointer; }
+.gtab tr.pick:hover td { background: #eef5fc; }
+.gtab tr.sel td { background: #d7e7f7; }
+.gtab .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.libbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.liblist { margin-top: 6px; max-height: 330px; overflow: auto; border: 1px solid #9a9a9a; }
+.liblist .gtab td { text-align: left; }
+.liblist .gtab td.n { text-align: right; }
+.empty { padding: 14px; color: #6e6f73; background: #fff; text-align: center; }
+.cmpitem { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #dcdcdc; }
+.cmpitem .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmpitem input[type=color] { width: 26px; }
+.toast { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); background: #2b2d31; color: #fff; padding: 7px 14px; z-index: 90; opacity: 0; transition: opacity .2s; pointer-events: none; font-size: 13px; }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+
+/* 인쇄: 도면과 지오메트리 표만 */
+#printArea { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body { overflow: visible; height: auto; display: block; }
+  .mbar, .tbar, .dlg, .status, .zoombtns, .toast, .stage { display: none !important; }
+  #printArea { display: block; }
+  #printArea h1 { font-size: 18px; font-weight: 400; margin: 0 0 6px; }
+  #printArea .meta { color: #55575b; margin-bottom: 8px; }
+  #printArea svg { width: 100%; height: auto; max-height: 120mm; display: block; }
+  #printArea .gtab { font-size: 10px; margin-top: 6px; }
+  #printArea .pcols { columns: 2; column-gap: 8mm; }
+}
+@media (max-width: 720px) {
+  .tb { width: 36px; height: 36px; }
+  .tb svg { width: 30px; height: 30px; }
+  .trow { min-height: 38px; }
+  .mbar .doc { display: none; }
+  .dlg { left: 4px !important; width: calc(100vw - 8px) !important; }
+  .dlg .db { max-height: calc(100vh - 260px); }
+  .cols { flex-direction: column; gap: 0; }
+  .cols > * { width: 100%; }
+}
