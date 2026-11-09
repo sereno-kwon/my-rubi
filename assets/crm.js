@@ -1,8 +1,8 @@
 // My Rubi 고객관리
 // 고객 구매 건을 상담 10단계로 관리하고, 고객문의·구매진행중·구매완료 세 층위로 묶어 숫자로 보여줌
 // 저장: 로그인하면 Index 스프레드시트의 '고객'·'고객로그' 탭 (Apps Script Code.gs 의 crm 동작), 로그인을 켜기 전에는 이 브라우저
-// 적립금: 고객별 적립·사용 내역과 잔액 ('적립금' 탭, Code.gs 의 point 동작). 잔액은 고객 이름(띄어쓰기 무시)으로 묶음
-//   다 받은 계약 견적은 '적립 예정'으로 보이고 한 번 눌러 적립. 견적 지불 현황의 '적립금' 결제는 사용으로 자동 기록됨
+// 마일리지: 고객별 적립·사용 내역과 잔액 (시트 '적립금' 탭, Code.gs 의 point 동작). 잔액은 고객 이름(띄어쓰기 무시)으로 묶음
+//   다 받은 계약 견적은 '적립 예정'으로 보이고 한 번 눌러 적립. 견적 지불 현황의 '마일리지' 결제는 사용으로 자동 기록됨
 // 매주 쓰던 주간 보고 텍스트를 붙여넣으면 고객별로 나눠 단계를 추정하고, 반대로 지금 데이터를 주간 보고 형식으로 뽑아냄
 // 고객 정보는 서버(시트)에만 있음. 이 파일이 올라가는 GitHub 리포지토리는 공개라서 고객 이름을 코드에 적지 않음
 (() => {
@@ -62,8 +62,8 @@ function weekOf(d) {
 // ─────────── 상태 ───────────
 let customers = [];   // { id, name, info, group, item, stage, memo, flag, owner, amount, stageAt, author, createdAt, updatedAt }
 let logs = [];        // { id, cid, name, stage, memo, flag, by, at }
-let points = [];      // 적립금 내역 { id, name, cid, qid, type, amount(+적립 −사용), memo, date, expire, by, createdAt }
-let ptArmed = '';     // 지우기를 한 번 누른 적립금 줄
+let points = [];      // 마일리지 내역 { id, name, cid, qid, type, amount(+적립 −사용), memo, date, expire, by, createdAt }
+let ptArmed = '';     // 지우기를 한 번 누른 마일리지 줄
 let quotes = [];      // 견적 요약 { id, no, cid, title, total, status, at } (견적 앱 assets/quote.js, 서버 crm 응답에 함께 옴)
 let msg = '', busy = false, started = false, loaded = false;
 let host = null, summaryEl = null, bound = false;
@@ -81,7 +81,7 @@ const byId = id => customers.find(c => c.id === id);
 const logsOf = id => logs.map((l, i) => [l, i]).filter(([l]) => l.cid === id)
   .sort((a, b) => String(b[0].at).localeCompare(String(a[0].at)) || b[1] - a[1]).map(x => x[0]);
 
-// ─────────── 적립금 ───────────
+// ─────────── 마일리지 ───────────
 const POINT_TYPES = ['적립', '사용', '조정', '소멸'];
 const POINT_RATE = (CFG.QUOTE && CFG.QUOTE.POINT_RATE != null) ? +CFG.QUOTE.POINT_RATE : 0.05;
 const wonFull = v => (Math.round(+v || 0)).toLocaleString('ko-KR') + '원';
@@ -97,7 +97,7 @@ function pendingPoints(name) {
     return c ? { q, c, amount: Math.round(+q.total * POINT_RATE) } : null;
   }).filter(x => x && x.amount > 0 && (!name || normName(x.c.name) === normName(name)));
 }
-/** 고객(이름)별 적립금 묶음 */
+/** 고객(이름)별 마일리지 묶음 */
 function pointPeople() {
   const m = {};
   points.forEach(p => {
@@ -186,7 +186,7 @@ function listHtml() {
 
   const week = `<div class="crm-week">
     <div><h2>${esc(s.wk.label)}</h2><p>${fmtDay(s.wk.from)}~${fmtDay(s.wk.to)}<i class="dot">·</i>${s.people}명 ${s.total}건<i class="dot">·</i>이번 주 새 건 ${s.fresh}<i class="dot">·</i>단계 이동 ${s.moved}${s.deposit ? `<i class="dot">·</i>진행중 계약금 ${won(s.deposit)}` : ''}</p></div>
-    <div class="crm-acts"><button class="pj-btn" data-go="points">적립금${pendingPoints('').length ? ` <i class="crm-badge">적립 예정 ${pendingPoints('').length}</i>` : ''}</button><button class="pj-btn" data-go="import">주간 보고 붙여넣기</button><button class="pj-btn" data-go="report">주간 보고 만들기</button><button class="pj-btn pri" data-go="new">+ 고객</button></div>
+    <div class="crm-acts"><button class="pj-btn" data-go="points">마일리지${pendingPoints('').length ? ` <i class="crm-badge">적립 예정 ${pendingPoints('').length}</i>` : ''}</button><button class="pj-btn" data-go="import">주간 보고 붙여넣기</button><button class="pj-btn" data-go="report">주간 보고 만들기</button><button class="pj-btn pri" data-go="new">+ 고객</button></div>
   </div>`;
 
   const filt = ui.stage || ui.q || ui.group !== ALL;
@@ -260,7 +260,7 @@ function detailHtml(c) {
   const tier = TIERS.find(t => t.key === tierOf(c.stage));
   const others = customers.filter(x => x.id !== c.id && normName(x.name) === normName(c.name));
   const bal = balanceOf(c.name);
-  const meta = [c.group, tier ? tier.name : '종료', c.stageAt ? `${fmtDay(c.stageAt)}부터 ${c.stage}` : '', c.amount ? '계약금 ' + won(c.amount) : '', bal ? '적립금 ' + wonFull(bal) : '', c.owner ? '담당 ' + c.owner : '']
+  const meta = [c.group, tier ? tier.name : '종료', c.stageAt ? `${fmtDay(c.stageAt)}부터 ${c.stage}` : '', c.amount ? '계약금 ' + won(c.amount) : '', bal ? '마일리지 ' + wonFull(bal) : '', c.owner ? '담당 ' + c.owner : '']
     .filter(Boolean).map(esc).join('<i class="dot">·</i>');
   const hist = logsOf(c.id);
   const histHtml = hist.length ? `<ol class="crm-log">${hist.map((l, i) => {
@@ -283,7 +283,7 @@ function detailHtml(c) {
   <section class="ck-group"><h2 class="sec-h ko"><span>기록<small>단계, 현재 상황, 확인 필요가 바뀔 때마다 남습니다</small></span><span class="n">${hist.length || ''}</span></h2>${histHtml}</section>`;
 }
 
-/** 상세 화면의 적립금: 잔액, 적립 예정, 내역, 넣기 */
+/** 상세 화면의 마일리지: 잔액, 적립 예정, 내역, 넣기 */
 function pointsHtml(c) {
   const list = pointsOf(c.name), bal = list.reduce((m, p) => m + (+p.amount || 0), 0);
   const pend = pendingPoints(c.name);
@@ -292,14 +292,14 @@ function pointsHtml(c) {
     <span class="tx">${esc(String(p.memo || '').replace(/^\[견적 결제\]\s*/, ''))}${p.expire ? `<small class="ex">${esc(fmtDay(p.expire))}까지</small>` : ''}${/^\[견적 결제\]/.test(p.memo || '') ? '<small class="ex">견적 지불 현황에서 자동</small>' : ''}</span>
     <span class="by"><b class="${+p.amount < 0 ? 'neg' : ''}">${signed(+p.amount)}</b> ${esc(p.by)}${/^\[견적 결제\]/.test(p.memo || '') ? '' : ` <button class="crm-pdel" data-pdel="${esc(p.id)}">${ptArmed === p.id ? '한 번 더 누르면 지워짐' : '지우기'}</button>`}</span></li>`).join('');
   const today = ymd(new Date());
-  return `<section class="ck-group crm-points"><h2 class="sec-h ko"><span>적립금<small>${esc(c.name)} 고객의 모든 건 합계 · 이름으로 묶음</small></span><span class="n">${list.length || ''}</span></h2>
+  return `<section class="ck-group crm-points"><h2 class="sec-h ko"><span>마일리지<small>${esc(c.name)} 고객의 모든 건 합계 · 이름으로 묶음</small></span><span class="n">${list.length || ''}</span></h2>
     <div class="crm-pbal"><div><span class="lb">잔액</span><span class="v">${wonFull(bal)}</span></div>
       <div><span class="lb">적립 합계</span><span class="s">${wonFull(list.filter(p => +p.amount > 0).reduce((m, p) => m + +p.amount, 0))}</span></div>
       <div><span class="lb">사용 · 소멸 합계</span><span class="s">${wonFull(-list.filter(p => +p.amount < 0).reduce((m, p) => m + +p.amount, 0))}</span></div>
       ${soon.length ? `<div class="warn"><span class="lb">30일 안에 기한</span><span class="s">${soon.length}건</span></div>` : ''}</div>
     ${pend.map(x => `<p class="crm-ppend">견적 ${esc(x.q.no)}${x.q.title ? ' ' + esc(x.q.title) : ''} 결제 완료, ${esc(Math.round(POINT_RATE * 100))}% 적립 예정 <b>${wonFull(x.amount)}</b>
       <button class="pj-btn pri" data-accrue="${esc(x.q.id)}"${busy ? ' disabled' : ''}>적립하기</button></p>`).join('')}
-    ${rows ? `<ol class="crm-log crm-plog">${rows}</ol>` : '<p class="ck-none">아직 적립금 내역이 없습니다.</p>'}
+    ${rows ? `<ol class="crm-log crm-plog">${rows}</ol>` : '<p class="ck-none">아직 마일리지 내역이 없습니다.</p>'}
     <form class="crm-pt-form" autocomplete="off">
       <select name="type" aria-label="구분">${POINT_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
       <input name="amount" inputmode="numeric" placeholder="금액" aria-label="금액" required>
@@ -308,11 +308,11 @@ function pointsHtml(c) {
       <label class="ex"><span>유효기한</span><input name="expire" type="date" aria-label="유효기한 (적립일 때, 비워두면 없음)"></label>
       <button type="submit" class="pj-btn"${busy ? ' disabled' : ''}>넣기</button>
     </form>
-    <p class="crm-phint">조정은 적은 부호 그대로(늘리면 +, 줄이면 −) 들어갑니다. 견적 지불 현황에서 결제 수단을 '적립금'으로 적으면 사용으로 자동 기록됩니다.</p>
+    <p class="crm-phint">조정은 적은 부호 그대로(늘리면 +, 줄이면 −) 들어갑니다. 견적 지불 현황에서 결제 수단을 '마일리지'로 적으면 사용으로 자동 기록됩니다.</p>
   </section>`;
 }
 
-/** 적립금 화면: 고객별 잔액과 적립 예정 */
+/** 마일리지 화면: 고객별 잔액과 적립 예정 */
 function pointsPage() {
   const people = pointPeople();
   const q = (ui.pq || '').trim().toLowerCase();
@@ -331,14 +331,14 @@ function pointsPage() {
       <span class="n">${wonFull(p.earn)}</span><span class="n">${wonFull(p.use)}</span><span class="n b">${wonFull(p.bal)}</span><span class="n d">${esc(fmtDay(p.last))}</span></button></li>`;
   }).join('');
   return `<div class="pj-head"><button class="pj-back" data-go="list"><span aria-hidden="true">←</span> 고객 목록</button></div>
-  <div class="crm-week"><div><h2>적립금</h2><p>${people.filter(p => p.bal).length}명<i class="dot">·</i>총 잔액 ${wonFull(total)}<i class="dot">·</i>이번 달 적립 ${wonFull(mEarn)}<i class="dot">·</i>사용 ${wonFull(mUse)}${pend.length ? `<i class="dot">·</i>적립 예정 ${pend.length}건 ${wonFull(pend.reduce((m, x) => m + x.amount, 0))}` : ''}</p></div></div>
+  <div class="crm-week"><div><h2>마일리지</h2><p>${people.filter(p => p.bal).length}명<i class="dot">·</i>총 잔액 ${wonFull(total)}<i class="dot">·</i>이번 달 적립 ${wonFull(mEarn)}<i class="dot">·</i>사용 ${wonFull(mUse)}${pend.length ? `<i class="dot">·</i>적립 예정 ${pend.length}건 ${wonFull(pend.reduce((m, x) => m + x.amount, 0))}` : ''}</p></div></div>
   ${pend.length ? `<section class="ck-group"><h2 class="sec-h ko"><span>적립 예정<small>계약 상태로 결제를 다 받은 견적, 최종 견적 금액의 ${esc(Math.round(POINT_RATE * 100))}%</small></span><span class="n">${pend.length}</span></h2>
     ${pend.map(x => `<p class="crm-ppend"><button class="crm-qlink" data-open="${esc(x.c.id)}">${esc(x.c.name)}</button> 견적 ${esc(x.q.no)}${x.q.title ? ' ' + esc(x.q.title) : ''}, ${wonFull(x.q.total)} → <b>${wonFull(x.amount)}</b>
       <button class="pj-btn pri" data-accrue="${esc(x.q.id)}"${busy ? ' disabled' : ''}>적립하기</button></p>`).join('')}</section>` : ''}
   <div class="ck-tabs crm-tabs"><span class="ck-tab" aria-selected="true"><span class="nm">고객별 잔액</span><span class="ct">${list.length}</span></span>
-    <label class="crm-q"><input class="crm-pq" value="${esc(ui.pq || '')}" placeholder="고객 이름 찾기" aria-label="적립금 고객 찾기" autocomplete="off"></label></div>
+    <label class="crm-q"><input class="crm-pq" value="${esc(ui.pq || '')}" placeholder="고객 이름 찾기" aria-label="마일리지 고객 찾기" autocomplete="off"></label></div>
   ${list.length ? `<div class="crm-phead" aria-hidden="true"><span>고객</span><span class="n">적립</span><span class="n">사용 · 소멸</span><span class="n">잔액</span><span class="n">최근</span></div><ol class="crm-prows">${rows}</ol>`
-    : `<p class="ck-none">${points.length ? '맞는 고객이 없습니다.' : '아직 적립금 내역이 없습니다. 고객 상세 화면의 적립금 칸에서 넣거나, 결제를 다 받은 견적을 적립하면 여기에 모입니다.'}</p>`}`;
+    : `<p class="ck-none">${points.length ? '맞는 고객이 없습니다.' : '아직 마일리지 내역이 없습니다. 고객 상세 화면의 마일리지 칸에서 넣거나, 결제를 다 받은 견적을 적립하면 여기에 모입니다.'}</p>`}`;
 }
 
 /** 이 고객 건의 견적 (견적 앱에서 고객 건을 고르고 저장한 것). 누르면 견적 패널로 */
@@ -554,7 +554,7 @@ async function run(op, d) {
   return out;
 }
 
-/** 적립금 op: add / delete */
+/** 마일리지 op: add / delete */
 async function runPoint(op, d) {
   busy = true; msg = ''; render();
   let ok = true;
@@ -573,7 +573,7 @@ async function runPoint(op, d) {
       writeLocal();
     }
   } catch (e) {
-    msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 적립금을 저장할 수 있습니다' : '적립금을 저장하지 못했습니다. ' + e.message;
+    msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 마일리지를 저장할 수 있습니다' : '마일리지를 저장하지 못했습니다. ' + e.message;
     ok = false;
   }
   busy = false; ptArmed = '';
