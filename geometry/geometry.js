@@ -116,7 +116,7 @@ function solve(b) {
     hbStack: E.y, hbReach: E.x,
   };
   if (m.toe < 0) w.push('크랭크가 앞바퀴와 겹칩니다');
-  if (m.csGap < 3 && b.csMode !== 'gap') w.push('뒷바퀴와 시트튜브 간격이 ' + r1(m.csGap) + ' mm 입니다');
+  if (m.csGap < 3 && b.csMode !== 'gap' && !b.src) w.push('뒷바퀴와 시트튜브 간격이 ' + r1(m.csGap) + ' mm 입니다');
   return { b, m, w, sa, ha, s, u, n, R, F, Fa, T, B, C, Jst, Jtt, Jdt, stTop, ssTop, Sa, Sx, topY, nose, tail, Q, E, th, yg, yf, Rr, Rf, mid, gs, fdir, stCC, saddleH };
 }
 
@@ -460,7 +460,7 @@ function saveView() { lsSet(LS_VIEW, view); }
 function doc() {
   const lib = docState.libId ? libAll().find(x => x.id === docState.libId) : null;
   const sub2 = [bike.brand, bike.model, bike.size].filter(Boolean).join(' ');
-  $('#doc').innerHTML = `<b>${esc(bike.name || '이름 없음')}</b>${sub2 ? `<span>${esc(sub2)}</span>` : ''}<span>${lib ? (docState.dirty ? '<span class="dirty">● 저장 안 한 변경</span>' : '라이브러리에 저장됨') : '라이브러리에 없음'}</span>`;
+  $('#doc').innerHTML = `<b>${esc(bike.name || '이름 없음')}</b>${sub2 && !(bike.name || '').includes(sub2) ? `<span>${esc(sub2)}</span>` : ''}<span>${lib ? (docState.dirty ? '<span class="dirty">● 저장 안 한 변경</span>' : '라이브러리에 저장됨') : '라이브러리에 없음'}</span>`;
   document.title = `${bike.name || '지오메트리'} · My Rubi`;
 }
 let toastT = 0;
@@ -593,15 +593,19 @@ const SPEC = b => [
 ];
 function geoTable(print) {
   const cols = [{ name: bike.name || '현재', g: G, color: '#111' }].concat(compares.filter(c => c.on).map(c => ({ name: c.name, g: c.g, color: c.color })));
-  let h = `<table class="gtab"><thead><tr><th>치수</th>${cols.map(c => `<th><span class="swatch" style="background:${c.color}"></span>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>`;
+  const pub = bike.pub && bike.src ? bike.pub : null;   // 브랜드 데이터에서 연 자전거: 제조사 표 값을 옆에 보여줌
+  const n = cols.length + 1 + (pub ? 1 : 0);
+  let h = `<table class="gtab"><thead><tr><th>치수</th>${cols.map((c, i) => `<th><span class="swatch" style="background:${c.color}"></span>${esc(c.name)}</th>${!i && pub ? '<th title="제조사 지오메트리 표에 적힌 값">제조사 표</th>' : ''}`).join('')}</tr></thead><tbody>`;
   ROWS.forEach(r => {
-    if (r.length === 1) { h += `<tr class="sec"><td colspan="${cols.length + 1}">${r[0]}</td></tr>`; return; }
+    if (r.length === 1) { h += `<tr class="sec"><td colspan="${n}">${r[0]}</td></tr>`; return; }
     const kind = r[2] || 'l', v0 = cols[0].g.m[r[0]];
-    h += `<tr><td class="k">${r[1]}</td>${cols.map((c, i) => { const v = c.g.m[r[0]]; let dd = ''; if (i && isFinite(v0)) { const df = v - v0; if (Math.abs(df) >= 0.05) dd = `<span class="d ${df > 0 ? 'p' : 'm'}">${df > 0 ? '+' : ''}${kind === 'a' ? df.toFixed(1) + '°' : fmtL(df)}</span>`; } return `<td>${fmt(v, kind)}${dd}</td>`; }).join('')}</tr>`;
+    h += `<tr><td class="k">${r[1]}</td>${cols.map((c, i) => { const v = c.g.m[r[0]]; let dd = ''; if (i && isFinite(v0)) { const df = v - v0; if (Math.abs(df) >= 0.05) dd = `<span class="d ${df > 0 ? 'p' : 'm'}">${df > 0 ? '+' : ''}${kind === 'a' ? df.toFixed(1) + '°' : fmtL(df)}</span>`; } const pv = !i && pub ? pub[r[0]] : undefined; return `<td>${fmt(v, kind)}${dd}</td>${!i && pub ? `<td style="color:#1f4f86">${pv == null ? '' : fmt(pv, kind)}</td>` : ''}`; }).join('')}</tr>`;
   });
-  h += `<tr class="sec"><td colspan="${cols.length + 1}">구성</td></tr>`;
-  SPEC(bike).forEach((r, i) => { h += `<tr><td class="k">${r[0]}</td>${cols.map(c => `<td>${esc(SPEC(c.g.b)[i][1])}</td>`).join('')}</tr>`; });
-  return h + '</tbody></table>' + (print ? '' : '');
+  h += `<tr class="sec"><td colspan="${n}">구성</td></tr>`;
+  SPEC(bike).forEach((r, i) => { h += `<tr><td class="k">${r[0]}</td>${cols.map((c, j) => `<td>${esc(SPEC(c.g.b)[i][1])}</td>${!j && pub ? '<td></td>' : ''}`).join('')}</tr>`; });
+  h += '</tbody></table>';
+  if (pub && !print) h += `<p class="hint">제조사 표: ${esc(bike.src.brand)} ${esc(bike.src.model)} ${esc(bike.src.size)} 공식 지오메트리. 안장 높이·스템·핸들바 위치는 그림을 위한 예시 값입니다.${bike.src.url ? ` <a href="${esc(bike.src.url)}" target="_blank" rel="noopener">출처</a>` : ''}</p>`;
+  return h;
 }
 function geoTsv() {
   const cols = [{ name: bike.name || '현재', g: G }].concat(compares.filter(c => c.on).map(c => ({ name: c.name, g: c.g })));
@@ -1063,6 +1067,174 @@ function forkDiagram() {
   return d;
 }
 
+// ─────────── 브랜드 지오메트리 (geometry/brands/*.json) ───────────
+// 브랜드 > 모델 > 사이즈. 누르면 바로 도면으로, Shift+클릭은 비교에 넣기
+const BRANDS = [
+  { id: 'specialized', name: '스페셜라이즈드', en: 'Specialized' },
+  { id: 'trek', name: '트렉', en: 'Trek' },
+  { id: 'pinarello', name: '피나렐로', en: 'Pinarello' },
+];
+const CATS = [
+  ['road', '로드'], ['aero', '에어로 로드'], ['endurance', '엔듀런스 로드'], ['gravel', '그래블'], ['cyclocross', '사이클로크로스'], ['track', '트랙'], ['touring', '투어링'],
+  ['xc', 'XC 풀서스펜션'], ['hardtail', '하드테일'], ['trail', '트레일'], ['enduro', '엔듀로'], ['dh', '다운힐'], ['dirtjump', '더트점프'],
+  ['hybrid', '하이브리드 · 피트니스'], ['city', '시티'],
+  ['ebike-road', 'e-바이크 로드'], ['ebike-gravel', 'e-바이크 그래블'], ['ebike-mtb', 'e-바이크 MTB'], ['ebike-city', 'e-바이크 시티'], ['other', '기타'],
+];
+const CAT_NAME = Object.fromEntries(CATS);
+const brandCache = {};
+function loadBrand(id) {
+  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261109b`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
+  return brandCache[id];
+}
+const isNum = v => typeof v === 'number' && isFinite(v);
+const MTB = /^(xc|trail|enduro|dh|dirtjump|hardtail|ebike-mtb)$/;
+function brandBike(br, m, sz) {
+  const cat = m.category || 'other', mtb = MTB.test(cat), flatBar = mtb || /^(hybrid|city|ebike-city)$/.test(cat);
+  const wheel = sz.wheel || m.wheel || 622, tire = sz.tire || m.tire || (mtb ? 60 : 28);
+  const rwheel = sz.rearWheel || m.rearWheel || wheel;   // 멀릿 (앞 29, 뒤 27.5)
+  const b = clone(DEF);
+  Object.assign(b, {
+    name: `${br.en} ${m.model}${m.variant ? ' (' + m.variant + ')' : ''} ${sz.size}`, brand: br.en, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size),
+    note: m.year ? `${m.year} 공식 지오메트리` : '공식 지오메트리',
+    seatAngle: sz.sa, headAngle: sz.ha, reachMode: 'reach', reachVal: sz.reach, stackMode: 'stack', stackVal: sz.stack,
+    csMode: 'len', csVal: sz.cs, rearBSD: rwheel, frontBSD: wheel, rearTire: tire, frontTire: tire, sameWheels: rwheel === wheel,
+  });
+  // 앞뒤 바퀴가 다르면 BB 드롭 기준이 모호하므로 BB 높이를 먼저 씀
+  if (rwheel !== wheel && isNum(sz.bbHeight)) { b.bbMode = 'height'; b.bbVal = sz.bbHeight; }
+  else if (isNum(sz.bbDrop)) { b.bbMode = 'drop'; b.bbVal = sz.bbDrop; } else if (isNum(sz.bbHeight)) { b.bbMode = 'height'; b.bbVal = sz.bbHeight; }
+  const Rf = wheel / 2 + tire;
+  b.rake = isNum(sz.rake) ? sz.rake : isNum(sz.trail) ? r1(Rf * Math.cos(sz.ha * D) - sz.trail * Math.sin(sz.ha * D)) : (mtb ? 44 : 45);
+  // 시트튜브
+  if (isNum(sz.st)) { b.stMode = sz.stType === 'cc' ? 'cc' : 'ct'; b.stVal = sz.st; }
+  else { b.stMode = 'cc'; b.stVal = Math.round(sz.stack * (mtb ? 0.7 : 0.85)); }
+  // 헤드튜브 길이를 제조사 값에 맞춤 (스택·리치·각도·오프셋·바퀴로 포크 위치가 정해지고, 헤드튜브와 포크 길이가 그 사이를 나눔)
+  b.lowerStack = mtb ? 10 : 12;
+  b.forkType = mtb ? 'susp' : 'straight'; b.bladeDia = mtb ? 32 : 30;
+  b.forkLen = mtb ? (wheel > 600 ? 540 : 520) : (wheel > 600 ? 370 : 360);
+  const L = solve(b).m.htLen + b.lowerStack + b.forkLen;   // 헤드튜브 + 하부 스택 + 포크 (불변)
+  if (isNum(sz.ht) && sz.ht > 0) {
+    if (isNum(sz.forkLen) && L - sz.ht - sz.forkLen >= 0 && L - sz.ht - sz.forkLen <= 40) { b.forkLen = sz.forkLen; b.lowerStack = r1(L - sz.ht - sz.forkLen); }
+    else b.forkLen = r1(L - sz.ht - b.lowerStack);
+  } else if (isNum(sz.forkLen)) b.forkLen = sz.forkLen;
+  const ht = isNum(sz.ht) ? sz.ht : L - b.lowerStack - b.forkLen;
+  b.htTopExt = r1(Math.min(28.9, Math.max(12, ht * 0.2))); b.htBotExt = r1(Math.min(49.2, Math.max(18, ht * 0.3)));
+  if (b.stMode === 'ct') b.stExt = r1(Math.min(80, Math.max(25, b.stVal * 0.11)));
+  // 튜브 굵기 (그림용)
+  if (mtb) Object.assign(b, { ttDia: 40, dtDia: 50, stDia: 34.9, htDia: 50, csDia: 26, ssDia: 20 });
+  else if (/gravel|cyclocross|touring|hybrid|city|ebike/.test(cat)) Object.assign(b, { ttDia: 36, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 23, ssDia: 17 });
+  else Object.assign(b, { ttDia: 34, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 22, ssDia: 16 });
+  // 핏 부품 (제조사 값이 있으면 그 값, 없으면 예시)
+  b.crankLen = isNum(sz.crank) ? sz.crank : mtb ? 170 : 172.5;
+  b.stemLen = isNum(sz.stem) ? sz.stem : mtb ? 45 : flatBar ? 80 : 100;
+  b.stemAngle = mtb ? 0 : flatBar ? 7 : -6; b.spacers = mtb ? 15 : 10; b.upperStack = mtb ? 10 : 12;
+  if (isNum(sz.bar)) b.barWidth = sz.bar;
+  if (flatBar) Object.assign(b, { barType: mtb ? 'riser' : 'flat', barRise: mtb ? 25 : 0, barSweep: mtb ? 30 : 20 });
+  if (/gravel|cyclocross/.test(cat)) { b.ring = 40; b.cog = 20; } else if (mtb) { b.ring = 32; b.cog = 24; } else if (flatBar) { b.ring = 42; b.cog = 18; }
+  b.spokes = mtb ? 28 : 24; b.rimDepth = mtb ? 22 : /aero/.test(cat) ? 50 : 35;
+  // 안장 높이는 그림을 위한 예시 (시트튜브와 스택으로 대략)
+  const stct = b.stMode === 'ct' ? b.stVal : b.stVal + b.stExt;
+  b.saddleMode = 'bb'; b.saddleVal = Math.round(Math.max(stct + (mtb ? 260 : 220), 0.55 * sz.stack + 390));
+  b.postSetback = /aero|road/.test(cat) ? 15 : 10; b.saddleRail = 0;
+  // 제조사 표 값 (지오메트리 표의 '제조사 표' 열)
+  b.pub = {
+    stack: sz.stack, reach: sz.reach, ett: sz.ett, htLen: sz.ht, seatAngle: sz.sa, headAngle: sz.ha,
+    stCT: sz.stType === 'cc' ? null : sz.st, stCC: sz.stType === 'cc' ? sz.st : null, csLen: sz.cs, bbDrop: sz.bbDrop, bbH: sz.bbHeight,
+    wb: sz.wb, rake: sz.rake, trail: sz.trail, standover: sz.standover, forkLen: sz.forkLen,
+  };
+  b.src = { brand: br.en, brandKo: br.name, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size), year: m.year || '', url: m.source || '' };
+  return b;
+}
+
+// 하위 메뉴 패널 (화면 고정 위치에 띄워서 길어도 스크롤됨)
+const flys = [];
+function closeFly(from) { while (flys.length > from) { const f = flys.pop(); f.remove(); } }
+function openFly(level, anchor, fill) {
+  closeFly(level);
+  const f = el('div', 'fly'); f.dataset.level = level; document.body.appendChild(f); flys.push(f);
+  fill(f);
+  const r = anchor.getBoundingClientRect(), W = f.offsetWidth, H = f.offsetHeight;
+  let x = r.right - 2; if (x + W > innerWidth - 4) x = Math.max(4, r.left - W + 2);
+  let y = r.top - 4; if (y + H > innerHeight - 6) y = Math.max(6, innerHeight - 6 - H);
+  f.style.left = x + 'px'; f.style.top = y + 'px';
+  return f;
+}
+function flyItem(html, cls) { const b = el('button', cls || '', html); return b; }
+function hoverOpen(btn, open) {
+  let t = 0;
+  btn.addEventListener('mouseenter', () => { clearTimeout(t); t = setTimeout(open, 120); });
+  btn.addEventListener('mouseleave', () => clearTimeout(t));
+  btn.addEventListener('click', e => { e.stopPropagation(); open(); });
+}
+function sizeLabel(sz) { return `<span class="sz">${esc(sz.size)}</span><span class="kb">스택 ${isNum(sz.stack) ? r1(sz.stack) : '–'} · 리치 ${isNum(sz.reach) ? r1(sz.reach) : '–'}</span>`; }
+function fillSizes(f, br, m) {
+  f.appendChild(el('div', 'fh', `${esc(br.en)} ${esc(m.model)}${m.variant ? ' · ' + esc(m.variant) : ''}${m.year ? ` <span>${esc(m.year)}</span>` : ''}`));
+  (m.sizes || []).forEach(sz => {
+    const ok = [sz.stack, sz.reach, sz.ha, sz.sa, sz.cs].every(isNum) && (isNum(sz.bbDrop) || isNum(sz.bbHeight));
+    const b = flyItem(sizeLabel(sz)); b.disabled = !ok; if (!ok) b.title = '제조사 표에 값이 모자라 그릴 수 없습니다';
+    b.onclick = e => {
+      e.stopPropagation(); const nb = brandBike(br, m, sz);
+      if (e.shiftKey || e.altKey) { addCompare(nb, nb.name); return; }
+      closeMenus();
+      if (docState.dirty && docState.libId && !confirm('저장하지 않은 변경이 있습니다. 열까요?')) return;
+      setBike(nb); toast(`${nb.name} 지오메트리를 열었습니다`);
+    };
+    f.appendChild(b);
+  });
+  if (m.note) f.appendChild(el('div', 'ff', esc(m.note)));
+  if (m.trims && m.trims.length) f.appendChild(el('div', 'ff', '같은 지오메트리: ' + esc(m.trims.join(', '))));
+  if (m.source) { const a = el('a', 'ff', '제조사 지오메트리 표 ↗'); a.href = m.source; a.target = '_blank'; a.rel = 'noopener'; f.appendChild(a); }
+  f.appendChild(el('div', 'ff', 'Shift+클릭: 비교에 넣기'));
+}
+function modelBtn(br, m, level) {
+  const b = flyItem(`${esc(m.model)}${m.variant ? ` <span class="vr">${esc(m.variant)}</span>` : ''}<span class="kb">${(m.sizes || []).length}사이즈 ▸</span>`, 'has');
+  hoverOpen(b, () => { b.parentElement.querySelectorAll('.has.cur').forEach(x => x.classList.remove('cur')); b.classList.add('cur'); openFly(level, b, f => fillSizes(f, br, m)); });
+  return b;
+}
+function fillModels(f, br, data) {
+  f.appendChild(el('div', 'fh', `${esc(br.name)} <span>${esc(br.en)}${data.collected ? ' · ' + esc(data.collected) + ' 기준' : ''}</span>`));
+  if (data.error || !data.models.length) { f.appendChild(el('div', 'ff', '아직 데이터가 없습니다')); return; }
+  if (data.sourceNote) f.appendChild(el('div', 'ff', '출처: ' + esc(data.sourceNote)));
+  const by = {}; data.models.forEach(m => { (by[m.category] = by[m.category] || []).push(m); });
+  CATS.map(c => c[0]).concat(Object.keys(by).filter(k => !CAT_NAME[k])).forEach(c => {
+    if (!by[c]) return;
+    f.appendChild(el('div', 'fc', esc(CAT_NAME[c] || c)));
+    by[c].forEach(m => f.appendChild(modelBtn(br, m, 2)));
+  });
+}
+function buildBrandMenu() {
+  const m = $('#mBrand'); m.innerHTML = '';
+  const q = document.createElement('input'); q.type = 'text'; q.className = 'txt bq'; q.placeholder = '모델 찾기 (예: Tarmac, Madone, Dogma)';
+  q.addEventListener('pointerdown', e => e.stopPropagation());
+  m.appendChild(q);
+  const box = el('div'); m.appendChild(box);
+  const list = () => {
+    box.innerHTML = ''; closeFly(1);
+    const t = q.value.trim().toLowerCase();
+    if (!t) {
+      BRANDS.forEach(br => {
+        const b = flyItem(`${esc(br.name)}<span class="kb">${esc(br.en)} ▸</span>`, 'has');
+        hoverOpen(b, () => { box.querySelectorAll('.has.cur').forEach(x => x.classList.remove('cur')); b.classList.add('cur'); loadBrand(br.id).then(d => { if (b.isConnected) openFly(1, b, f => fillModels(f, br, d)); }); });
+        box.appendChild(b);
+      });
+      box.appendChild(el('hr'));
+      box.appendChild(el('div', 'ff', '사이즈를 누르면 바로 열립니다. Shift+클릭은 비교에 넣기'));
+      return;
+    }
+    Promise.all(BRANDS.map(br => loadBrand(br.id).then(d => ({ br, d })))).then(all => {
+      if (q.value.trim().toLowerCase() !== t) return;
+      let n = 0;
+      all.forEach(({ br, d }) => (d.models || []).forEach(md => {
+        if (![br.en, br.name, md.model, md.variant || '', CAT_NAME[md.category] || ''].join(' ').toLowerCase().includes(t) || n >= 40) return;
+        n++; const b = modelBtn(br, md, 1); b.insertAdjacentHTML('afterbegin', `<span class="bn">${esc(br.en)}</span> `); box.appendChild(b);
+      }));
+      if (!n) box.appendChild(el('div', 'ff', '찾는 모델이 없습니다'));
+    });
+  };
+  q.oninput = list; list();
+  setTimeout(() => q.focus(), 30);
+  BRANDS.forEach(br => loadBrand(br.id));
+}
+
 // ─────────── 메뉴·툴바 ───────────
 const ROW1 = [
   ['new', '새로 만들기 (Ctrl+N)', () => newBike()], ['open', '열기 (Ctrl+O)', () => pickFile('open')], ['save', '라이브러리에 저장 (Ctrl+S)', () => saveCmd()], ['lib', '라이브러리 (Ctrl+L)', () => openDlg('lib')], '|',
@@ -1149,12 +1321,12 @@ function buildMenus() {
     { t: '포털로 돌아가기', f: () => { (window.top !== window ? window.top : window).location.href = '/'; } },
   ]);
 }
-function closeMenus() { document.querySelectorAll('.mbar .mi.open').forEach(x => x.classList.remove('open')); }
+function closeMenus() { document.querySelectorAll('.mbar .mi.open').forEach(x => x.classList.remove('open')); if (typeof closeFly === 'function') closeFly(0); }
 document.querySelectorAll('.mbar .mi > button').forEach(b => {
-  b.addEventListener('click', e => { const mi = b.parentElement, was = mi.classList.contains('open'); closeMenus(); if (!was) { buildMenus(); mi.classList.add('open'); } e.stopPropagation(); });
-  b.addEventListener('mouseenter', () => { if (document.querySelector('.mbar .mi.open') && !b.parentElement.classList.contains('open')) { closeMenus(); buildMenus(); b.parentElement.classList.add('open'); } });
+  b.addEventListener('click', e => { const mi = b.parentElement, was = mi.classList.contains('open'); closeMenus(); if (!was) { buildMenus(); mi.classList.add('open'); if (mi.dataset.m === 'brand') buildBrandMenu(); } e.stopPropagation(); });
+  b.addEventListener('mouseenter', () => { if (document.querySelector('.mbar .mi.open') && !b.parentElement.classList.contains('open')) { closeMenus(); buildMenus(); b.parentElement.classList.add('open'); if (b.parentElement.dataset.m === 'brand') buildBrandMenu(); } });
 });
-document.addEventListener('pointerdown', e => { if (!e.target.closest('.mbar')) closeMenus(); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.mbar') && !e.target.closest('.fly')) closeMenus(); });
 
 // ─────────── 도면 조작 ───────────
 const toModel = (cx, cy) => { const r = svg.getBoundingClientRect(); return v2(vb.x + (cx - r.left) / scale, -(vb.y + (cy - r.top) / scale)); };
@@ -1218,5 +1390,5 @@ window.addEventListener('beforeunload', () => { lsSet(LS_CUR, bike); });
 // ─────────── 시작 ───────────
 buildToolbar(); buildMenus(); doc(); tbState();
 requestAnimationFrame(() => { fit(); if (innerWidth > 720 && !lsGet(LS_DLG, null) && !localStorage.getItem('myrubi.geo.seen')) { openDlg('basic'); try { localStorage.setItem('myrubi.geo.seen', '1'); } catch (e) {} } });
-window.__geo = { solve, get bike() { return bike; }, get G() { return G; }, DEF, parseBcad, openDlg, fit };
+window.__geo = { solve, get bike() { return bike; }, get G() { return G; }, DEF, parseBcad, openDlg, fit, brandBike, BRANDS };
 })();

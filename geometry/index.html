@@ -7,14 +7,15 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
-<link rel="stylesheet" href="/geometry/geometry.css?v=20261109a">
+<link rel="stylesheet" href="/geometry/geometry.css?v=20261109c">
 </head>
 <body>
 
-<!-- 메뉴바: 파일 · 보기 · 도움말 (BikeCAD Pro와 같은 세 메뉴) -->
+<!-- 메뉴바: 파일 · 보기 · 브랜드 · 도움말. 브랜드는 제조사 지오메트리 (geometry/brands/*.json) -->
 <nav class="mbar" id="mbar">
   <div class="mi" data-m="file"><button>파일</button><div class="menu" id="mFile"></div></div>
   <div class="mi" data-m="view"><button>보기</button><div class="menu" id="mView"></div></div>
+  <div class="mi" data-m="brand"><button>브랜드</button><div class="menu brandm" id="mBrand"></div></div>
   <div class="mi" data-m="help"><button>도움말</button><div class="menu" id="mHelp"></div></div>
   <div class="doc" id="doc"></div>
 </nav>
@@ -35,6 +36,6 @@
 <input type="file" id="fileIn" accept=".json,.bcad,.xml,application/json" multiple hidden>
 <div id="printArea"></div>
 
-<script src="/geometry/geometry.js?v=20261109a"></script>
+<script src="/geometry/geometry.js?v=20261109c"></script>
 </body>
 </html>
