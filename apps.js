@@ -19,6 +19,7 @@ window.MYRUBI_APPS = [
   { id: 'project',   title: '프로젝트',     icon: 'note',   tint: 'amber', kind: 'builtin', note: '프로젝트 세부 항목, 멤버 체크리스트와 연동' },
   { id: 'stock',     title: '재고확인',     icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
+  { id: 'manual',    title: '메뉴얼',      icon: 'note',   tint: 'slate', kind: 'frame', url: '/manual/', note: '포털 앱 사용법. 고객관리 기능과 활용' },
 
   // APP (준비 중)
   { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'builtin', note: '고객 CRM, 고객문의·구매진행중·구매완료 현황과 주간 보고' },
@@ -115,7 +116,7 @@ window.MYRUBI_APPS = [
 
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
-  { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas'] },
+  { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
   { label: 'App',       ids: ['customers', 'quote', 'geometry', 'inbound', 'imweb-update'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];

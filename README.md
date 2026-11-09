@@ -140,6 +140,10 @@ Apps 목록의 **체크리스트**, 또는 오른쪽 Checklist 칸의 이름을 
 - 저장 위치(localStorage): `myrubi.geo.cur.v1` 지금 도면, `myrubi.geo.lib.v1` 라이브러리, `myrubi.geo.view.v1` 보기 설정, `myrubi.geo.dlg.v1` 대화상자 자리.
 - 코드: `geometry/index.html`, `geometry/geometry.js`(계산 `solve`, 그림 `bikeSvg`, 치수 `DIMS`, 대화상자 `DLG`), `geometry/geometry.css`
 
+## 메뉴얼
+
+첫 화면 Essential의 다섯 번째 **메뉴얼**을 누르면 포털 패널 안에서 열립니다(`my.rubiworkshop.com/manual/`, 새 탭·인쇄 가능, noindex). 직원용 앱 사용 설명서로, 지금은 **고객관리**(기본 개념, 첫 화면 읽기, 고객 넣기, 단계·상황 바꾸기, 주간 보고, 마일리지, 견적·고객 포털 연결, 일·주 단위 활용, 자주 묻는 것)가 들어 있습니다. 앱이 바뀌면 `manual/index.html`도 함께 고칩니다. 공개 리포지토리라 예시는 모두 가상 이름입니다.
+
 ## 달력 (구글 캘린더)
 
 첫 화면 오른쪽, 시계와 Checklist 사이에 이번 달 격자가 보입니다. 월 단위로만 보여주고 주·일 보기는 없습니다. 일정이 있는 날에는 점(최대 3개)이 찍히고, 날짜를 누르면 그 날의 일정이 격자 아래에 시간순으로 보입니다. 처음에는 오늘이 골라져 있습니다. `‹ ›` 로 달을 넘기고, 다른 달에서는 **오늘** 버튼으로 돌아옵니다. 지난달·다음달 칸을 누르면 그 달로 넘어갑니다. Calendar 글자를 누르면 구글 캘린더 월 보기가 새 탭에서 열립니다.
@@ -232,6 +236,7 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 - `assets/project.js` 프로젝트 (세부 항목은 체크리스트와 같은 줄)
 - `assets/crm.js` 고객관리 (층위·단계 숫자, 고객 건 상세와 기록, 마일리지, 주간 보고 붙여넣기·만들기)
 - `assets/quote.js`, `assets/quote.css` 견적 (품목·할인율, 최종 금액, 지불 현황, 빌드 사양, Purchase Journey Log·비교표 인쇄, 기록)
+- `manual/` 메뉴얼 (직원용 앱 사용 설명서, 지금은 고객관리)
 - `geometry/` 지오메트리 앱 (BikeCAD 방식 프레임 지오메트리, 치수, 비교, 핏 맞추기, 라이브러리, .bcad 가져오기)
 - `assets/calendar.js` 첫 화면 오른쪽 구글 캘린더 달력 (월 보기)
 - `nas/proxy/index.php` NAS Web Station에 올리는 연결 파일, `nas/README.md` 설치 안내

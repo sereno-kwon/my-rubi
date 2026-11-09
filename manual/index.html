@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메뉴얼 · My Rubi</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
+<!-- 직원용 포털 앱 사용 설명서. 첫 화면 Essential 의 '메뉴얼'(apps.js id: manual)에서 열림
+     이 리포지토리는 공개라서 고객 이름·금액 같은 실제 데이터는 예시에 쓰지 않음 (예시는 모두 가상) -->
+<style>
+:root{--w:760px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:24px;letter-spacing:var(--ls);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{display:grid;grid-template-columns:220px minmax(0,var(--w));gap:64px;max-width:1120px;margin:0 auto;padding:48px 40px 96px}
+/* 왼쪽 목차 */
+.toc{position:sticky;top:32px;align-self:start;max-height:calc(100vh - 64px);overflow:auto;scrollbar-width:none}
+.toc::-webkit-scrollbar{display:none}
+.toc .k{font-size:12px;line-height:16px;color:var(--muted)}
+.toc .docs{display:flex;flex-direction:column;gap:2px;margin:10px 0 24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.toc .docs a{font-size:15px;line-height:22px;text-decoration:none;color:var(--muted)}
+.toc .docs a[aria-current]{color:var(--fg)}
+.toc .docs .soon{font-size:13px;line-height:20px;color:var(--faint)}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t}
+.toc li a{display:grid;grid-template-columns:28px 1fr;padding:5px 0;font-size:13px;line-height:18px;color:var(--muted);text-decoration:none}
+.toc li a::before{content:counter(t,decimal-leading-zero);color:var(--faint);font-variant-numeric:tabular-nums}
+.toc li a:hover,.toc li a.on{color:var(--fg)}
+/* 본문 */
+.hd .k{font-size:13px;line-height:18px;color:var(--muted)}
+.hd h1{margin:12px 0 0;font-weight:400;font-size:28px;line-height:36px;letter-spacing:-1px}
+.hd p{margin:16px 0 0;color:#3a3b3f}
+.hd .meta{margin-top:12px;font-size:12px;line-height:16px;color:var(--faint)}
+section{padding-top:56px}
+h2{display:flex;gap:12px;align-items:baseline;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--fg);font-weight:400;font-size:24px;line-height:28px;letter-spacing:-.6px}
+h2 .n{font-size:13px;letter-spacing:0;color:var(--faint);font-variant-numeric:tabular-nums}
+h3{margin:28px 0 8px;font-weight:400;font-size:18px;line-height:24px;letter-spacing:-.4px}
+p{margin:10px 0 0}
+ul,ol.steps{margin:10px 0 0;padding-left:20px}
+li{margin:4px 0}
+b{font-weight:400;color:var(--fg);background:linear-gradient(transparent 62%,rgba(201,163,106,.28) 62%)}
+.ui{display:inline-block;padding:0 6px;border:1px solid var(--line);font-size:13px;line-height:20px;white-space:nowrap}
+code,kbd{font-family:inherit;font-size:13px;padding:1px 5px;background:var(--surface);white-space:nowrap}
+kbd{border:1px solid var(--line);background:none}
+.tip,.warn{margin:16px 0 0;padding:14px 18px;background:var(--surface);font-size:14px;line-height:22px}
+.tip::before{content:"Tip";display:block;margin-bottom:4px;font-size:12px;line-height:16px;color:var(--muted)}
+.warn{background:none;border:1px solid #c9a36a}
+.warn::before{content:"주의";display:block;margin-bottom:4px;font-size:12px;line-height:16px;color:#8a6a35}
+table{width:100%;margin-top:14px;border-collapse:collapse;font-size:14px;line-height:22px}
+th,td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-weight:400}
+thead th{border-bottom:1px solid var(--fg);font-size:12px;line-height:16px;color:var(--muted)}
+td:first-child{white-space:nowrap;padding-right:16px}
+.flow{display:flex;flex-wrap:wrap;gap:0;margin-top:16px;font-size:13px;line-height:18px}
+.flow span{padding:8px 12px;border:1px solid var(--line);margin:0 -1px -1px 0;white-space:nowrap}
+.flow .t1{background:var(--surface)}
+.flow .t2{background:#101114;color:#fff;border-color:#101114}
+.flow .t3{background:#e9e4da}
+.legend{margin-top:8px;font-size:12px;line-height:18px;color:var(--muted)}
+pre{margin:14px 0 0;padding:14px 18px;background:var(--surface);font-family:inherit;font-size:13px;line-height:22px;white-space:pre-wrap}
+.routine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.routine div{padding:14px 16px;border:1px solid var(--line)}
+.routine .k{font-size:12px;line-height:16px;color:var(--muted)}
+.routine ul{padding-left:18px;font-size:14px;line-height:22px}
+.foot{margin-top:72px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;line-height:18px;color:var(--faint)}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;gap:24px;padding:28px 20px 72px}
+  .toc{position:static;max-height:none;border-bottom:1px solid var(--line);padding-bottom:12px}
+  .toc ol{columns:2}
+  .routine{grid-template-columns:1fr}
+}
+@media print{.toc{display:none}.wrap{display:block;padding:0}section{break-inside:avoid-page}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" aria-label="목차">
+  <p class="k">메뉴얼</p>
+  <div class="docs">
+    <a href="#customers" aria-current="page">고객관리</a>
+    <span class="soon">견적 · 고객 포털 (준비 중)</span>
+  </div>
+  <ol id="toc">
+    <li><a href="#c-what">고객관리는</a></li>
+    <li><a href="#c-concept">기본 개념</a></li>
+    <li><a href="#c-screen">첫 화면 읽기</a></li>
+    <li><a href="#c-new">고객 넣기</a></li>
+    <li><a href="#c-update">단계·상황 바꾸기</a></li>
+    <li><a href="#c-weekly">주간 보고</a></li>
+    <li><a href="#c-mileage">마일리지</a></li>
+    <li><a href="#c-quote">견적·고객 포털 연결</a></li>
+    <li><a href="#c-routine">이렇게 씁니다</a></li>
+    <li><a href="#c-faq">자주 묻는 것</a></li>
+  </ol>
+</nav>
+
+<main id="customers">
+  <header class="hd">
+    <p class="k">메뉴얼 · App</p>
+    <h1>고객관리</h1>
+    <p>루비워크샵의 자전거 고객이 문의부터 출고, 루비케어까지 어디쯤 와 있는지 한 화면에서 보고, 매주 쓰던 고객 CRM 현황을 숫자로 관리하는 앱입니다. 견적, 마일리지, 고객 포털이 모두 이 고객 건에 연결됩니다.</p>
+    <p class="meta">my.rubiworkshop.com 첫 화면 App의 <span class="ui">고객관리</span>, 또는 오른쪽 Customer 칸을 눌러 엽니다 · 2026년 11월 기준</p>
+  </header>
+
+  <section id="c-what">
+    <h2><span class="n">01</span>고객관리는</h2>
+    <ul>
+      <li>고객 한 사람의 <b>구매 건</b>마다 지금 단계, 현재 상황, 담당, 계약금을 적고, 바뀔 때마다 기록이 자동으로 쌓입니다.</li>
+      <li>단계를 세 <b>층위</b>(고객문의 · 구매진행중 · 구매완료)로 묶어, 이번 주에 몇 건이 어디로 움직였는지 바로 보입니다.</li>
+      <li>매주 쓰던 <b>주간 보고</b> 텍스트를 붙여넣어 한 번에 넣고, 반대로 지금 데이터로 주간 보고를 만들어 복사할 수 있습니다.</li>
+      <li>고객별 <b>마일리지</b>(적립·사용·잔액)를 같은 화면에서 관리합니다.</li>
+      <li><b>견적</b> 앱과 <b>고객 포털</b>(portal.rubiworkshop.com)의 기준이 되는 고객 정보입니다.</li>
+    </ul>
+    <p>데이터는 회사 구글 드라이브의 Index 스프레드시트(<code>고객</code>, <code>고객로그</code>, <code>적립금</code> 탭)에 저장되고, 회사 구글 계정으로 로그인한 직원에게만 보입니다.</p>
+  </section>
+
+  <section id="c-concept">
+    <h2><span class="n">02</span>기본 개념</h2>
+    <h3>한 줄 = 구매 건 하나</h3>
+    <p>목록의 한 줄은 고객 한 사람이 아니라 <b>구매 건 하나</b>입니다. 같은 고객이 몰튼 한 대와 바스티온 한 대를 진행하면 두 줄이 됩니다. 두 번째 건은 고객 상세 화면의 <span class="ui">이 고객의 다른 건 추가</span>로 만듭니다.</p>
+    <h3>10단계와 세 층위</h3>
+    <div class="flow" aria-label="단계 흐름">
+      <span class="t1">문의</span><span class="t1">상담</span><span class="t1">견적</span>
+      <span class="t2">계약금</span><span class="t2">예약금</span><span class="t2">발주</span><span class="t2">입고</span><span class="t2">조립</span>
+      <span class="t3">출고</span><span class="t3">루비케어</span>
+    </div>
+    <p class="legend">회색 고객문의 · 검정 구매진행중 · 베이지 구매완료</p>
+    <table>
+      <thead><tr><th>층위</th><th>단계</th><th>뜻</th></tr></thead>
+      <tbody>
+        <tr><td>고객문의</td><td>문의 · 상담 · 견적</td><td>아직 돈이 오가지 않은 단계. 견적서를 보냈으면 견적.</td></tr>
+        <tr><td>구매진행중</td><td>계약금 ~ 조립</td><td>계약금을 받은 뒤부터 조립까지. 진행중 계약금 합계에 들어갑니다.</td></tr>
+        <tr><td>구매완료</td><td>출고 · 루비케어</td><td>인도한 뒤. 단계가 바뀐 지 60일이 지난 건은 접혀 있다가 <span class="ui">60일 지난 구매완료 n건 보기</span>로 펼칩니다.</td></tr>
+        <tr><td>(빠짐)</td><td>종료</td><td>취소·보류된 건. 숫자에서 빠지고 기록은 남습니다. 목록 맨 아래 <span class="ui">종료된 건 보기</span>.</td></tr>
+      </tbody>
+    </table>
+    <h3>구분</h3>
+    <p>건마다 <b>개별 아카이브</b>(맞춤·커스텀 빌드), <b>루비 브랜드</b>(몰튼·바스티온 등 루비가 수입하는 브랜드 완성차), <b>컴포넌트 및 기타 브랜드</b> 중 하나를 고릅니다. 주간 보고의 구분 제목과 같습니다.</p>
+  </section>
+
+  <section id="c-screen">
+    <h2><span class="n">03</span>첫 화면 읽기</h2>
+    <table>
+      <thead><tr><th>자리</th><th>보이는 것</th><th>쓰는 법</th></tr></thead>
+      <tbody>
+        <tr><td>맨 위</td><td>이번 주(월요일 시작, 'n월 n주차'), 고객 수·건수, 이번 주 새 건·단계 이동 수, 진행중 계약금 합계</td><td>주간 회의 때 이 줄을 그대로 읽으면 됩니다.</td></tr>
+        <tr><td>층위 숫자</td><td>고객문의 · 구매진행중 · 구매완료 건수와 이번 주에 넘어온 건수(+n)</td><td>누르면 그 층위로 내려갑니다.</td></tr>
+        <tr><td>확인 필요</td><td>출고 지연, 사양 미정처럼 '확인 필요'를 적어 둔 건수</td><td>누르면 그 건만 모아 봅니다. 0이 될 때까지 챙기는 칸입니다.</td></tr>
+        <tr><td>10단계 막대</td><td>단계별 건수</td><td>단계를 누르면 그 단계만 거릅니다. 다시 누르면 풉니다.</td></tr>
+        <tr><td>구분 탭 · 찾기</td><td>개별 아카이브 / 루비 브랜드 / 컴포넌트 및 기타 브랜드, 오른쪽 찾기 칸</td><td>이름, 브랜드·모델, 현재 상황 글자로 찾습니다.</td></tr>
+        <tr><td>버튼</td><td><span class="ui">마일리지</span> <span class="ui">주간 보고 붙여넣기</span> <span class="ui">주간 보고 만들기</span> <span class="ui">+ 고객</span></td><td>마일리지 버튼에 '적립 예정 n'이 붙으면 적립할 견적이 있다는 뜻입니다.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="c-new">
+    <h2><span class="n">04</span>고객 넣기</h2>
+    <ol class="steps">
+      <li>오른쪽 위 <span class="ui">+ 고객</span>을 누릅니다.</li>
+      <li>아래 칸을 채우고 <span class="ui">넣기</span>를 누릅니다. 고객명과 단계만 있어도 들어갑니다.</li>
+    </ol>
+    <table>
+      <thead><tr><th>칸</th><th>적는 것</th><th>예시 (가상)</th></tr></thead>
+      <tbody>
+        <tr><td>고객명</td><td>고객 이름. 마일리지·고객 포털이 이 이름으로 묶이므로 같은 고객은 늘 같은 이름으로</td><td>홍길동</td></tr>
+        <tr><td>고객 정보</td><td>소속, 관계, 소개한 분</td><td>지인 소개, OO클럽</td></tr>
+        <tr><td>구분</td><td>세 구분 중 하나</td><td>루비 브랜드</td></tr>
+        <tr><td>브랜드·모델</td><td>진행하는 자전거</td><td>몰튼 SST 와이드</td></tr>
+        <tr><td>단계</td><td>10단계 중 지금</td><td>상담</td></tr>
+        <tr><td>현재 상황</td><td>지금 무엇을 기다리는지 한두 줄</td><td>사이즈 시승 후 확정 예정</td></tr>
+        <tr><td>확인 필요</td><td>챙겨야 할 문제. 비워두면 정상</td><td>출고 지연, 사양 미정</td></tr>
+        <tr><td>담당</td><td>체크리스트 멤버 중 담당자</td><td>&nbsp;</td></tr>
+        <tr><td>계약금 (원)</td><td>받은 계약금. 견적에 결제를 적으면 자동으로 맞춰집니다</td><td>&nbsp;</td></tr>
+      </tbody>
+    </table>
+    <div class="warn">동명이인은 이름 뒤에 구분을 붙여 주세요(예: 홍길동 분당). 마일리지 잔액과 고객 포털 '내 자전거' 목록이 이름으로 묶이기 때문에, 이름이 같으면 서로의 내용이 섞입니다.</div>
+  </section>
+
+  <section id="c-update">
+    <h2><span class="n">05</span>단계·상황 바꾸기</h2>
+    <ul>
+      <li>목록에서 줄을 누르면 고객 상세가 열립니다. 위의 <b>단계 버튼</b>을 누르면 그 자리에서 저장됩니다.</li>
+      <li>현재 상황, 확인 필요, 담당 같은 칸은 고친 뒤 <span class="ui">저장</span>을 누릅니다.</li>
+      <li>단계, 현재 상황, 확인 필요가 바뀔 때마다 아래 <b>기록</b>에 날짜와 사람이 남습니다. 이 기록으로 이번 주 단계 이동 수와 주간 보고를 셉니다.</li>
+      <li>같은 고객의 다른 건이 있으면 상세 위에 '같은 고객의 다른 건'으로 보이고, 누르면 그 건으로 넘어갑니다.</li>
+      <li>거래가 끝났거나 취소된 건은 <span class="ui">지우기</span> 대신 단계를 <b>종료</b>로 두세요. 지우면 기록도 함께 지워집니다.</li>
+    </ul>
+    <div class="tip">문의가 들어오면 바로 한 줄 넣어 두고, 이후로는 단계 버튼만 눌러도 주간 숫자가 저절로 맞습니다. 현재 상황은 '다음에 무엇을 기다리는지'로 적으면 다른 직원이 이어받기 쉽습니다.</div>
+  </section>
+
+  <section id="c-weekly">
+    <h2><span class="n">06</span>주간 보고</h2>
+    <h3>붙여넣기: 예전 보고를 한 번에 넣기</h3>
+    <ol class="steps">
+      <li><span class="ui">주간 보고 붙여넣기</span>를 누르고, 매주 쓰던 보고 텍스트를 그대로 붙여넣은 뒤 <span class="ui">읽기</span>.</li>
+      <li>구분 제목 아래 <code>이름 (소속) : 내용</code> 줄을 고객별로 나누고, 내용의 단어(계약금, 예약, 입고 완료, 조립 진행 등)로 단계를 짐작합니다.</li>
+      <li>줄마다 연결할 고객, 단계, 브랜드·모델, 확인 필요를 확인하고 고친 뒤 저장합니다. 이미 있는 고객은 이름으로 찾아 이어서 기록하고, 단계가 뒤로 가지는 않습니다.</li>
+    </ol>
+    <pre>루비 브랜드
+홍길동 (지인 소개) : 몰튼 SST 와이드 계약금 입금, 컬러 확정 대기
+김철수 (OO클럽) : 바스티온 입고 완료, 다음 주 조립 진행</pre>
+    <h3>만들기: 지금 데이터로 보고 뽑기</h3>
+    <p><span class="ui">주간 보고 만들기</span>를 누르면 같은 형식의 텍스트(진행 중인 건과 이번 주에 출고된 건, 층위·확인 필요 숫자)가 만들어집니다. <span class="ui">복사</span>해서 메신저나 문서에 붙이면 됩니다.</p>
+  </section>
+
+  <section id="c-mileage">
+    <h2><span class="n">07</span>마일리지</h2>
+    <h3>고객 상세의 마일리지 칸</h3>
+    <ul>
+      <li>그 고객의 <b>잔액</b>, 적립 합계, 사용·소멸 합계와 내역이 보입니다. 같은 이름의 여러 건은 하나의 잔액으로 묶입니다.</li>
+      <li>아래 줄에 구분(적립 · 사용 · 조정 · 소멸), 금액, 날짜, 내용, 유효기한(적립만)을 넣고 <span class="ui">넣기</span>. 사용·소멸은 자동으로 빼기, 조정은 적은 부호 그대로(늘리면 +, 줄이면 −) 들어갑니다.</li>
+      <li>유효기한이 30일 안으로 다가온 적립이 있으면 따로 표시됩니다. 소멸은 자동으로 빠지지 않으니 기한이 지나면 소멸로 기록합니다.</li>
+      <li>잘못 넣은 줄은 <span class="ui">지우기</span>를 한 번 더 눌러 지웁니다.</li>
+    </ul>
+    <h3>적립 예정 → 적립하기</h3>
+    <p>이 고객 건에 연결된 견적이 <b>계약</b> 상태이고 결제를 다 받았으면, 최종 견적 금액의 <b>5%</b>가 '적립 예정'으로 뜹니다. <span class="ui">적립하기</span>를 누르면 그 견적 번호로 적립되고, 같은 견적은 두 번 적립되지 않습니다.</p>
+    <h3>견적에서 마일리지로 결제</h3>
+    <p>견적 앱의 지불 현황에서 결제 수단을 <code>마일리지</code>로 적고 저장하면, 그 금액이 이 고객의 사용 줄로 자동 기록됩니다. 견적 화면 금액 칸 아래에서 고객 마일리지 잔액을 확인할 수 있습니다.</p>
+    <h3>마일리지 화면</h3>
+    <p>고객 목록 위 <span class="ui">마일리지</span> 버튼. 고객별 적립·사용·잔액, 총 잔액, 이번 달 적립·사용, 적립 예정 목록이 한 화면에 있습니다. 고객 이름을 누르면 그 고객의 가장 최근 건이 열립니다.</p>
+    <div class="warn">온라인몰(아임웹) 적립금과는 따로 관리됩니다. 온라인몰에서 쓴 적립금은 여기에 자동으로 들어오지 않습니다.</div>
+  </section>
+
+  <section id="c-quote">
+    <h2><span class="n">08</span>견적 · 고객 포털과의 연결</h2>
+    <h3>고객 상세의 견적 묶음</h3>
+    <ul>
+      <li>이 고객 건으로 저장한 견적이 날짜·상태·금액·지불 금액과 함께 보이고, 누르면 견적 앱으로 열립니다.</li>
+      <li><span class="ui">+ 이 고객 건으로 견적 만들기</span>를 누르면 고객명과 모델이 채워진 새 견적이 열립니다.</li>
+    </ul>
+    <h3>견적이 고객관리를 바꾸는 경우</h3>
+    <table>
+      <thead><tr><th>견적에서</th><th>고객관리에 생기는 일</th></tr></thead>
+      <tbody>
+        <tr><td>처음 고객 건에 연결해 저장</td><td>단계가 문의·상담이면 <b>견적</b>으로, 기록에 견적 번호와 금액</td></tr>
+        <tr><td>지불 현황에 계약금</td><td>단계가 <b>계약금</b>으로(앞으로만), 계약금 칸 = 지불 합계, 기록에 '계약금 n원 받음'</td></tr>
+        <tr><td>지불 현황에 예약금</td><td>단계가 <b>예약금</b>으로(앞으로만)</td></tr>
+        <tr><td>결제를 다 받은 계약 견적</td><td>마일리지 <b>적립 예정</b></td></tr>
+      </tbody>
+    </table>
+    <p>발주, 입고, 조립, 출고는 고객관리에서 직접 단계 버튼으로 바꿉니다.</p>
+    <h3>고객 포털 (portal.rubiworkshop.com)</h3>
+    <ul>
+      <li>견적 앱에서 <span class="ui">고객 포털에 공개</span>를 누른 견적만 고객에게 보입니다. 가격에 민감한 줄별 할인율·견적가·내부 메모는 보이지 않습니다.</li>
+      <li>고객은 직원이 발급한 <b>고객코드</b>(예: RUBI-2026-XXXXXXXX)로 로그인해 자기 자전거 목록과 진행 단계를 봅니다.</li>
+      <li>고객 포털의 <b>진행 단계와 단계별 날짜는 고객관리에서 바로 읽어 갑니다.</b> 그래서 단계 버튼을 제때 누르는 것이 곧 고객에게 진행 상황을 알리는 일입니다.</li>
+    </ul>
+  </section>
+
+  <section id="c-routine">
+    <h2><span class="n">09</span>이렇게 씁니다</h2>
+    <div class="routine">
+      <div><p class="k">문의가 들어오면</p><ul><li><span class="ui">+ 고객</span>으로 바로 한 줄</li><li>단계 문의, 현재 상황에 요청 내용</li><li>상담 일정이 잡히면 상담</li></ul></div>
+      <div><p class="k">매일</p><ul><li>확인 필요 숫자 확인</li><li>오늘 움직인 건은 단계 버튼</li><li>입고·조립·출고는 그날 바로</li></ul></div>
+      <div><p class="k">매주 월요일</p><ul><li>맨 위 이번 주 숫자 읽기</li><li><span class="ui">주간 보고 만들기</span> → 복사</li><li>마일리지 적립 예정 처리</li></ul></div>
+    </div>
+    <h3>한 건의 흐름 예시 (가상)</h3>
+    <ol class="steps">
+      <li>문의 접수: <span class="ui">+ 고객</span>, 단계 문의.</li>
+      <li>쇼룸 상담: 단계 상담, 현재 상황에 원하는 구성.</li>
+      <li>상세의 <span class="ui">+ 이 고객 건으로 견적 만들기</span> → 견적 저장. 단계가 견적으로 넘어갑니다.</li>
+      <li>견적 앱에서 고객 포털에 공개, 고객코드 발급 → 안내 문구를 고객에게 보냄.</li>
+      <li>계약금 입금: 견적 지불 현황에 계약금. 단계·계약금이 자동으로 바뀝니다.</li>
+      <li>발주 → 입고 → 조립: 고객관리에서 단계 버튼. 고객 포털에도 바로 반영됩니다.</li>
+      <li>잔금 받고 출고: 견적에 최종 잔금, 고객관리 단계 출고, 마일리지 <span class="ui">적립하기</span>.</li>
+      <li>이후 점검은 루비케어 단계로 관리합니다.</li>
+    </ol>
+  </section>
+
+  <section id="c-faq">
+    <h2><span class="n">10</span>자주 묻는 것</h2>
+    <h3>숫자가 안 맞는 것 같아요</h3>
+    <p>주차는 월요일에 시작하고, 'n월 n주차'는 그 주 목요일이 속한 달 기준입니다. 이번 주 단계 이동 수는 월요일 시작 시점의 단계와 지금 단계를 비교합니다. 그래서 단계를 바꿨다가 다시 되돌리면 이동으로 세지 않습니다. 확인 필요 숫자에는 구매완료(출고 · 루비케어) 건이 들어가지 않습니다.</p>
+    <h3>다른 직원이 고친 내용이 안 보여요</h3>
+    <p>창을 다시 열거나 다른 탭에 갔다 돌아오면 새로 불러옵니다. 두 사람이 같은 건을 동시에 고치면 나중에 저장한 내용이 남습니다.</p>
+    <h3>고객 이름을 바꿔도 되나요</h3>
+    <p>됩니다. 그 건에서 넣은 마일리지 줄의 이름도 같이 바뀝니다. 다만 같은 고객의 다른 건 이름은 따로 맞춰 주세요. 이름이 달라지면 마일리지 잔액과 고객 포털 목록이 둘로 나뉩니다.</p>
+    <h3>창을 닫거나 나가려면</h3>
+    <p><kbd>Esc</kbd>로 상세에서 목록으로, 목록에서 첫 화면으로 돌아갑니다. 바로가기 주소: <code>my.rubiworkshop.com/#customers</code>, 마일리지 화면 <code>#customers/points</code></p>
+    <h3>"Apps Script를 새 버전으로 배포해야…"가 떠요</h3>
+    <p>서버 코드가 바뀐 뒤 배포가 아직 안 된 상태입니다. 관리자(대표)에게 알려 주세요.</p>
+  </section>
+
+  <p class="foot">My Rubi 메뉴얼 · 고객관리 · 예시의 이름과 내용은 모두 가상입니다. 앱이 바뀌면 이 문서도 함께 고칩니다 (my-rubi/manual/index.html).</p>
+</main>
+</div>
+<script>
+// 목차: 지금 읽는 곳 표시
+(() => {
+  const links = [...document.querySelectorAll('#toc a')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  const on = () => {
+    let i = 0;
+    secs.forEach((s, k) => { if (s && s.getBoundingClientRect().top < 120) i = k; });
+    links.forEach((a, k) => a.classList.toggle('on', k === i));
+  };
+  addEventListener('scroll', on, { passive: true }); on();
+})();
+</script>
+</body>
+</html>
