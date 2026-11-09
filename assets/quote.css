@@ -154,6 +154,15 @@
 .qt-snapadd input:focus{border-color:var(--fg)}
 .qt-snapadd .pj-btn{height:36px}
 
+/* 고객 포털 */
+.qt-pinfo{margin:12px 0 0;font-size:12px;line-height:18px;color:var(--muted)}
+.qt-pinfo b{font-weight:400;color:var(--fg);margin-right:6px}
+.qt-plink{display:flex;gap:8px;margin-top:12px}
+.qt-plink input{flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:0;background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-variant-numeric:tabular-nums}
+.qt-plink .pj-btn{height:36px;display:inline-flex;align-items:center;text-decoration:none}
+.qt-pmeta{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--faint)}
+.qt-prow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
 /* 문서 미리보기 */
 .qt-ptop{display:flex;justify-content:space-between;align-items:center;gap:16px}
 .qt-warn{margin:12px 0 0;font-size:13px;line-height:18px;color:#8a6a35}

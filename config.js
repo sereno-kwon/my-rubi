@@ -30,6 +30,9 @@ window.MYRUBI_CONFIG = {
   // STOCK_API: 재고 조회 연결 파일 주소 (NAS 앱 index.php 와 같은 폴더의 stock.php). 비워두면 재고 확인 창에 설치 안내가 보임
   STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
 
+  // 고객 포털 주소 (sereno-kwon/portal). 견적 앱의 '고객 포털에 공개'가 이 주소 뒤에 #키 를 붙여 고객 링크를 만듦
+  PORTAL_URL: 'https://portal.rubiworkshop.com/',
+
   // 견적 앱 (assets/quote.js) 문서(Purchase Journey Log)에 들어가는 회사 정보와 계산 기준
   // 이 리포지토리는 공개라서 계좌번호는 여기 넣지 않음. 입금 계좌는 Apps Script 스크립트 속성 QUOTE_BANK 에 적음 (README 견적 참고)
   // BIZ_NO·CEO 를 비워두면 문서에 그 줄이 안 보임

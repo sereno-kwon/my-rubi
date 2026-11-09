@@ -120,6 +120,8 @@ let quotes = [];      // 서버 견적 (Code.gs quoteOut_)
 let customers = [];   // 고객관리 고객 건 요약 { id, name, info, group, item, stage, owner }
 let snaps = [];       // 기록 목록 { id, qid, no, label, total, by, at } (내용은 열 때 받아옴)
 let bank = '';        // 입금 계좌 (서버 스크립트 속성 QUOTE_BANK)
+let portals = [];     // 고객 포털 공개 상태 { key, qid, publishedAt, by, active, views, lastView } (Code.gs 포털 탭)
+let unpubArmed = false;
 let pointBal = {};    // 고객 이름(띄어쓰기 뺌)별 마일리지 잔액 (고객관리 마일리지, 시트는 '적립금' 탭)
 let loaded = false, busy = false, msg = '', okMsg = '';
 let host = null, bound = false;
@@ -397,7 +399,49 @@ function editHtml() {
       ${d.id ? `<button type="button" class="danger" data-del>${delArmed ? '한 번 더 누르면 지워집니다' : '지우기'}</button>` : ''}
     </div>
   </div>
+  ${portalHtml(d)}
   ${snapsHtml(d)}`;
+}
+
+// ─── 고객 포털 (portal.rubiworkshop.com) ───
+const PORTAL_URL = (CFG.PORTAL_URL || 'https://portal.rubiworkshop.com/').replace(/\/?$/, '/');
+const portalLink = key => PORTAL_URL + '#' + key;
+/** 고객에게 보여줄 정제본. 줄별 가격·할인율·줄 비고·시리얼·전표·이카운트 코드·내부 메모는 넣지 않음
+ *  서버(Code.gs portalClean_)가 이 모양의 칸만 다시 걸러 저장함 */
+function portalView(d) {
+  const c = calc(d);
+  const items = (d.items || []).filter(it => String(it.name || '').trim()).map((it, i) => [it, i])
+    .sort((a, b) => catIdx(a[0].cat) - catIdx(b[0].cat) || a[1] - b[1]).map(x => x[0]);
+  return {
+    no: d.no, issued: String(d.createdAt || '').slice(0, 10), valid: d.valid,
+    name: d.name, owner: d.owner, brand: d.brand, model: d.model, color: d.color, title: d.title,
+    sn: d.sn, fn: d.fn, rubiSn: d.rubiSn, ship: d.ship, care: careEnd(d.ship),
+    summary: c.summary, list: c.L, offer: c.offer, total: c.F, paid: c.paid, remain: c.remain,
+    request: d.request && d.request.amount !== '' && d.request.amount != null ? { label: d.request.label || '', amount: num(d.request.amount) } : { label: (d.request || {}).label || '', amount: '' },
+    payments: (d.payments || []).filter(p => p.label || num(p.amount)).map(p => ({ label: p.label, date: p.date, amount: num(p.amount), method: p.method })),
+    kit: items.map(it => ({ cat: it.cat, slot: it.slot, name: it.name, qty: qtyNum(it.qty) || 1, gift: rateNum(it.rate) >= 100 })),
+    spec: SPEC.map(sec => ({ title: sec.title, fields: sec.fields.map(([k, l]) => [l, (d.spec || {})[k] || '']) })),
+    memo: d.memo,
+  };
+}
+function portalHtml(d) {
+  if (!d.id) return '';
+  const p = portals.find(x => x.qid === d.id);
+  const q = qById(d.id);
+  const stale = p && p.active && q && String(q.updatedAt || '') > String(p.publishedAt || '');
+  const head = `<h2 class="sec-h ko"><span>고객 포털<small>portal.rubiworkshop.com, 고객 전용 링크로 정제한 견적을 보여줌</small></span><span class="n">${p && p.active ? '공개 중' : ''}</span></h2>`;
+  const what = `<p class="qt-pinfo"><b>보임</b> 자전거·시리얼·보증 종료일, 진행 단계와 날짜, 구성품 이름(증정 표시), 분류별 소비자가 · 스페셜오퍼 · 최종 견적 금액, 결제 내역 · 결제 요청 · 입금 계좌, 빌드 사양, 비고<br><b>안 보임</b> 줄별 소비자가 · 할인율 · 견적가, 줄 비고 · 시리얼, 전표처리, 이카운트 코드, 내부 메모, 마일리지, 기록</p>`;
+  if (!shared()) return `<section class="ck-group">${head}<p class="ck-none">로그인한 뒤에 공개할 수 있습니다.</p></section>`;
+  if (!p) return `<section class="ck-group">${head}${what}<div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>고객 포털에 공개</button></div></section>`;
+  const link = portalLink(p.key);
+  return `<section class="ck-group">${head}
+    ${p.active ? `<div class="qt-plink"><input readonly value="${esc(link)}" aria-label="고객 포털 링크"><button type="button" class="pj-btn" data-plcopy>링크 복사</button><a class="pj-btn" href="${esc(link)}" target="_blank" rel="noopener">포털 열기</a></div>` : '<p class="qt-warn">공개를 끝냈습니다. 다시 공개하면 같은 링크가 다시 열립니다.</p>'}
+    <p class="qt-pmeta">${esc(fmtDay(p.publishedAt))} ${esc(String(p.publishedAt).slice(11, 16))} ${esc(p.by)} 공개<i class="dot">·</i>고객이 ${p.views ? `${p.views}번 열어 봄 (마지막 ${esc(fmtDay(p.lastView))} ${esc(String(p.lastView).slice(11, 16))})` : '아직 열어 보지 않음'}</p>
+    ${stale ? '<p class="qt-warn">공개한 뒤 견적이 바뀌었습니다. 지금 내용으로 다시 공개해야 고객 화면에 반영됩니다. 진행 단계는 고객관리에서 바로 반영됩니다.</p>' : ''}
+    ${what}
+    <div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>${p.active ? '지금 내용으로 다시 공개' : '다시 공개 (같은 링크)'}</button>
+      ${p.active ? `<button type="button" class="pj-btn" data-unpublish>${unpubArmed ? '한 번 더 누르면 링크가 닫힙니다' : '공개 끝내기'}</button>` : ''}</div>
+  </section>`;
 }
 
 // ─── 문서: Purchase Journey Log ───
@@ -589,7 +633,7 @@ function readLocal() {
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify(quotes));
 
 function take(j) {
-  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; pointBal = j.pointBalance || {}; loaded = true;
+  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; pointBal = j.pointBalance || {}; portals = j.portals || []; loaded = true;
   saveCache();
 }
 async function load() {
@@ -645,7 +689,7 @@ async function run(op, d) {
   let out = '';
   try {
     if (shared()) {
-      const body = op === 'save' ? payload(d) : op === 'snap' ? { id: d.id, label: d.label } : op === 'status' ? { id: d.id, status: d.status } : { id: d.id };
+      const body = op === 'save' ? payload(d) : op === 'snap' ? { id: d.id, label: d.label } : op === 'status' ? { id: d.id, status: d.status } : op === 'publish' ? { id: d.id, view: d.view } : { id: d.id };
       const j = await MR.post(Object.assign({ action: 'quote', op }, body));
       take(j);
       out = j.saved || (op === 'delete' || op === 'snapdel' ? 'ok' : '');
@@ -854,6 +898,25 @@ async function onClick(e) {
     if (!delArmed) { delArmed = true; render(); return; }
     const ok = await run('delete', { id: draft.id });
     if (ok) { dirty = false; go('list'); okMsg = '견적을 지웠습니다'; render(); } else render();
+    return;
+  }
+  if (hit('[data-publish]')) {
+    let id = draft.id;
+    if (dirty || !id) { id = await save(); if (!id) return; }
+    const key = await run('publish', { id, view: portalView(draft) });
+    if (key) okMsg = '고객 포털에 공개했습니다. 링크를 복사해 고객에게 보내 주세요';
+    unpubArmed = false; render(); return;
+  }
+  if (hit('[data-unpublish]')) {
+    if (!unpubArmed) { unpubArmed = true; render(); return; }
+    unpubArmed = false;
+    if (await run('unpublish', { id: draft.id })) okMsg = '공개를 끝냈습니다. 고객 링크가 더 이상 열리지 않습니다';
+    render(); return;
+  }
+  if (hit('[data-plcopy]')) {
+    const inp = host.querySelector('.qt-plink input');
+    try { await navigator.clipboard.writeText(inp.value); okMsg = '링크를 복사했습니다'; } catch (er) { inp.select(); okMsg = '링크를 선택했습니다. 복사해 주세요'; }
+    msg = ''; const f = host.querySelector('.ck-msg'); if (f) f.textContent = okMsg; else render();
     return;
   }
   if (hit('[data-snap]')) { openSnap(hit('[data-snap]').dataset.snap); return; }

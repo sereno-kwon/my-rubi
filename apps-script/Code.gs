@@ -12,6 +12,9 @@
  *    단계는 상담 10단계(문의 → … → 루비케어) + 종료. 포털이 이를 고객문의·구매진행중·구매완료 세 층위로 묶어 보여줌
  *  - 마일리지(예전 이름 적립금): 고객별 적립·사용 내역을 '적립금' 탭에 저장함 (POST point, 목록은 crm 응답의 points). 잔액은 포털이 고객 이름으로 묶어 더함
  *    견적의 지불 현황에서 결제 수단이 '마일리지'(예전 '적립금')인 금액은 그 견적의 '사용' 줄로 자동 기록됨
+ *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
+ *    GET portal&k=키 는 로그인 없이 그 사본만 돌려줌 (줄별 가격·할인율·내부 메모·이카운트 코드는 사본에 아예 없음)
+ *    진행 단계와 단계별 날짜는 고객관리에서 그때그때 읽어 붙임 (가격과 무관해서 다시 공개하지 않아도 바로 반영)
  *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
  *    지불 현황에 계약금·예약금이 들어오면 고객 건 단계를 그만큼 넘기고, 고객 건의 계약금(원) 칸을 지불 합계로 맞춤
@@ -109,6 +112,9 @@ const QUOTE_CATS = ['서비스', '완성차', '프레임', '드라이브트레�
 // 첫 판(2026-11-08) 분류 이름을 지금 분류로
 const QUOTE_CAT_OLD = { '프레임셋': '프레임', '구동계': '드라이브트레인', '휠·타이어': '휠세트', '콕핏': '컴포넌트', '안장·시트포스트': '컴포넌트', '페달': '컴포넌트', '액세서리': '자전거 악세사리', '공임': '서비스', '기타': '컴포넌트' };
 const QUOTE_SNAP_COLS = ['id', 'qid', 'no', 'label', 'data', 'total', 'by', 'at'];
+// 포털 탭: 고객에게 공개한 정제 사본. key 는 고객 링크(portal.rubiworkshop.com/#키)
+const PORTAL_COLS = ['key', 'qid', 'cid', 'name', 'data', 'publishedAt', 'by', 'active', 'views', 'lastView'];
+const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공개한 내용(JSON)', '공개 일시', '공개한 사람', '공개 중', '열어 본 횟수', '마지막으로 열어 본 일시'];
 const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
@@ -117,6 +123,7 @@ function doGet(e) {
   try {
     const p = e.parameter || {};
     if (p.action === 'ping') return json_({ ok: true });   // 연결 확인은 로그인 없이
+    if (p.action === 'portal') return json_(portalView_(p.k));   // 고객 포털: 키만 맞으면 로그인 없이 정제 사본만
     const user = auth_(p.s);
 
     switch (p.action) {
@@ -807,6 +814,99 @@ function pointSyncQuote_(q, who, email) {
   pointWrite_(sh, row > 0 ? row : sh.getLastRow() + 1, o);
 }
 
+// ───────────────────────────── 고객 포털 (포털 탭) ─────────────────────────────
+// 견적 하나에 포털 줄 하나. 다시 공개하면 같은 키로 내용만 바꿈 (고객이 받은 링크가 그대로 살아 있게)
+// 저장하는 내용은 portalClean_ 이 허용한 칸만. 포털 앱(sereno-kwon/portal)은 이 모양을 그대로 그림
+
+function portalSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('포털');
+  if (!sh) {
+    sh = ss.insertSheet('포털');
+    sh.getRange(1, 1, 1, PORTAL_HEADERS.length).setValues([PORTAL_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), PORTAL_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+function portalRows_() {
+  const sh = portalSheet_(), last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, PORTAL_COLS.length).getValues()
+    .map((r, i) => { const o = { _row: i + 2 }; PORTAL_COLS.forEach((k, j) => o[k] = noteCell_(r[j], k)); return o; })
+    .filter(o => o.key);
+}
+const portalWrite_ = (row, o) => portalSheet_().getRange(row, 1, 1, PORTAL_COLS.length).setNumberFormat('@').setValues([PORTAL_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+function portalSet_(qid, patch) {
+  const r = portalRows_().find(x => x.qid === String(qid));
+  if (!r) return;
+  portalWrite_(r._row, Object.assign(r, patch));
+}
+
+/** 포털에 보낼 내용만 남김. 모르는 칸은 버리고 글자 수·개수를 자름 (가격 민감한 칸이 실수로 섞여도 저장되지 않게) */
+function portalClean_(v) {
+  v = v || {};
+  const t = (x, n) => String(x == null ? '' : x).replace(/\r/g, '').trim().slice(0, n || 120);
+  const n = x => { const k = Math.round(Number(x) || 0); return isFinite(k) ? k : 0; };
+  const day = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
+  const arr = (x, max) => (Array.isArray(x) ? x : []).slice(0, max);
+  return {
+    no: t(v.no, 20), issued: day(v.issued), valid: day(v.valid),
+    name: t(v.name, 40), owner: t(v.owner, 40),
+    brand: t(v.brand, 60), model: t(v.model, 80), color: t(v.color, 80), title: t(v.title, 120),
+    sn: t(v.sn, 60), fn: t(v.fn, 60), rubiSn: t(v.rubiSn, 60), ship: day(v.ship), care: day(v.care),
+    summary: arr(v.summary, 12).map(x => [t(x && x[0], 20), n(x && x[1])]),
+    list: n(v.list), offer: n(v.offer), total: n(v.total), paid: n(v.paid), remain: n(v.remain),
+    request: { label: t(v.request && v.request.label, 40), amount: v.request && v.request.amount !== '' && v.request.amount != null ? n(v.request.amount) : '' },
+    payments: arr(v.payments, 40).map(p => ({ label: t(p.label, 60), date: day(p.date), amount: n(p.amount), method: t(p.method, 30) })),
+    kit: arr(v.kit, 120).map(k => ({ cat: t(k.cat, 20), slot: t(k.slot, 40), name: t(k.name, 160), qty: Math.max(1, Math.min(999, Number(k.qty) || 1)), gift: !!k.gift })),
+    spec: arr(v.spec, 8).map(sec => ({ title: t(sec.title, 30), fields: arr(sec.fields, 20).map(f => [t(f[0], 40), t(f[1], 120)]).filter(f => f[1]) })).filter(sec => sec.fields.length),
+    memo: t(v.memo, 3000),
+  };
+}
+
+/** 견적 앱의 '고객 포털에 공개': 저장된 견적이어야 하고, 내용은 포털 앱이 보낸 view 를 portalClean_ 으로 거름 */
+function portalPublish_(b, user) {
+  const q = quoteRows_().find(x => x.id === String(b.id));
+  if (!q) throw new Error('저장한 견적만 공개할 수 있습니다');
+  const data = portalClean_(b.view);
+  const sh = portalSheet_();
+  const ex = portalRows_().find(x => x.qid === q.id);
+  // 키: UUID 두 개를 이어 하이픈을 뺀 64자 (추측할 수 없게)
+  const key = ex ? ex.key : (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const o = Object.assign(ex || { views: '0', lastView: '' }, {
+    key, qid: q.id, cid: q.cid || '', name: q.name, data: JSON.stringify(data), publishedAt: now_(), by: user.name || user.email, active: 'Y',
+  });
+  portalWrite_(ex ? ex._row : sh.getLastRow() + 1, o);
+  return key;
+}
+
+/** GET portal: 키에 맞는 정제 사본 + 고객관리의 지금 단계·단계별 날짜 + 입금 계좌. 키가 틀리거나 공개를 끝냈으면 같은 답 */
+function portalView_(key) {
+  key = String(key || '').replace(/[^0-9a-f]/gi, '');
+  const none = { ok: false, error: 'not found' };
+  if (key.length < 32) return none;
+  const r = portalRows_().find(x => x.key === key);
+  if (!r || r.active !== 'Y') return none;
+  const data = quoteParse_(r.data, null);
+  if (!data) return none;
+  let stage = '', stages = {};
+  if (r.cid) {
+    const c = crmRows_(crmSheet_()).find(x => x.id === r.cid);
+    if (c && c.stage !== '종료') {
+      stage = c.stage;
+      // 단계별로 처음 들어선 날짜 (내용 메모는 빼고 날짜만)
+      crmLogRows_().filter(l => l.cid === r.cid).sort((a, b) => String(a.at).localeCompare(String(b.at)))
+        .forEach(l => { if (l.stage && !stages[l.stage]) stages[l.stage] = String(l.at).slice(0, 10); });
+      if (c.stageAt && !stages[c.stage]) stages[c.stage] = String(c.stageAt).slice(0, 10);
+    }
+  }
+  const bank = data.remain > 0 ? (PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '') : '';
+  // 열어 본 횟수 (직원 화면에서 고객이 봤는지 확인용)
+  try { portalWrite_(r._row, Object.assign({}, r, { views: String((+r.views || 0) + 1), lastView: now_() })); } catch (e) {}
+  return { ok: true, quote: data, stage, stages, bank, publishedAt: r.publishedAt };
+}
+
 // ───────────────────────────── 견적 (견적 탭) ─────────────────────────────
 // 한 줄 = 견적 하나. 예전 견적 시트(마스터·DB 탭)의 내용을 담음
 //  품목(items)   : [{ cat 분류, slot 세부항목, name 모델명, list 소비자가, rate 할인율(%), price 견적가, qty, note 비고, sn 시리얼, slip 전표처리 날짜 }]
@@ -883,7 +983,8 @@ function quoteData_() {
   // 고객별 적립금 잔액 (이름의 띄어쓰기를 빼고 묶음). 견적 화면에서 잔액을 보여주는 데 씀
   const pointBalance = {};
   pointRows_().forEach(p => { const k = String(p.name).replace(/\s+/g, ''); pointBalance[k] = (pointBalance[k] || 0) + (+p.amount || 0); });
-  return { quotes, customers, snaps, bank, pointBalance };
+  const portals = portalRows_().map(r => ({ key: r.key, qid: r.qid, publishedAt: r.publishedAt, by: r.by, active: r.active === 'Y', views: +r.views || 0, lastView: r.lastView }));
+  return { quotes, customers, snaps, bank, pointBalance, portals };
 }
 
 /** 기록 하나의 내용 (그 시점의 견적 전체) */
@@ -991,6 +1092,8 @@ function saveQuote_(b, user) {
     ssh.getRange(ssh.getLastRow() + 1, 1, 1, QUOTE_SNAP_COLS.length).setNumberFormat('@').setValues([QUOTE_SNAP_COLS.map(k => String(s[k] == null ? '' : s[k]))]);
     return s.id;
   }
+  if (op === 'publish') return portalPublish_(b, user);
+  if (op === 'unpublish') { portalSet_(b.id, { active: 'N' }); return b.id; }
   if (op === 'snapdel') {
     const ssh = quoteSnapSheet_(), last = ssh.getLastRow();
     if (last >= 2) {
