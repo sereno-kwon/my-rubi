@@ -15,6 +15,9 @@
  *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
  *    GET portal&k=키 는 로그인 없이 그 사본만 돌려줌 (줄별 가격·할인율·내부 메모·이카운트 코드는 사본에 아예 없음)
  *    고객 키(ckey)로 열면 그 고객의 공개 중인 견적 전체를 목록으로 돌려줌 (포털 첫 화면 '내 자전거'). 고객은 이름(띄어쓰기 무시)으로 묶음
+ *    고객 로그인: 직원이 견적 앱에서 발급한 고객코드(12자, 예: 7K3M-9QXP-H2DW)로 GET portal&c=코드 → 그 고객의 목록과 세션(고객 키)
+ *    코드는 '고객코드' 탭. 다시 발급하면 예전 코드와 고객 키가 함께 바뀌어 이미 로그인한 기기와 예전 링크도 끊김
+ *    틀린 코드가 10분에 30번을 넘으면 잠시 모든 코드 로그인을 막음 (코드는 60비트라 추측은 사실상 불가능하지만 한 번 더)
  *    진행 단계와 단계별 날짜는 고객관리에서 그때그때 읽어 붙임 (가격과 무관해서 다시 공개하지 않아도 바로 반영)
  *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
@@ -116,6 +119,10 @@ const QUOTE_SNAP_COLS = ['id', 'qid', 'no', 'label', 'data', 'total', 'by', 'at'
 // 포털 탭: 고객에게 공개한 정제 사본. key 는 고객 링크(portal.rubiworkshop.com/#키)
 const PORTAL_COLS = ['key', 'qid', 'cid', 'name', 'data', 'publishedAt', 'by', 'active', 'views', 'lastView', 'ckey'];
 const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공개한 내용(JSON)', '공개 일시', '공개한 사람', '공개 중', '열어 본 횟수', '마지막으로 열어 본 일시', '고객 키'];
+// 고객코드 탭: 포털 로그인 코드. code 는 하이픈 없이 대문자 12자 (Crockford Base32, 헷갈리는 I·L·O·U 없음)
+const CODE_COLS = ['code', 'ckey', 'name', 'issuedAt', 'by', 'active', 'logins', 'lastLogin'];
+const CODE_HEADERS = ['고객코드', '고객 키', '고객명', '발급 일시', '발급한 사람', '사용 중', '로그인 횟수', '마지막 로그인'];
+const CODE_ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
@@ -124,7 +131,7 @@ function doGet(e) {
   try {
     const p = e.parameter || {};
     if (p.action === 'ping') return json_({ ok: true });   // 연결 확인은 로그인 없이
-    if (p.action === 'portal') return json_(portalView_(p.k));   // 고객 포털: 키만 맞으면 로그인 없이 정제 사본만
+    if (p.action === 'portal') return json_(p.c ? portalLogin_(p.c) : portalView_(p.k));   // 고객 포털: 고객코드 로그인 또는 키(세션)로 정제 사본만
     const user = auth_(p.s);
 
     switch (p.action) {
@@ -941,6 +948,77 @@ function portalView_(key) {
   return { ok: true, mode: 'list', name: mine[0].name, items };
 }
 
+// ───────────────────────────── 고객코드 (포털 로그인) ─────────────────────────────
+function codeSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('고객코드');
+  if (!sh) {
+    sh = ss.insertSheet('고객코드');
+    sh.getRange(1, 1, 1, CODE_HEADERS.length).setValues([CODE_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), CODE_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+function codeRows_() {
+  const sh = codeSheet_(), last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, CODE_COLS.length).getValues()
+    .map((r, i) => { const o = { _row: i + 2 }; CODE_COLS.forEach((k, j) => o[k] = String(r[j] == null ? '' : r[j])); return o; })
+    .filter(o => o.code);
+}
+const codeWrite_ = (row, o) => codeSheet_().getRange(row, 1, 1, CODE_COLS.length).setNumberFormat('@').setValues([CODE_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+/** 입력한 코드 → 비교용 (대문자, 하이픈·띄어쓰기 빼고, 헷갈리는 글자는 Crockford 규칙대로 O→0, I·L→1) */
+const codeNorm_ = c => String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+const codeFmt_ = c => String(c).replace(/(.{4})(?=.)/g, '$1-');
+/** 새 코드 12자 = 60비트. 무작위 UUID 두 개를 SHA-256 으로 섞은 바이트의 아래 5비트를 32글자 표에 대응 */
+function codeNew_() {
+  const used = new Set(codeRows_().map(c => c.code));
+  for (let t = 0; t < 10; t++) {
+    const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Utilities.getUuid() + Date.now());
+    let out = '';
+    for (let i = 0; i < 12; i++) out += CODE_ABC[bytes[i] & 31];
+    if (!used.has(out)) return out;
+  }
+  throw new Error('코드를 만들지 못했습니다. 다시 눌러 주세요');
+}
+
+/** 견적 앱의 고객코드 발급. 견적이 포털에 공개돼 있어야 함 (그 견적의 고객 키에 코드를 붙임) */
+function portalCode_(qid, renew, user) {
+  const r = portalRows_().find(x => x.qid === String(qid));
+  if (!r) throw new Error('먼저 고객 포털에 공개해 주세요');
+  let ckey = r.ckey;
+  if (!ckey) { ckey = portalNewKey_(); portalWrite_(r._row, Object.assign({}, r, { ckey })); }
+  const mine = codeRows_().filter(c => c.ckey === ckey && c.active === 'Y');
+  if (mine.length && !renew) return codeFmt_(mine[0].code);
+  if (renew) {
+    // 예전 코드를 끄고 고객 키도 바꿈 → 이미 로그인한 기기·예전 링크가 더는 열리지 않음
+    mine.forEach(c => codeWrite_(c._row, Object.assign({}, c, { active: 'N' })));
+    const nk = portalNewKey_();
+    portalRows_().filter(x => x.ckey === ckey).forEach(x => portalWrite_(x._row, Object.assign({}, x, { ckey: nk })));
+    ckey = nk;
+  }
+  const code = codeNew_();
+  codeWrite_(codeSheet_().getLastRow() + 1, { code, ckey, name: r.name, issuedAt: now_(), by: user.name || user.email, active: 'Y', logins: '0', lastLogin: '' });
+  return codeFmt_(code);
+}
+
+/** GET portal&c=코드: 맞으면 그 고객의 목록 + session(고객 키). 틀리면 같은 답, 너무 많이 틀리면 잠시 막음 */
+function portalLogin_(input) {
+  const cache = CacheService.getScriptCache();
+  const fails = +(cache.get('portalFail') || 0);
+  if (fails >= 30) return { ok: false, error: 'busy' };
+  const code = codeNorm_(input);
+  const c = code.length === 12 ? codeRows_().find(x => x.code === code && x.active === 'Y') : null;
+  const v = c ? portalView_(c.ckey) : null;
+  if (!c || !v || !v.ok || v.mode !== 'list') {
+    cache.put('portalFail', String(fails + 1), 600);
+    return { ok: false, error: 'not found' };
+  }
+  try { codeWrite_(c._row, Object.assign({}, c, { logins: String((+c.logins || 0) + 1), lastLogin: now_() })); } catch (e) {}
+  return Object.assign(v, { session: c.ckey });
+}
+
 // ───────────────────────────── 견적 (견적 탭) ─────────────────────────────
 // 한 줄 = 견적 하나. 예전 견적 시트(마스터·DB 탭)의 내용을 담음
 //  품목(items)   : [{ cat 분류, slot 세부항목, name 모델명, list 소비자가, rate 할인율(%), price 견적가, qty, note 비고, sn 시리얼, slip 전표처리 날짜 }]
@@ -1018,7 +1096,8 @@ function quoteData_() {
   const pointBalance = {};
   pointRows_().forEach(p => { const k = String(p.name).replace(/\s+/g, ''); pointBalance[k] = (pointBalance[k] || 0) + (+p.amount || 0); });
   const portals = portalRows_().map(r => ({ key: r.key, ckey: r.ckey, qid: r.qid, name: r.name, publishedAt: r.publishedAt, by: r.by, active: r.active === 'Y', views: +r.views || 0, lastView: r.lastView }));
-  return { quotes, customers, snaps, bank, pointBalance, portals };
+  const codes = codeRows_().filter(c => c.active === 'Y').map(c => ({ code: codeFmt_(c.code), ckey: c.ckey, name: c.name, issuedAt: c.issuedAt, by: c.by, logins: +c.logins || 0, lastLogin: c.lastLogin }));
+  return { quotes, customers, snaps, bank, pointBalance, portals, codes };
 }
 
 /** 기록 하나의 내용 (그 시점의 견적 전체) */
@@ -1127,6 +1206,8 @@ function saveQuote_(b, user) {
     return s.id;
   }
   if (op === 'publish') return portalPublish_(b, user);
+  if (op === 'code') return portalCode_(b.id, false, user);      // 고객코드 발급 (이미 있으면 그대로)
+  if (op === 'recode') return portalCode_(b.id, true, user);     // 다시 발급: 예전 코드·고객 키를 끊음
   if (op === 'unpublish') { portalSet_(b.id, { active: 'N' }); return b.id; }
   if (op === 'snapdel') {
     const ssh = quoteSnapSheet_(), last = ssh.getLastRow();

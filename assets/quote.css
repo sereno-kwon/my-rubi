@@ -162,6 +162,11 @@
 .qt-plink .pj-btn{height:36px;display:inline-flex;align-items:center;text-decoration:none}
 .qt-pmeta{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--faint)}
 .qt-prow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.qt-code{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:12px;padding:16px 20px;background:var(--surface)}
+.qt-code .lb{font-size:12px;line-height:16px;color:var(--muted)}
+.qt-code .cv{margin-top:4px;font-size:28px;line-height:32px;letter-spacing:1px;font-variant-numeric:tabular-nums;user-select:all}
+.qt-code .bt{display:flex;flex-wrap:wrap;gap:8px}
+.qt-code .pj-btn{height:36px;display:inline-flex;align-items:center;text-decoration:none}
 
 /* 문서 미리보기 */
 .qt-ptop{display:flex;justify-content:space-between;align-items:center;gap:16px}

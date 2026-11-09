@@ -120,6 +120,8 @@ let quotes = [];      // 서버 견적 (Code.gs quoteOut_)
 let customers = [];   // 고객관리 고객 건 요약 { id, name, info, group, item, stage, owner }
 let snaps = [];       // 기록 목록 { id, qid, no, label, total, by, at } (내용은 열 때 받아옴)
 let bank = '';        // 입금 계좌 (서버 스크립트 속성 QUOTE_BANK)
+let codes = [];       // 고객코드 (포털 로그인) { code, ckey, name, issuedAt, by, logins, lastLogin }
+let recodeArmed = false;
 let portals = [];     // 고객 포털 공개 상태 { key, qid, publishedAt, by, active, views, lastView } (Code.gs 포털 탭)
 let unpubArmed = false;
 let pointBal = {};    // 고객 이름(띄어쓰기 뺌)별 마일리지 잔액 (고객관리 마일리지, 시트는 '적립금' 탭)
@@ -429,22 +431,29 @@ function portalHtml(d) {
   const p = portals.find(x => x.qid === d.id);
   const q = qById(d.id);
   const stale = p && p.active && q && String(q.updatedAt || '') > String(p.publishedAt || '');
-  const head = `<h2 class="sec-h ko"><span>고객 포털<small>portal.rubiworkshop.com, 고객 전용 링크로 정제한 견적을 보여줌</small></span><span class="n">${p && p.active ? '공개 중' : ''}</span></h2>`;
+  const head = `<h2 class="sec-h ko"><span>고객 포털<small>portal.rubiworkshop.com, 고객이 고객코드로 로그인해 정제한 견적을 봄</small></span><span class="n">${p && p.active ? '공개 중' : ''}</span></h2>`;
   const what = `<p class="qt-pinfo"><b>보임</b> 자전거·시리얼·보증 종료일, 진행 단계와 날짜, 구성품 이름(증정 표시), 분류별 소비자가 · 스페셜오퍼 · 최종 견적 금액, 결제 내역 · 결제 요청 · 입금 계좌, 빌드 사양, 비고<br><b>안 보임</b> 줄별 소비자가 · 할인율 · 견적가, 줄 비고 · 시리얼, 전표처리, 이카운트 코드, 내부 메모, 마일리지, 기록</p>`;
   if (!shared()) return `<section class="ck-group">${head}<p class="ck-none">로그인한 뒤에 공개할 수 있습니다.</p></section>`;
   if (!p) return `<section class="ck-group">${head}${what}<div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>고객 포털에 공개</button></div></section>`;
-  // 고객에게 보내는 링크는 고객 키: 첫 화면이 그 고객의 '내 자전거' 목록 (같은 이름으로 공개한 견적이 모임)
-  const link = portalLink(p.ckey || p.key);
+  // 고객은 portal.rubiworkshop.com 에서 고객코드로 로그인해 '내 자전거' 목록을 봄 (같은 이름으로 공개한 견적이 모임)
+  const preview = portalLink(p.ckey || p.key);
   const together = p.ckey ? portals.filter(x => x.ckey === p.ckey && x.active && x.qid !== p.qid).map(x => qById(x.qid)).filter(Boolean) : [];
+  const cd = p.ckey && codes.find(c => c.ckey === p.ckey);
+  const codeBox = !p.active ? '<p class="qt-warn">공개를 끝냈습니다. 다시 공개하면 고객 목록에 다시 나타납니다.</p>'
+    : cd ? `<div class="qt-code"><div><p class="lb">고객코드 · ${esc(p.name || d.name)}</p><p class="cv" data-codev>${esc(cd.code)}</p></div>
+        <div class="bt"><button type="button" class="pj-btn" data-codecopy>코드 복사</button><button type="button" class="pj-btn" data-codemsg>안내 문구 복사</button><a class="pj-btn" href="${esc(preview)}" target="_blank" rel="noopener">포털 미리보기</a></div></div>
+      <p class="qt-pmeta">${esc(fmtDay(cd.issuedAt))} ${esc(cd.by)} 발급<i class="dot">·</i>${cd.logins ? `로그인 ${cd.logins}번 (마지막 ${esc(fmtDay(cd.lastLogin))} ${esc(String(cd.lastLogin).slice(11, 16))})` : '아직 로그인하지 않음'}
+        <i class="dot">·</i><button type="button" class="qt-link" data-recode>${recodeArmed ? '한 번 더 누르면 새 코드로 바뀌고 예전 코드·로그인이 끊깁니다' : '다시 발급'}</button></p>`
+    : `<div class="qt-prow"><button type="button" class="pj-btn pri" data-code${busy ? ' disabled' : ''}>고객코드 발급</button><a class="pj-btn" href="${esc(preview)}" target="_blank" rel="noopener">포털 미리보기</a></div>
+      <p class="qt-pmeta">고객은 portal.rubiworkshop.com 에서 이 코드로 로그인해 자기 자전거 목록을 봅니다. 코드는 고객마다 하나입니다.</p>`;
   return `<section class="ck-group">${head}
-    ${p.active ? `<div class="qt-plink"><input readonly value="${esc(link)}" aria-label="고객 포털 링크 (내 자전거 목록)"><button type="button" class="pj-btn" data-plcopy>링크 복사</button><a class="pj-btn" href="${esc(link)}" target="_blank" rel="noopener">포털 열기</a></div>
-      <p class="qt-pmeta">${esc(p.name || d.name)} 고객의 '내 자전거' 목록 링크입니다. ${together.length ? `같은 목록에 공개 중: ${together.map(x => esc(x.no + (bikeName(x) ? ' ' + bikeName(x) : ''))).join(', ')}` : '지금은 이 견적 하나만 목록에 있습니다.'} 동명이인이면 고객관리에서 이름을 구분해 주세요 (예: 홍길동 분당).
-        ${p.ckey ? `<a class="qt-link" href="${esc(portalLink(p.key))}" target="_blank" rel="noopener">이 견적만 여는 링크</a>` : ''}</p>` : '<p class="qt-warn">공개를 끝냈습니다. 다시 공개하면 같은 링크가 다시 열립니다.</p>'}
+    ${codeBox}
+    ${p.active ? `<p class="qt-pmeta">${esc(p.name || d.name)} 고객의 목록에 ${together.length ? `이 견적과 함께 공개 중: ${together.map(x => esc(x.no + (bikeName(x) ? ' ' + bikeName(x) : ''))).join(', ')}` : '지금은 이 견적 하나만 있습니다.'} 동명이인이면 고객관리에서 이름을 구분해 주세요 (예: 홍길동 분당).</p>` : ''}
     <p class="qt-pmeta">${esc(fmtDay(p.publishedAt))} ${esc(String(p.publishedAt).slice(11, 16))} ${esc(p.by)} 공개<i class="dot">·</i>고객이 ${p.views ? `${p.views}번 열어 봄 (마지막 ${esc(fmtDay(p.lastView))} ${esc(String(p.lastView).slice(11, 16))})` : '아직 열어 보지 않음'}</p>
     ${stale ? '<p class="qt-warn">공개한 뒤 견적이 바뀌었습니다. 지금 내용으로 다시 공개해야 고객 화면에 반영됩니다. 진행 단계는 고객관리에서 바로 반영됩니다.</p>' : ''}
     ${what}
-    <div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>${p.active ? '지금 내용으로 다시 공개' : '다시 공개 (같은 링크)'}</button>
-      ${p.active ? `<button type="button" class="pj-btn" data-unpublish>${unpubArmed ? '한 번 더 누르면 링크가 닫힙니다' : '공개 끝내기'}</button>` : ''}</div>
+    <div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>${p.active ? '지금 내용으로 다시 공개' : '다시 공개'}</button>
+      ${p.active ? `<button type="button" class="pj-btn" data-unpublish>${unpubArmed ? '한 번 더 누르면 고객 화면에서 빠집니다' : '공개 끝내기'}</button>` : ''}</div>
   </section>`;
 }
 
@@ -637,7 +646,7 @@ function readLocal() {
 const writeLocal = () => ls.set(K_LOCAL, JSON.stringify(quotes));
 
 function take(j) {
-  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; pointBal = j.pointBalance || {}; portals = j.portals || []; loaded = true;
+  quotes = j.quotes || []; customers = j.customers || customers; snaps = j.snaps || []; bank = j.bank || ''; pointBal = j.pointBalance || {}; portals = j.portals || []; codes = j.codes || []; loaded = true;
   saveCache();
 }
 async function load() {
@@ -693,7 +702,7 @@ async function run(op, d) {
   let out = '';
   try {
     if (shared()) {
-      const body = op === 'save' ? payload(d) : op === 'snap' ? { id: d.id, label: d.label } : op === 'status' ? { id: d.id, status: d.status } : op === 'publish' ? { id: d.id, view: d.view } : { id: d.id };
+      const body = op === 'save' ? payload(d) : op === 'snap' ? { id: d.id, label: d.label } : op === 'status' ? { id: d.id, status: d.status } : op === 'publish' ? { id: d.id, view: d.view } : { id: d.id };   // code·recode·unpublish 는 id 만
       const j = await MR.post(Object.assign({ action: 'quote', op }, body));
       take(j);
       out = j.saved || (op === 'delete' || op === 'snapdel' ? 'ok' : '');
@@ -908,7 +917,7 @@ async function onClick(e) {
     let id = draft.id;
     if (dirty || !id) { id = await save(); if (!id) return; }
     const key = await run('publish', { id, view: portalView(draft) });
-    if (key) okMsg = '고객 포털에 공개했습니다. 링크를 복사해 고객에게 보내 주세요';
+    if (key) okMsg = codes.some(c => portals.some(p => p.qid === id && p.ckey === c.ckey)) ? '고객 포털에 공개했습니다. 고객은 쓰던 고객코드로 바로 봅니다' : '고객 포털에 공개했습니다. 고객코드를 발급해 고객에게 보내 주세요';
     unpubArmed = false; render(); return;
   }
   if (hit('[data-unpublish]')) {
@@ -916,6 +925,24 @@ async function onClick(e) {
     unpubArmed = false;
     if (await run('unpublish', { id: draft.id })) okMsg = '공개를 끝냈습니다. 고객 링크가 더 이상 열리지 않습니다';
     render(); return;
+  }
+  if (hit('[data-code]') || hit('[data-recode]')) {
+    const renew = !!hit('[data-recode]');
+    if (renew && !recodeArmed) { recodeArmed = true; render(); return; }
+    recodeArmed = false;
+    const code = await run(renew ? 'recode' : 'code', { id: draft.id });
+    if (code) okMsg = renew ? `새 고객코드 ${code} 를 발급했습니다. 예전 코드와 로그인은 끊겼습니다` : `고객코드 ${code} 를 발급했습니다`;
+    render(); return;
+  }
+  if (hit('[data-codecopy]') || hit('[data-codemsg]')) {
+    const code = (host.querySelector('[data-codev]') || {}).textContent || '';
+    const text = hit('[data-codemsg]')
+      ? `${draft.name ? draft.name + ' 고객님, ' : ''}루비워크샵입니다. 고객님의 자전거 진행 상황과 견적, 결제 내역을 아래에서 보실 수 있습니다.\n\n${PORTAL_URL}\n고객코드: ${code}\n\n코드는 고객님만 쓰시도록 보관해 주세요. 문의 ${(CFG.QUOTE && CFG.QUOTE.TEL) || '1551-5320'}`
+      : code;
+    try { await navigator.clipboard.writeText(text); okMsg = hit('[data-codemsg]') ? '안내 문구를 복사했습니다. 카카오톡·문자에 붙여 보내 주세요' : '고객코드를 복사했습니다'; }
+    catch (er) { okMsg = '복사하지 못했습니다. 코드를 직접 옮겨 적어 주세요'; }
+    msg = ''; const f = host.querySelector('.ck-msg'); if (f) f.textContent = okMsg; else render();
+    return;
   }
   if (hit('[data-plcopy]')) {
     const inp = host.querySelector('.qt-plink input');
