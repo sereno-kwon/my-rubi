@@ -20,10 +20,12 @@ a{color:inherit}
 .toc{position:sticky;top:32px;align-self:start;max-height:calc(100vh - 64px);overflow:auto;scrollbar-width:none}
 .toc::-webkit-scrollbar{display:none}
 .toc .k{font-size:12px;line-height:16px;color:var(--muted)}
-.toc .docs{display:flex;flex-direction:column;gap:2px;margin:10px 0 24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-.toc .docs a{font-size:15px;line-height:22px;text-decoration:none;color:var(--muted)}
-.toc .docs a[aria-current]{color:var(--fg)}
-.toc .docs .soon{font-size:13px;line-height:20px;color:var(--faint)}
+.toc .doc{padding:12px 0;border-top:1px solid var(--line)}
+.toc .doc:first-of-type{margin-top:10px}
+.toc .dt{display:block;font-size:15px;line-height:22px;text-decoration:none;color:var(--muted)}
+.toc .doc.cur .dt{color:var(--fg)}
+.toc .doc ol{display:none;margin-top:6px}
+.toc .doc.cur ol{display:block}
 .toc ol{list-style:none;margin:0;padding:0;counter-reset:t}
 .toc li{counter-increment:t}
 .toc li a{display:grid;grid-template-columns:28px 1fr;padding:5px 0;font-size:13px;line-height:18px;color:var(--muted);text-decoration:none}
@@ -64,12 +66,16 @@ pre{margin:14px 0 0;padding:14px 18px;background:var(--surface);font-family:inhe
 .routine div{padding:14px 16px;border:1px solid var(--line)}
 .routine .k{font-size:12px;line-height:16px;color:var(--muted)}
 .routine ul{padding-left:18px;font-size:14px;line-height:22px}
+article+article{margin-top:120px;padding-top:56px;border-top:1px solid var(--fg)}
 .foot{margin-top:72px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;line-height:18px;color:var(--faint)}
 @media (max-width:900px){
-  .wrap{grid-template-columns:1fr;gap:24px;padding:28px 20px 72px}
+  .wrap{grid-template-columns:minmax(0,1fr);gap:24px;padding:28px 20px 72px}
   .toc{position:static;max-height:none;border-bottom:1px solid var(--line);padding-bottom:12px}
-  .toc ol{columns:2}
+  .toc .doc ol{columns:2;display:block}
   .routine{grid-template-columns:1fr}
+  td:first-child{white-space:normal;word-break:keep-all;min-width:64px;padding-right:10px}
+  .ui,code,kbd{white-space:normal}
+  table{font-size:13px;line-height:20px}
 }
 @media print{.toc{display:none}.wrap{display:block;padding:0}section{break-inside:avoid-page}}
 </style>
@@ -79,25 +85,58 @@ pre{margin:14px 0 0;padding:14px 18px;background:var(--surface);font-family:inhe
 
 <nav class="toc" aria-label="목차">
   <p class="k">메뉴얼</p>
-  <div class="docs">
-    <a href="#customers" aria-current="page">고객관리</a>
-    <span class="soon">견적 · 고객 포털 (준비 중)</span>
+  <div class="doc" data-doc="customers">
+    <a class="dt" href="#customers">고객관리</a>
+    <ol>
+      <li><a href="#c-what">고객관리는</a></li>
+      <li><a href="#c-concept">기본 개념</a></li>
+      <li><a href="#c-screen">첫 화면 읽기</a></li>
+      <li><a href="#c-new">고객 넣기</a></li>
+      <li><a href="#c-update">단계·상황 바꾸기</a></li>
+      <li><a href="#c-weekly">주간 보고</a></li>
+      <li><a href="#c-mileage">마일리지</a></li>
+      <li><a href="#c-quote">견적·고객 포털 연결</a></li>
+      <li><a href="#c-routine">이렇게 씁니다</a></li>
+      <li><a href="#c-faq">자주 묻는 것</a></li>
+    </ol>
   </div>
-  <ol id="toc">
-    <li><a href="#c-what">고객관리는</a></li>
-    <li><a href="#c-concept">기본 개념</a></li>
-    <li><a href="#c-screen">첫 화면 읽기</a></li>
-    <li><a href="#c-new">고객 넣기</a></li>
-    <li><a href="#c-update">단계·상황 바꾸기</a></li>
-    <li><a href="#c-weekly">주간 보고</a></li>
-    <li><a href="#c-mileage">마일리지</a></li>
-    <li><a href="#c-quote">견적·고객 포털 연결</a></li>
-    <li><a href="#c-routine">이렇게 씁니다</a></li>
-    <li><a href="#c-faq">자주 묻는 것</a></li>
-  </ol>
+  <div class="doc" data-doc="quote">
+    <a class="dt" href="#quote">견적</a>
+    <ol>
+      <li><a href="#q-what">견적은</a></li>
+      <li><a href="#q-list">견적 목록</a></li>
+      <li><a href="#q-info">기본 정보</a></li>
+      <li><a href="#q-items">품목 넣기</a></li>
+      <li><a href="#q-amount">금액과 내부 손익</a></li>
+      <li><a href="#q-pay">지불 · 증빙 · 결제 요청</a></li>
+      <li><a href="#q-build">빌드 사양 · 피팅 · 탈거품</a></li>
+      <li><a href="#q-doc">문서 · 비교표 · 기록</a></li>
+      <li><a href="#q-upgrade">업그레이드 견적</a></li>
+      <li><a href="#q-portal">고객 포털에 공개</a></li>
+      <li><a href="#q-routine">이렇게 씁니다</a></li>
+      <li><a href="#q-faq">자주 묻는 것</a></li>
+    </ol>
+  </div>
+  <div class="doc" data-doc="geometry">
+    <a class="dt" href="#geometry">지오메트리</a>
+    <ol>
+      <li><a href="#g-screen">화면 구성</a></li>
+      <li><a href="#g-basic">기본 치수</a></li>
+      <li><a href="#g-parts">부품</a></li>
+      <li><a href="#g-dims">치수와 그림 방식</a></li>
+      <li><a href="#g-brand">브랜드 메뉴</a></li>
+      <li><a href="#g-compare">비교</a></li>
+      <li><a href="#g-fit">핏 맞추기</a></li>
+      <li><a href="#g-lib">라이브러리와 파일</a></li>
+      <li><a href="#g-out">표와 내보내기</a></li>
+      <li><a href="#g-routine">이렇게 씁니다</a></li>
+      <li><a href="#g-keys">단축키</a></li>
+    </ol>
+  </div>
 </nav>
 
-<main id="customers">
+<main>
+<article id="customers">
   <header class="hd">
     <p class="k">메뉴얼 · App</p>
     <h1>고객관리</h1>
@@ -284,18 +323,370 @@ pre{margin:14px 0 0;padding:14px 18px;background:var(--surface);font-family:inhe
     <p>서버 코드가 바뀐 뒤 배포가 아직 안 된 상태입니다. 관리자(대표)에게 알려 주세요.</p>
   </section>
 
-  <p class="foot">My Rubi 메뉴얼 · 고객관리 · 예시의 이름과 내용은 모두 가상입니다. 앱이 바뀌면 이 문서도 함께 고칩니다 (my-rubi/manual/index.html).</p>
+</article>
+
+<article id="quote">
+  <header class="hd">
+    <p class="k">메뉴얼 · App</p>
+    <h1>견적</h1>
+    <p>고객별로 만들던 견적 시트(몰튼·바스티온 Log 시트의 DB, 마스터, 견적 테이블, 날짜별·결제 단계별 탭)를 포털 안으로 옮긴 앱입니다. 품목과 할인, 최종 협의 금액, 결제, 빌드 사양을 한 견적에 담고, 고객에게는 Purchase Journey Log 문서와 고객 포털로 보여 줍니다.</p>
+    <p class="meta">my.rubiworkshop.com 첫 화면 App의 <span class="ui">견적</span> · 고객관리 고객 상세의 <span class="ui">+ 이 고객 건으로 견적 만들기</span>로도 열립니다</p>
+  </header>
+
+  <section id="q-what">
+    <h2><span class="n">01</span>견적은</h2>
+    <ul>
+      <li>견적 하나 = 고객 건 하나에 대한 구성 하나입니다. 같은 고객이 kit 1, kit 2를 비교하면 견적이 두 개가 되고, <b>비교표</b>로 한 장에 놓습니다.</li>
+      <li>견적 번호는 <code>Q</code> + 날짜 + 그날 순번(예: <code>Q261108-01</code>)으로 자동으로 붙습니다.</li>
+      <li>품목 가격은 <b>이카운트 판매단가</b>에서, 원가는 이카운트 입고단가에서 가져옵니다.</li>
+      <li>저장하면 고객관리 단계와 계약금이 함께 맞춰지고(<a href="#c-quote">고객관리 08</a> 참고), 원하면 고객 포털에 정제한 사본을 공개합니다.</li>
+      <li>데이터는 Index 스프레드시트의 <code>견적</code>, <code>견적기록</code> 탭에 저장됩니다.</li>
+    </ul>
+  </section>
+
+  <section id="q-list">
+    <h2><span class="n">02</span>견적 목록</h2>
+    <ul>
+      <li>위의 탭으로 <b>작성중 · 보냄 · 계약 · 취소</b>를 나눠 봅니다. 찾기 칸은 고객, 브랜드·모델, 견적 번호, 시리얼, 품목 이름으로 찾습니다.</li>
+      <li>줄마다 최종 견적 금액과 지불·남은 금액이 보이고, 맨 위에 이번 달 계약 합계와 잔금이 남은 계약 합계가 보입니다.</li>
+      <li>증빙 상태가 '발행 전'인 결제가 있으면 <b>증빙 발행 전 n건</b>이 뜹니다. 누르면 그 견적만 모아 봅니다.</li>
+      <li>새 견적은 <span class="ui">+ 새 견적</span>. 고객 건에 연결하려면 고객관리에서 시작하는 편이 빠릅니다.</li>
+    </ul>
+  </section>
+
+  <section id="q-info">
+    <h2><span class="n">03</span>기본 정보</h2>
+    <table>
+      <thead><tr><th>칸</th><th>적는 것</th></tr></thead>
+      <tbody>
+        <tr><td>고객 건</td><td>고객관리의 어느 건인지. 연결해야 단계·계약금·마일리지·고객 포털이 이어집니다</td></tr>
+        <tr><td>고객명 · 담당</td><td>문서와 고객 포털에 나오는 이름. 고객관리의 고객명과 같게</td></tr>
+        <tr><td>브랜드 · 모델 · 컬러</td><td>문서 제목이 됩니다</td></tr>
+        <tr><td>옵션 이름</td><td>비교표에서 kit를 구분하는 이름 (예: kit 1 · 듀라에이스 Di2 · 스코프)</td></tr>
+        <tr><td>S/N · F/N · 루비 시리얼</td><td>고유 시리얼, 프레임 넘버, 루비 시리얼. 문서 빌드 사양 장에 나옵니다</td></tr>
+        <tr><td>유효기간 · 출고일</td><td>출고일을 넣으면 루비케어 무상 보증 종료일(1년 뒤)이 계산되어 문서 첫 장에 나옵니다</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="q-items">
+    <h2><span class="n">04</span>품목 넣기</h2>
+    <ol class="steps">
+      <li>분류(서비스, 완성차, 프레임, 드라이브트레인, 휠세트, 컴포넌트, 스몰 파츠, 자전거 악세사리, 라이더 이큅먼트)를 고릅니다.</li>
+      <li>세부항목(리어 드레일러, 프론트 림처럼 분류마다 목록이 뜸)을 고릅니다.</li>
+      <li>이카운트 품목 이름이나 코드로 찾아 <kbd>Enter</kbd>. 판매단가가 소비자가로, 일괄 할인율이 할인율로, 입고단가가 원가로 들어갑니다.</li>
+      <li>이카운트에 없는 품목은 <span class="ui">직접 입력</span>으로 넣습니다.</li>
+    </ol>
+    <h3>줄마다 맞춰지는 세 값</h3>
+    <p>소비자가 → 할인율 → 견적가가 서로 맞춰집니다. 할인율을 바꾸면 견적가가, 견적가를 바꾸면 할인율이 바뀝니다. <b>증정</b>은 할인율 100입니다. 전체에 같은 할인을 주려면 <b>일괄 할인율</b>을 적고 <span class="ui">모든 줄에 적용</span>(증정 줄은 빠짐).</p>
+    <h3>줄 아래 칸</h3>
+    <table>
+      <thead><tr><th>칸</th><th>뜻</th><th>고객에게</th></tr></thead>
+      <tbody>
+        <tr><td>수량 · 비고</td><td>비고는 업그레이드, 임시 장착 같은 메모</td><td>문서에만</td></tr>
+        <tr><td>시리얼</td><td>부품 시리얼</td><td>문서에만</td></tr>
+        <tr><td>원가</td><td>부가세 별도 단가. 내부 손익 계산에 씀</td><td>보이지 않음</td></tr>
+        <tr><td>재고</td><td>재고 있음 · 발주 필요 · 발주함 · 입고 · 이동완료 · 불출완료</td><td>보이지 않음</td></tr>
+        <tr><td>고객 지참</td><td>고객이 가져온 부품. 구성에는 남고 금액 합계에서는 빠짐</td><td>'고객 지참' 표시</td></tr>
+        <tr><td>전표처리</td><td>이카운트 전표를 넣었으면 체크(누른 날짜가 남음)</td><td>보이지 않음</td></tr>
+      </tbody>
+    </table>
+    <div class="tip">재고 칸을 '발주 필요'로 두면 발주할 부품이 견적 안에서 바로 보입니다. 발주하고 입고될 때마다 바꿔 두면 조립 전에 빠진 부품을 놓치지 않습니다.</div>
+  </section>
+
+  <section id="q-amount">
+    <h2><span class="n">05</span>금액과 내부 손익</h2>
+    <table>
+      <thead><tr><th>항목</th><th>뜻</th></tr></thead>
+      <tbody>
+        <tr><td>소비자가 합계</td><td>모든 줄 소비자가 × 수량 (고객 지참 제외)</td></tr>
+        <tr><td>견적가 합계</td><td>줄 할인을 반영한 합계</td></tr>
+        <tr><td>최종 견적 금액</td><td>고객과 <b>협의한 금액</b>. 비워두면 견적가 합계. <span class="ui">만원 내림</span> <span class="ui">10만원 내림</span>으로 끝자리를 정리</td></tr>
+        <tr><td>스페셜오퍼</td><td>최종 견적 금액 − 소비자가 합계. 문서에 (1,000,000)처럼 괄호로 나오는 할인 총액과 총 할인율</td></tr>
+        <tr><td>마일리지</td><td>최종 견적 금액의 5%. 결제를 다 받으면 고객관리에 적립 예정으로 뜸</td></tr>
+        <tr><td>공급가액 · 부가세</td><td>최종 견적 금액 ÷ 1.1과 나머지</td></tr>
+      </tbody>
+    </table>
+    <h3>내부 손익 (접힘)</h3>
+    <p>원가 합계, 공급가액, 마진과 마진율, 줄별 견적가 · 실질가 · 원가 · 마진이 보입니다. <b>마진 = 공급가액 − 원가 합계</b>, 실질가는 최종 견적 금액을 줄별 견적가 비율로 나눈 금액입니다. 원가를 비워 둔 줄은 0으로 세고 몇 줄인지 알려 주니, 협상 전에 원가 빈칸부터 채우세요.</p>
+    <div class="warn">원가, 실질가, 마진, 재고, 전표는 내부용입니다. 문서와 고객 포털에는 나오지 않지만, 화면을 고객에게 보여 줄 때는 내부 손익을 접어 두세요.</div>
+  </section>
+
+  <section id="q-pay">
+    <h2><span class="n">06</span>지불 현황 · 증빙 · 결제 요청</h2>
+    <h3>지불 현황</h3>
+    <p><span class="ui">+ 결제 추가</span>로 한 줄씩 넣습니다. 총 지불 금액과 남은 금액이 바로 계산되고, 결제가 들어온 견적은 저장할 때 상태가 <b>계약</b>으로 바뀝니다.</p>
+    <table>
+      <thead><tr><th>칸</th><th>고르는 것</th></tr></thead>
+      <tbody>
+        <tr><td>결제 내용</td><td>계약금, 50% 예약금, 중도금, 주문확정금, 프레임 잔금, 최종 잔금, 완성차 지불, 차액결제, 구성 변경 차액, 결제 취소, 환불</td></tr>
+        <tr><td>수단</td><td>신용카드, 계좌이체, 현금, 마일리지, 루비워크샵 사이트, 네이버페이, 스마트스토어, 몰튼코리아 사이트, 그 밖은 직접</td></tr>
+        <tr><td>증빙 상태</td><td>발행 전 · 발행 완료 · 자진발급 · 미발행 · 해당 없음</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>결제 내용에 '취소'나 '환불'이 들어가면 금액을 양수로 적어도 <b>음수로 저장</b>되어 지불 합계에서 빠집니다.</li>
+      <li>수단을 <b>마일리지</b>로 적으면 고객관리 마일리지에서 자동으로 차감됩니다.</li>
+      <li>계약금·예약금이 들어오면 고객관리 단계가 계약금·예약금으로 넘어갑니다.</li>
+    </ul>
+    <h3>증빙</h3>
+    <p>지불 현황 아래에 종류(현금영수증 소득공제·지출증빙, 세금계산서, 카드 매출전표, 자진발급, 발행 안 함)와 번호를 적습니다. 세금계산서면 상호와 이메일도. 문서에는 한 줄로 나오고 고객 포털에는 나오지 않습니다.</p>
+    <h3>결제 요청</h3>
+    <p>다음에 받을 단계와 금액을 적으면 문서 맨 위에 '결제 요청 금액 | 50% 예약금'처럼 크게 나옵니다. <span class="ui">최종 금액의 50%</span> <span class="ui">남은 금액</span> 버튼으로 금액을 채웁니다. 고객에게 문서를 보내기 전에 이 칸부터 맞추세요.</p>
+  </section>
+
+  <section id="q-build">
+    <h2><span class="n">07</span>빌드 사양 · 피팅 · 탈거품</h2>
+    <ul>
+      <li><b>빌드 사양</b>: 프레임(사이즈, 포크, BB 규격, 타이어 클리어런스, 한계 체중), 드라이브트레인, 휠세트(모델·시리얼, 림, 타이어, 공기압, 스포크 등), 어셈블리 컴포넌트(ESP to BAR, BB to ESP 등). 출고 전에 채우면 문서 둘째 장이 됩니다.</li>
+      <li><b>피팅</b>: 안장 높이, 새들 셋백·각도, 새들 끝–핸들바, 새들–핸들바 낙차, 스택, 리치, 클릿·페달 세팅, 피팅일·피터, 메모. 채운 칸이 있을 때만 문서에 나옵니다. 지오메트리 앱의 핏 맞추기 결과를 여기에 옮겨 적으면 됩니다.</li>
+      <li><b>탈거품</b>: 업그레이드·리빌드로 떼어낸 부품, 시리얼, 처리(고객 반환 · 매장 보관 · 보상 매입 · 다른 빌드로 · 폐기). <span class="ui">+ 떼어낸 부품 추가</span>. 고객 포털에는 이름과 처리만 나옵니다.</li>
+    </ul>
+  </section>
+
+  <section id="q-doc">
+    <h2><span class="n">08</span>문서 · 비교표 · 기록</h2>
+    <h3>문서 보기 · 인쇄</h3>
+    <p><span class="ui">문서 보기 · 인쇄</span>를 누르면 Purchase Journey Log 형식의 A4 문서가 열리고, <span class="ui">인쇄 · PDF 저장</span>으로 PDF를 만듭니다. PDF 이름은 <code>00_Log_고객_브랜드_모델_날짜</code>.</p>
+    <table>
+      <thead><tr><th>장</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td>첫 장</td><td>브랜드·모델·컬러, 고객명, 루비케어 보증 종료일, 결제 요청 금액, 분류별 소비자 가격, 스페셜오퍼, 결제 완료 금액, 총 금액, 지불 현황(입금 계좌), 비고, 기밀 안내</td></tr>
+        <tr><td>둘째 장</td><td>빌드 사양(S/N, F/N), 피팅, 탈거품</td></tr>
+        <tr><td>셋째 장</td><td>세부 품목(소비자가 · 할인율 · 견적가). 체크로 넣고 뺍니다</td></tr>
+      </tbody>
+    </table>
+    <p>분류별 묶음은 예전 마스터 탭과 같습니다: 프레임 = 완성차 + 프레임, 옵션아이템 = 스몰 파츠 + 자전거 악세사리.</p>
+    <div class="tip">줄별 할인율을 고객에게 보이고 싶지 않으면 셋째 장 체크를 빼고 보내세요. 첫 장에는 분류별 소비자가와 스페셜오퍼만 나옵니다.</div>
+    <h3>여러 kit 비교</h3>
+    <ol class="steps">
+      <li>첫 kit 견적을 만들고 옵션 이름을 적어 저장합니다.</li>
+      <li><span class="ui">복제해서 새 견적 (다른 kit)</span>으로 복사본을 만들고 다른 부품으로 바꾼 뒤 옵션 이름을 고칩니다.</li>
+      <li>같은 고객 건에 견적이 두 개 이상이면 <span class="ui">이 고객 건 견적 비교표</span>가 생깁니다. 옵션별 구성, 소비자가, 견적, 비고 첫 줄을 한 장에 놓고 증정 품목을 아래에 붙입니다.</li>
+    </ol>
+    <h3>기록 남기기</h3>
+    <p><span class="ui">지금 내용으로 기록 남기기</span>에 이름(견적, 50% 예약금, 프레임 잔금, 최종 잔금, 출고 등)을 적으면 그 시점 견적 전체가 남습니다. 예전 날짜별·결제 단계별 탭 대신입니다. 나중에 그때 문서 그대로 다시 보고 인쇄할 수 있어, 결제마다 남겨 두면 "그때 얼마로 약속했는지"를 바로 확인할 수 있습니다.</p>
+  </section>
+
+  <section id="q-upgrade">
+    <h2><span class="n">09</span>출고 후 업그레이드 견적</h2>
+    <p>출고일이 있거나 계약 상태인 견적에서 <span class="ui">출고 후 업그레이드 견적</span>을 누르면, 같은 고객 건과 자전거 정보(브랜드·모델·컬러·S/N·F/N·루비 시리얼·출고일), 빌드 사양, 증빙을 이어받은 <b>빈 품목의 새 견적</b>이 열립니다.</p>
+    <ul>
+      <li>새로 다는 부품은 품목에, 떼어낸 부품은 탈거품에 넣습니다.</li>
+      <li>두 견적 머리에 서로의 번호가 링크로 보이고, 문서·목록·고객 포털에 업그레이드로 표시됩니다.</li>
+      <li>고객관리 단계는 앞으로만 가므로 출고·루비케어 건은 그대로입니다.</li>
+    </ul>
+  </section>
+
+  <section id="q-portal">
+    <h2><span class="n">10</span>고객 포털에 공개</h2>
+    <ol class="steps">
+      <li>견적을 저장한 뒤 <span class="ui">고객 포털에 공개</span>를 누릅니다. 정제한 사본이 만들어집니다.</li>
+      <li><span class="ui">포털 미리보기</span>로 고객이 보게 될 화면을 확인합니다.</li>
+      <li>처음이면 <span class="ui">고객코드 발급</span>. <code>RUBI-가입연도-8자</code> 코드가 생깁니다(가입연도는 고객관리에서 그 고객의 첫 건 연도).</li>
+      <li><span class="ui">안내 문구 복사</span>로 포털 주소와 코드를 카카오톡·문자에 붙여 보냅니다.</li>
+    </ol>
+    <table>
+      <thead><tr><th>고객에게 보이는 것</th><th>사본에 아예 들어가지 않는 것</th></tr></thead>
+      <tbody>
+        <tr><td>진행 단계, 결제, 분류별 소비자가, 스페셜오퍼, 최종 금액, 구성품 이름(증정·고객 지참 표시), 빌드 사양과 피팅, 떼어낸 부품과 처리, 업그레이드 표시, 비고</td><td>줄별 가격·할인율, 원가·실질가·마진, 재고상태, 줄 비고, 전표, 이카운트 코드, 증빙 번호와 상태, 내부 메모, 마일리지</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>견적을 고친 뒤에는 <span class="ui">지금 내용으로 다시 공개</span>(링크는 그대로). 진행 단계는 고객관리에서 바로 반영되므로 다시 공개하지 않아도 됩니다.</li>
+      <li>공개 상태 옆에 고객이 열어 본 횟수와 마지막 시각, 로그인 횟수가 보입니다. 견적을 보낸 뒤 열어 봤는지 확인할 때 씁니다.</li>
+      <li>코드를 잃어버렸거나 다른 사람이 알게 되면 <b>다시 발급</b>. 예전 코드와 로그인한 기기가 모두 끊깁니다.</li>
+      <li>더 보이지 않게 하려면 <span class="ui">공개 끝내기</span>.</li>
+    </ul>
+  </section>
+
+  <section id="q-routine">
+    <h2><span class="n">11</span>이렇게 씁니다</h2>
+    <ol class="steps">
+      <li><b>상담 후</b>: 고객관리 상세에서 <span class="ui">+ 이 고객 건으로 견적 만들기</span>. 품목을 넣고 일괄 할인율, 최종 견적 금액을 정합니다.</li>
+      <li><b>kit 비교가 필요하면</b>: 복제해서 다른 kit를 만들고 비교표를 함께 보냅니다.</li>
+      <li><b>보내기 전</b>: 내부 손익으로 마진을 확인하고, 결제 요청에 계약금이나 50% 예약금을 적은 뒤 문서 PDF 또는 고객 포털로 보냅니다. 상태는 보냄으로.</li>
+      <li><b>계약금이 들어오면</b>: 지불 현황에 넣고 저장. 고객관리 단계와 계약금이 함께 바뀝니다. <span class="ui">지금 내용으로 기록 남기기</span>로 '계약금' 기록.</li>
+      <li><b>발주·입고</b>: 품목 재고 칸을 발주함 → 입고로. 이카운트 전표를 넣으면 전표처리 체크.</li>
+      <li><b>조립·피팅</b>: 빌드 사양과 피팅, 시리얼을 채웁니다.</li>
+      <li><b>출고</b>: 최종 잔금을 넣고 출고일을 적고 '출고' 기록을 남깁니다. 고객관리 단계를 출고로, 마일리지 적립하기.</li>
+      <li><b>출고 후</b>: 부품을 바꾸면 출고 후 업그레이드 견적으로 이어 씁니다.</li>
+    </ol>
+  </section>
+
+  <section id="q-faq">
+    <h2><span class="n">12</span>자주 묻는 것</h2>
+    <h3>품목을 찾았는데 소비자가가 0이에요</h3>
+    <p>이카운트에 판매단가가 비어 있거나, NAS 재고 조회 서비스가 예전 판입니다. 이카운트 품목에 판매단가를 넣거나 관리자에게 알려 주세요.</p>
+    <h3>문서에 입금 계좌가 안 나와요</h3>
+    <p>계좌는 공개 코드에 두지 않고 서버 설정(<code>QUOTE_BANK</code>)에 있습니다. 관리자에게 알려 주세요.</p>
+    <h3>저장과 나가기</h3>
+    <p><kbd>⌘S</kbd> 또는 <kbd>Ctrl+S</kbd> 저장. <kbd>Esc</kbd>는 문서에서 편집으로, 편집에서 목록으로 돌아가고, 저장하지 않은 변경이 있으면 한 번 더 누르게 합니다.</p>
+    <h3>바로가기 주소</h3>
+    <p><code>my.rubiworkshop.com/#quote</code> 목록, <code>#quote/견적ID</code> 견적 하나, <code>#quote/new/고객건ID</code> 그 고객 건으로 새 견적.</p>
+    <h3>바스티온 공장 주문서는요</h3>
+    <p>바·스템, 시트마스트, 페인트 옵션을 적는 브랜드 주문서는 이 앱에 옮기지 않았습니다. 예전처럼 시트에서 씁니다.</p>
+  </section>
+</article>
+
+<article id="geometry">
+  <header class="hd">
+    <p class="k">메뉴얼 · App</p>
+    <h1>지오메트리</h1>
+    <p>BikeCAD Pro 화면 짜임을 따른 프레임 지오메트리 앱입니다. 치수를 넣으면 자전거를 그리고, 다른 자전거와 겹쳐 비교하고, 고객이 타던 자세를 새 프레임에서 맞추는 스템·스페이서 조합을 찾아 줍니다. 사이즈 상담, 커스텀 프레임 주문, 피팅에 씁니다.</p>
+    <p class="meta">my.rubiworkshop.com 첫 화면 App의 <span class="ui">지오메트리</span> · 넓은 화면이 편하니 새 탭으로 여는 것을 권합니다</p>
+  </header>
+
+  <section id="g-screen">
+    <h2><span class="n">01</span>화면 구성</h2>
+    <table>
+      <thead><tr><th>자리</th><th>하는 일</th></tr></thead>
+      <tbody>
+        <tr><td>메뉴</td><td><b>파일</b>(새로 만들기, 템플릿, 열기, 라이브러리, 저장, 내보내기, 인쇄) · <b>보기</b>(치수, 지오메트리 표, 그림 방식, 지면선, 격자, 비교 자전거, 핏 맞추기) · <b>브랜드</b> · <b>도움말</b>(사용법, 포털로 돌아가기)</td></tr>
+        <tr><td>툴바 윗줄</td><td>파일·보기 도구 (그림 방식 아이콘은 누를 때마다 컬러 → 외곽선 → 중심선)</td></tr>
+        <tr><td>툴바 아랫줄</td><td>부품별 대화상자: 기본 치수, 휠, 포크, 헤드셋 · 스템, 핸들바, 안장, 시트포스트, 크랭크 · 구동계, 튜브, 색상</td></tr>
+        <tr><td>도면</td><td>휠로 확대·축소, 빈 곳을 끌어 이동, 빈 곳 두 번 클릭은 화면 맞춤. 부품을 누르면 그 대화상자가 열립니다</td></tr>
+        <tr><td>대화상자</td><td>제목줄을 끌어 옮깁니다. 왼쪽 위 눈 아이콘은 그 부품을 그림에서 숨김. 자리는 기억됩니다</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="g-basic">
+    <h2><span class="n">02</span>기본 치수</h2>
+    <p>안장 높이, 시트 각도, 시트튜브, BB 드롭 / 높이, 체인스테이 / 리어 센터, 헤드 각도, 리치 / 유효 탑튜브 / 프론트 센터, 스택 / 헤드튜브 길이 등을 넣습니다.</p>
+    <h3>드롭다운이 '기준'입니다</h3>
+    <p>칸 앞의 드롭다운으로 고른 값이 고정되고 나머지가 계산됩니다. 예를 들어 <b>유효 탑튜브</b>를 고르면 시트 각도를 바꿔도 유효 탑튜브는 그대로이고 리치가 바뀝니다. 제조사 표에 적힌 값(보통 스택·리치)을 기준으로 골라 넣으면 됩니다.</p>
+    <h3>숫자 칸</h3>
+    <ul>
+      <li><kbd>Enter</kbd>나 칸을 벗어날 때 확정됩니다.</li>
+      <li><kbd>↑</kbd> <kbd>↓</kbd>로 1씩, <kbd>Shift</kbd>와 함께 10씩, <kbd>Alt</kbd>와 함께 0.1씩. 칸에 커서가 있으면 마우스 휠도 됩니다.</li>
+    </ul>
+  </section>
+
+  <section id="g-parts">
+    <h2><span class="n">03</span>부품</h2>
+    <table>
+      <thead><tr><th>대화상자</th><th>정하는 것</th></tr></thead>
+      <tbody>
+        <tr><td>휠</td><td>림 크기(700C부터 16" 305, 몰튼 17" 포함), 타이어 폭, 앞뒤 같게</td></tr>
+        <tr><td>포크</td><td>커브드 · 스트레이트 · 서스펜션, 축-크라운 길이, 오프셋</td></tr>
+        <tr><td>헤드셋 · 스템</td><td>상부·하부 스택, 스페이서, 스템 길이·각도</td></tr>
+        <tr><td>핸들바</td><td>드롭 · 플랫 · 라이저 · 스웹트</td></tr>
+        <tr><td>안장 · 시트포스트</td><td>안장 길이, 레일 위치, 시트포스트 셋백</td></tr>
+        <tr><td>크랭크 · 구동계</td><td>크랭크 길이, 체인링·스프라켓</td></tr>
+        <tr><td>튜브 · 색상</td><td>튜브 지름, 프레임·포크·부품·림·스킨월·다운튜브 글자 색</td></tr>
+      </tbody>
+    </table>
+    <p>템플릿(파일 › 템플릿)으로 예시 로드 54, 그래블 54, 투어링 ATB 26", 미니벨로 20"(451)에서 시작할 수 있습니다. 특정 브랜드 치수가 아닌 예시 값입니다.</p>
+  </section>
+
+  <section id="g-dims">
+    <h2><span class="n">04</span>치수와 그림 방식</h2>
+    <ul>
+      <li>보기 › <b>치수 설정</b>에서 프레임·앞바퀴·포크·핏 치수 30여 개를 골라 도면에 표시합니다. <b>주요 치수</b>, <b>핏 치수</b> 묶음 버튼이 있습니다.</li>
+      <li>단위 mm / inch, 소수 자리, 글자 크기, 이름 함께 보기를 고릅니다. 치수 글자를 끌면 치수선 자리가 옮겨집니다.</li>
+      <li><kbd>D</kbd>로 치수를 켜고 끕니다.</li>
+      <li>그림 방식은 컬러(고객에게 보여줄 때), 외곽선, 중심선(치수 확인할 때). 지면선과 100 mm 격자도 켤 수 있습니다.</li>
+    </ul>
+  </section>
+
+  <section id="g-brand">
+    <h2><span class="n">05</span>브랜드 메뉴</h2>
+    <p>메뉴의 <b>브랜드</b>에서 스페셜라이즈드 · 트렉 · 피나렐로 › 모델(로드 · 그래블 · MTB · 하이브리드 · e-바이크 구역별) › 사이즈를 고르면 그 사이즈가 바로 열립니다.</p>
+    <ul>
+      <li><kbd>Shift</kbd>+클릭은 지금 도면은 그대로 두고 <b>비교</b>에 넣습니다.</li>
+      <li>맨 위 칸에 모델 이름을 적어 찾습니다.</li>
+      <li>지오메트리 표에 <b>제조사 표</b> 열이 붙어 공식 값과 나란히 보이고, 메뉴의 '제조사 지오메트리 표 ↗'로 출처를 엽니다.</li>
+      <li>스택 · 리치 · 각도 · 체인스테이 · BB · 오프셋 · 바퀴는 제조사 값이고, 안장 높이 · 스템 · 핸들바는 그림을 위한 예시 값입니다(제조사가 적은 경우는 그 값).</li>
+    </ul>
+    <div class="warn">트렉은 공식 사이트를 직접 읽지 못해 지오메트리 비교 사이트에 옮겨진 표를 썼습니다. 고객에게 확정 치수를 안내할 때는 제조사 표 링크로 한 번 확인해 주세요. 일부 모델(예: 스페셜라이즈드 Shiv, 트렉 Speed Concept 등)은 빠져 있습니다.</div>
+  </section>
+
+  <section id="g-compare">
+    <h2><span class="n">06</span>비교</h2>
+    <ol class="steps">
+      <li>보기 › <b>비교 자전거</b>, 또는 툴바의 비교(+).</li>
+      <li>라이브러리 · 템플릿에서 고르거나, 파일에서 열거나, 지금 도면 복사본을 넣습니다. 브랜드 메뉴에서 <kbd>Shift</kbd>+클릭해도 들어옵니다.</li>
+      <li>기준을 고릅니다: <b>BB</b>(프레임끼리 비교), <b>뒷바퀴 축</b>, <b>앞바퀴 축</b>, <b>지면</b>.</li>
+      <li>비교 자전거는 선으로 겹쳐 그려지고, 지오메트리 표에 열이 늘어나 차이(+/−)가 붙습니다. 색 바꾸기, 끄고 켜기가 됩니다.</li>
+    </ol>
+    <div class="tip">"지금 타는 자전거와 뭐가 달라요?"라는 질문에는 고객의 현재 자전거를 비교에 넣고 BB 기준으로 겹쳐 보여 주는 것이 가장 빠릅니다. 스택·리치 차이가 표에 숫자로 나옵니다.</div>
+  </section>
+
+  <section id="g-fit">
+    <h2><span class="n">07</span>핏 맞추기</h2>
+    <p>고객이 타던 자전거의 자세를 새 프레임에서 그대로 만들려면 어떤 스템과 스페이서가 필요한지 찾습니다. 보기 › <b>핏 맞추기</b> 또는 툴바의 사람 아이콘.</p>
+    <ol class="steps">
+      <li>고객이 타던 자전거에서 네 값을 잽니다(모두 BB 중심 기준): <b>안장 높이</b>, <b>안장 셋백</b>(안장 코 기준), <b>핸들바 X · Y</b>(BB 중심에서 바 클램프 중심까지 가로·세로).</li>
+      <li>그 자전거 지오메트리가 앱에 있으면 그 자전거를 열고 <span class="ui">지금 자전거 값 넣기</span>로 채워도 됩니다.</li>
+      <li>새 프레임을 열고 <span class="ui">이 프레임에서 맞는 스템·스페이서 찾기</span>.</li>
+      <li>안장은 시트포스트 셋백과 레일 위치를, 핸들바는 스템 길이(50~140) · 각도(−17~+17) · 스페이서(0~40) 조합을 오차가 작은 순으로 보여 줍니다. 줄을 누르면 도면에 적용됩니다.</li>
+    </ol>
+    <p>레일 범위를 넘으면 빨간 글씨로 알려 줍니다. 그때는 셋백 시트포스트를 바꾸거나 프레임 사이즈를 다시 봅니다. 고른 조합은 견적 앱의 <b>피팅</b>과 품목(스템)에 옮겨 적으세요.</p>
+  </section>
+
+  <section id="g-lib">
+    <h2><span class="n">08</span>라이브러리와 파일</h2>
+    <ul>
+      <li><kbd>Ctrl+S</kbd> 라이브러리에 저장(이름 · 브랜드 · 모델 · 사이즈 · 메모), <kbd>Ctrl+L</kbd> 라이브러리 열기(찾기, 열기, 비교, 지우기).</li>
+      <li>라이브러리는 <b>이 브라우저에만</b> 저장됩니다. 다른 컴퓨터나 직원과 나누려면 <b>모두 내보내기</b>(.json) 후 그쪽에서 <b>가져오기</b>.</li>
+      <li>파일 › 열기는 이 앱의 .json과 BikeCAD 파일(.bcad)을 받습니다. .bcad에서는 기본 치수, 휠, 포크, 헤드셋, 스템, 드롭바, 크랭크, 튜브 지름을 읽습니다.</li>
+    </ul>
+    <div class="tip">고객 자전거를 저장할 때 이름에 고객명과 자전거를 함께 적어 두면(예: 홍길동 · 타던 로드 54) 다음 상담 때 바로 비교에 꺼낼 수 있습니다. 내보낸 .json은 회사 드라이브에 모아 두세요.</div>
+  </section>
+
+  <section id="g-out">
+    <h2><span class="n">09</span>지오메트리 표와 내보내기</h2>
+    <ul>
+      <li><kbd>T</kbd> 또는 보기 › <b>지오메트리 표</b>: 모든 치수와 구성(바퀴 · 스템 · 핸들바 · 크랭크). 비교 자전거가 있으면 열과 차이가 붙습니다.</li>
+      <li><b>표 복사</b>는 탭 구분이라 구글 시트에 바로 붙습니다. 커스텀 프레임 주문서에 치수를 옮길 때 씁니다.</li>
+      <li>파일 › <b>이미지로 저장 (PNG)</b>(가로 2400px)은 카카오톡으로 고객에게 보내기 좋고, <b>SVG로 저장</b>은 인쇄물·디자인용입니다.</li>
+      <li><kbd>Ctrl+P</kbd> 인쇄는 A4 가로 한 장에 도면과 지오메트리 표가 함께 나옵니다.</li>
+    </ul>
+  </section>
+
+  <section id="g-routine">
+    <h2><span class="n">10</span>이렇게 씁니다</h2>
+    <div class="routine">
+      <div><p class="k">사이즈 상담</p><ul><li>브랜드 메뉴에서 두 사이즈를 열고 Shift+클릭으로 비교</li><li>BB 기준으로 겹쳐 스택·리치 차이 확인</li><li>PNG로 고객에게 보내기</li></ul></div>
+      <div><p class="k">기존 자세 옮기기</p><ul><li>타던 자전거의 안장·핸들바 위치 측정</li><li>새 프레임에서 핏 맞추기</li><li>스템·스페이서를 견적 피팅·품목에</li></ul></div>
+      <div><p class="k">커스텀 프레임</p><ul><li>템플릿에서 시작해 치수 조정</li><li>라이브러리에 고객 이름으로 저장</li><li>표 복사로 주문서·견적에</li></ul></div>
+    </div>
+  </section>
+
+  <section id="g-keys">
+    <h2><span class="n">11</span>단축키</h2>
+    <table>
+      <thead><tr><th>키</th><th>하는 일</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Ctrl+N</kbd> · <kbd>Ctrl+O</kbd></td><td>새로 만들기 · 열기</td></tr>
+        <tr><td><kbd>Ctrl+S</kbd> · <kbd>Ctrl+L</kbd></td><td>라이브러리에 저장 · 라이브러리</td></tr>
+        <tr><td><kbd>Ctrl+Z</kbd> · <kbd>Ctrl+Shift+Z</kbd></td><td>되돌리기 · 다시 하기</td></tr>
+        <tr><td><kbd>Ctrl+P</kbd></td><td>인쇄</td></tr>
+        <tr><td><kbd>F</kbd> · <kbd>D</kbd> · <kbd>T</kbd></td><td>화면 맞춤 · 치수 켜고 끄기 · 지오메트리 표</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>맨 앞 대화상자 닫기</td></tr>
+      </tbody>
+    </table>
+    <p>도면 사용법은 앱 안의 도움말 › 사용법에도 있습니다. 지금 도면과 라이브러리, 보기 설정은 브라우저에 자동으로 남아 다음에 열면 이어집니다.</p>
+  </section>
+</article>
+
+  <p class="foot">My Rubi 메뉴얼 · 고객관리 · 견적 · 지오메트리 · 예시의 이름과 금액은 모두 가상입니다. 앱이 바뀌면 이 문서도 함께 고칩니다 (my-rubi/manual/index.html).</p>
 </main>
 </div>
 <script>
-// 목차: 지금 읽는 곳 표시
+// 목차: 지금 읽는 문서와 장 표시
 (() => {
-  const links = [...document.querySelectorAll('#toc a')];
+  const docs = [...document.querySelectorAll('.toc .doc')];
+  const links = [...document.querySelectorAll('.toc .doc ol a')];
   const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  const arts = docs.map(d => document.getElementById(d.dataset.doc));
   const on = () => {
-    let i = 0;
-    secs.forEach((s, k) => { if (s && s.getBoundingClientRect().top < 120) i = k; });
-    links.forEach((a, k) => a.classList.toggle('on', k === i));
+    let i = -1, k = 0;
+    secs.forEach((s, j) => { if (s && s.getBoundingClientRect().top < 120) i = j; });
+    arts.forEach((a, j) => { if (a && a.getBoundingClientRect().top < 160) k = j; });
+    docs.forEach((d, j) => d.classList.toggle('cur', j === k));
+    links.forEach((a, j) => a.classList.toggle('on', j === i));
   };
   addEventListener('scroll', on, { passive: true }); on();
 })();
