@@ -49,10 +49,22 @@ const SPEC = [
     ['tireWidth', '타이어 너비 (F/R)'], ['wheelLoad', '휠 한계 체중']] },
   { title: '어셈블리 컴포넌트', fields: [['espBar', 'ESP to BAR'], ['bar', '핸들바'], ['stem', '스템'], ['post', '시트포스트'], ['postSpec', '시트포스트 규격'],
     ['bbEsp', 'BB to ESP'], ['saddle', '새들'], ['grip', '그립'], ['pedal', '페달'], ['weight', '무게 (조립 QC 기준)']] },
+  // 바이크 피팅 수치 (Parlee·바스티온 주문서와 Bastion Bike Fit 양식). 채운 칸이 있을 때만 문서에 나옴
+  { title: '피팅', fit: true, fields: [['saddleH', '안장 높이 (BB–새들 상단)'], ['setback', '새들 셋백'], ['saddleTilt', '새들 각도'], ['saddleBar', '새들 끝–핸들바'], ['barDrop', '새들–핸들바 낙차'],
+    ['stack', '스택'], ['reach', '리치'], ['cleat', '클릿 · 페달 세팅'], ['fitBy', '피팅일 · 피터'], ['fitNote', '피팅 메모']] },
 ];
 const STATUS = ['작성중', '보냄', '계약', '취소'];
-const PAY_LABELS = ['계약금', '50% 예약금', '프레임 잔금', '최종 잔금', '완성차 지불', '차액결제'];
-const PAY_METHODS = ['신용카드', '계좌이체', '현금 (현금영수증)', '현금', '마일리지', '루비워크샵 사이트', '네이버페이'];
+const PAY_LABELS = ['계약금', '50% 예약금', '중도금', '주문확정금', '프레임 잔금', '최종 잔금', '완성차 지불', '차액결제', '구성 변경 차액', '결제 취소', '환불'];
+const PAY_METHODS = ['신용카드', '계좌이체', '현금 (현금영수증)', '현금', '마일리지', '루비워크샵 사이트', '네이버페이', '루비워크샵 스마트스토어', '루비개러지 스마트스토어', '몰튼코리아 사이트'];
+const isRefund = label => /취소|환불/.test(String(label || ''));   // 이 결제 내용은 금액을 음수로 저장 (지불 합계에서 빠짐)
+// 증빙 (현금영수증·세금계산서). 예전 시트는 지불 현황 머리에 번호를 손으로 적었음
+const RC_TYPES = ['현금영수증 (소득공제)', '현금영수증 (지출증빙)', '세금계산서', '카드 매출전표', '자진발급', '발행 안 함'];
+const RC_STATES = ['발행 전', '발행 완료', '자진발급', '미발행', '해당 없음'];
+// 품목 재고상태 (내부용, 문서·포털에 안 나옴). 예전 시트 '재고상태/전표처리' 열
+const STOCK_STATES = ['재고 있음', '발주 필요', '발주함', '입고', '이동완료', '불출완료'];
+// 탈거품(떼어낸 부품) 처리
+const REMOVED_TO = ['고객 반환', '매장 보관', '보상 매입', '다른 빌드로', '폐기'];
+const UPGRADE = '업그레이드';   // 견적 종류: 출고한 자전거의 업그레이드 작업 견적 (kind)
 const SNAP_LABELS = ['견적', '50% 예약금', '프레임 잔금', '최종 잔금', '출고'];
 const LIVE_STAGES = ['문의', '상담', '견적', '계약금', '예약금', '발주', '입고', '조립', '출고', '루비케어'];
 const CONFIDENTIAL = Q.CONFIDENTIAL || '본 문서는 루비컴퍼니와 고객 간에 교환된 기밀 정보를 담고 있으므로, 어떠한 경우에도 루비컴퍼니의 사전 허가 없이 외부로 유출되어서는 안 됩니다. 이에 대한 엄중한 준수를 요청드립니다.';
@@ -100,19 +112,44 @@ function calc(d) {
   const items = (d.items || []).filter(it => String(it.name || '').trim());
   let L = 0, P = 0;
   const byCat = {};
+  // 고객 지참 줄은 금액에서 뺌 (구성에는 남음)
   items.forEach(it => {
+    if (it.own) return;
     const q = qtyNum(it.qty) || 1, l = Math.round(num(it.list) * q), p = Math.round(num(it.price) * q);
     L += l; P += p; byCat[it.cat] = (byCat[it.cat] || 0) + l;
   });
   const hasFinal = d.final !== '' && d.final != null;
   const F = hasFinal ? num(d.final) : P;
-  const paid = (d.payments || []).reduce((m, p) => m + num(p.amount), 0);
+  const pays = (d.payments || []).map(p => payAmount(p));
+  const paid = pays.reduce((m, a) => m + a, 0);
   const supply = Math.round(F / 1.1);
   const summary = SUMMARY.map(([label, cats]) => [label, cats.reduce((m, c) => m + (byCat[c] || 0), 0)]);
   return {
     L, P, F, hasFinal, lineDisc: L - P, offer: F - L, rate: L ? (1 - F / L) * 100 : 0,
     points: Math.round(F * (+Q.POINT_RATE || 0)), supply, vat: F - supply, paid, remain: F - paid, summary,
   };
+}
+/** 결제 한 줄의 금액. 결제 취소·환불은 적은 부호와 상관없이 음수 */
+const payAmount = p => { const a = num(p.amount); return isRefund(p.label) ? -Math.abs(a) : a; };
+
+/** 내부 손익 (문서·포털에 안 나옴). 원가는 부가세 별도 단가, 실질가는 최종 견적 금액을 견적가 비율로 나눈 줄별 금액(부가세 포함)
+ *  마진 = 공급가액(최종 견적 금액 ÷ 1.1) − 원가 합계 */
+function profit(d) {
+  const c = calc(d);
+  const items = (d.items || []).filter(it => String(it.name || '').trim() && !it.own);
+  const ratio = c.P ? c.F / c.P : 0;
+  let cost = 0, missing = 0;
+  const lines = items.map(it => {
+    const q = qtyNum(it.qty) || 1, p = Math.round(num(it.price) * q), eff = Math.round(p * ratio);
+    const has = it.cost !== '' && it.cost != null;
+    const co = has ? Math.round(num(it.cost) * q) : 0;
+    if (has) cost += co; else missing++;
+    const sup = Math.round(eff / 1.1);
+    return { it, q, p, eff, cost: has ? co : null, margin: has ? sup - co : null, mrate: has && sup ? (sup - co) / sup * 100 : null };
+  });
+  const margin = c.supply - cost;
+  const st = {}; (d.items || []).forEach(it => { if (it.stock) st[it.stock] = (st[it.stock] || 0) + 1; });
+  return { c, lines, cost, missing, margin, mrate: c.supply ? margin / c.supply * 100 : 0, stock: st };
 }
 
 // ─────────── 상태 ───────────
@@ -134,8 +171,8 @@ let paperSnap = null; // 열어 본 기록 { label, at, by }
 let dirty = false;
 let leaveArmed = false, delArmed = false, snapDelArmed = '';
 let pendingCid = '';
-const ui = Object.assign({ status: ALL, q: '', scat: '드라이브트레인', rate: 0, docSpec: true, docItems: false }, readJson(K_UI, {}));
-const saveUi = () => ls.set(K_UI, JSON.stringify({ status: ui.status, scat: ui.scat, rate: ui.rate, docSpec: ui.docSpec, docItems: ui.docItems }));
+const ui = Object.assign({ status: ALL, q: '', scat: '드라이브트레인', rate: 0, docSpec: true, docItems: false, profit: false }, readJson(K_UI, {}));
+const saveUi = () => ls.set(K_UI, JSON.stringify({ status: ui.status, scat: ui.scat, rate: ui.rate, docSpec: ui.docSpec, docItems: ui.docItems, profit: ui.profit }));
 const srch = { q: '', items: [], sel: 0, seq: 0, timer: 0, state: '', slot: '' };
 
 const qById = id => quotes.find(q => q.id === id);
@@ -147,20 +184,25 @@ function blank(cid) {
     id: '', no: '', cid: cid || '', name: c ? c.name : '', title: '', owner: me(), status: STATUS[0], valid: addDays(+Q.VALID_DAYS || 14),
     brand: '', model: c ? c.item : '', color: '', sn: '', rubiSn: '', fn: '', ship: '',
     items: [], final: '', payments: [], request: { label: '', amount: '' }, spec: {}, memo: '', note: '', createdAt: '',
+    receipt: { type: '', no: '', name: '', email: '' }, removed: [], kind: '', parent: '',
   };
 }
 /** 저장된 견적 → 고치는 사본. 첫 판(분류·단가만 있던 품목)도 지금 모양으로 */
 function toDraft(q) {
   const d = Object.assign(blank(''), JSON.parse(JSON.stringify(q)));
   d.items = (d.items || []).map(it => {
-    const o = Object.assign({ k: key(), slot: '', note: '', sn: '', slip: '', qty: 1 }, it);
+    const o = Object.assign({ k: key(), slot: '', note: '', sn: '', slip: '', qty: 1, own: false, cost: '', stock: '' }, it);
     if (o.list == null) { o.list = num(o.price); o.rate = 0; }
     if (!CATS.includes(o.cat)) o.cat = CAT_OLD[o.cat] || '컴포넌트';
-    o.list = num(o.list); o.rate = rateNum(o.rate); o.price = num(o.price);
+    o.list = num(o.list); o.rate = rateNum(o.rate); o.price = num(o.price); o.own = !!o.own;
+    o.cost = o.cost === '' || o.cost == null ? '' : num(o.cost);
     return o;
   });
-  d.payments = (d.payments || []).map(p => Object.assign({ k: key(), label: '', date: '', amount: 0, method: '' }, p));
+  d.payments = (d.payments || []).map(p => Object.assign({ k: key(), label: '', date: '', amount: 0, method: '', rc: '' }, p));
   d.request = Object.assign({ label: '', amount: '' }, d.request || {});
+  d.receipt = Object.assign({ type: '', no: '', name: '', email: '' }, d.receipt || {});
+  d.removed = (Array.isArray(d.removed) ? d.removed : []).map(x => Object.assign({ k: key(), name: '', sn: '', to: '', note: '' }, x));
+  d.kind = d.kind || ''; d.parent = d.parent || '';
   d.spec = Object.assign({}, d.spec || {});
   d.final = d.final == null || d.final === '' ? '' : num(d.final);
   return d;
@@ -193,16 +235,20 @@ function listHtml() {
   const month = ymd(new Date()).slice(0, 7);
   const won_ = quotes.filter(q => q.status === '계약' && String(q.updatedAt || q.createdAt).slice(0, 7) === month);
   const unpaid = quotes.filter(q => q.status === '계약' && num(q.total) - num(q.paid) > 0);
+  // 증빙을 아직 발행하지 않은 결제 (지불 현황의 증빙 칸이 '발행 전')
+  const rcWait = quotes.filter(q => q.status !== '취소' && (q.payments || []).some(p => p.rc === '발행 전'));
   const head = `<div class="crm-week">
-    <div><h2>견적</h2><p>작성중 ${count('작성중')}<i class="dot">·</i>보냄 ${count('보냄')}<i class="dot">·</i>이번 달 계약 ${won_.length}건${won_.length ? ' ' + won(won_.reduce((m, q) => m + num(q.total), 0)) : ''}${unpaid.length ? `<i class="dot">·</i>잔금 남은 계약 ${unpaid.length}건 ${won(unpaid.reduce((m, q) => m + num(q.total) - num(q.paid), 0))}` : ''}</p></div>
+    <div><h2>견적</h2><p>작성중 ${count('작성중')}<i class="dot">·</i>보냄 ${count('보냄')}<i class="dot">·</i>이번 달 계약 ${won_.length}건${won_.length ? ' ' + won(won_.reduce((m, q) => m + num(q.total), 0)) : ''}${unpaid.length ? `<i class="dot">·</i>잔금 남은 계약 ${unpaid.length}건 ${won(unpaid.reduce((m, q) => m + num(q.total) - num(q.paid), 0))}` : ''}${rcWait.length ? `<i class="dot">·</i><button class="qt-link" data-rcwait>증빙 발행 전 ${rcWait.length}건</button>` : ''}</p></div>
     <div class="crm-acts"><button class="pj-btn pri" data-new>+ 새 견적</button></div>
   </div>`;
   const tabs = `<div class="ck-tabs crm-tabs" role="tablist" aria-label="상태">${[ALL].concat(STATUS).map(s =>
     `<button class="ck-tab" role="tab" data-stab="${esc(s)}" aria-selected="${ui.status === s}"><span class="nm">${s === ALL ? '전체' : esc(s)}</span><span class="ct">${count(s)}</span></button>`).join('')}
     <label class="crm-q"><input class="qt-lq" value="${esc(ui.q)}" placeholder="고객·모델·번호·시리얼·품목 찾기" aria-label="견적 찾기" autocomplete="off"></label></div>`;
   const term = ui.q.trim().toLowerCase();
+  const rcOnly = term === '증빙 발행 전';
   const list = quotes.filter(q => (ui.status === ALL || q.status === ui.status) &&
-    (!term || [q.no, q.name, q.title, q.brand, q.model, q.color, q.sn, q.rubiSn, q.fn, q.memo, q.note, q.owner, (q.items || []).map(it => it.name + ' ' + (it.sn || '')).join(' ')].join(' ').toLowerCase().includes(term)))
+    (rcOnly ? (q.payments || []).some(p => p.rc === '발행 전')
+      : !term || [q.no, q.name, q.title, q.kind, q.brand, q.model, q.color, q.sn, q.rubiSn, q.fn, q.memo, q.note, q.owner, (q.receipt || {}).no, (q.items || []).map(it => it.name + ' ' + (it.sn || '')).join(' ')].join(' ').toLowerCase().includes(term)))
     .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
   const rows = list.map(q => {
     const c = q.cid && cById(q.cid);
@@ -211,7 +257,7 @@ function listHtml() {
     return `<li><button class="qt-row s-${STATUS.indexOf(q.status)}" data-open="${esc(q.id)}">
       <span class="st">${esc(q.status)}</span>
       <span class="mn"><span class="nm">${esc(q.name)}${c ? `<small>고객관리 ${esc(c.stage)}</small>` : ''}</span>
-        <span class="it">${esc(bikeName(q) || q.title || '자전거 미정')}${q.title && bikeName(q) ? `<small>${esc(q.title)}</small>` : ''}</span>
+        <span class="it">${q.kind ? `<b class="qt-kind">${esc(q.kind)}</b>` : ''}${esc(bikeName(q) || q.title || '자전거 미정')}${q.title && bikeName(q) ? `<small>${esc(q.title)}</small>` : ''}</span>
         <span class="me">${esc(q.no)}<i class="dot">·</i>품목 ${(q.items || []).length}개${q.owner ? `<i class="dot">·</i>${esc(q.owner)}` : ''}${q.fn ? `<i class="dot">·</i>F/N ${esc(q.fn)}` : ''}</span></span>
       <span class="rt"><span class="tt">${won(total)}</span>${pay ? `<span class="py">${esc(pay)}</span>` : ''}<span class="ow">${esc(fmtDay(q.updatedAt || q.createdAt))}</span></span>
     </button></li>`;
@@ -237,10 +283,16 @@ const datalists = () => `
   <datalist id="qtSnapL">${SNAP_LABELS.concat([ymd(new Date()).slice(2).replace(/-/g, '')]).map(x => `<option value="${esc(x)}">`).join('')}</datalist>
   ${CATS.map((c, i) => `<datalist id="qtSlot${i}">${SLOTS[c].map(x => `<option value="${esc(x)}">`).join('')}</datalist>`).join('')}`;
 
+/** 줄 오른쪽 끝 표시: 고객 지참 / 증정 / 수량 계산, 이카운트 코드 */
+function lineTag(it) {
+  const q = qtyNum(it.qty) || 1, gift = it.rate >= 100;
+  const main = it.own ? '고객 지참 · 금액 제외' : gift ? '증정' : q > 1 ? `× ${esc(q)} = ${comma(num(it.price) * q)}` : '';
+  return `${main}${it.code ? `<i>이카운트 ${esc(it.code)}</i>` : ''}`;
+}
 function lineHtml(it, first) {
   const q = qtyNum(it.qty) || 1;
   const gift = it.rate >= 100;
-  return `<li class="qt-line${first ? ' first' : ''}${gift ? ' gift' : ''}" data-k="${esc(it.k)}">
+  return `<li class="qt-line${first ? ' first' : ''}${gift ? ' gift' : ''}${it.own ? ' own' : ''}" data-k="${esc(it.k)}">
     <div class="r1">
       <select data-lf="cat" aria-label="분류">${CATS.map(c => `<option${c === it.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
       <input data-lf="slot" value="${esc(it.slot)}" list="qtSlot${catIdx(it.cat)}" placeholder="세부항목" aria-label="세부항목" maxlength="40">
@@ -254,8 +306,11 @@ function lineHtml(it, first) {
       <label><span>수량</span><input data-lf="qty" value="${esc(q)}" inputmode="decimal" class="n q"></label>
       <label class="wd"><span>비고</span><input data-lf="note" value="${esc(it.note)}" maxlength="200" placeholder="업그레이드, 임시 장착, 배치 위치"></label>
       <label><span>시리얼</span><input data-lf="sn" value="${esc(it.sn)}" maxlength="60"></label>
+      <label class="in" title="부가세 별도 단가. 문서와 고객 포털에는 나오지 않음"><span>원가</span><input data-lf="cost" value="${it.cost !== '' && it.cost != null ? esc(comma(it.cost)) : ''}" inputmode="numeric" class="n c" placeholder="별도"></label>
+      <label class="in"><span>재고</span><select data-lstock aria-label="재고상태"><option value="">-</option>${STOCK_STATES.map(s => `<option${s === it.stock ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></label>
+      <label class="slip"><input type="checkbox" data-own${it.own ? ' checked' : ''}><span>고객 지참</span></label>
       <label class="slip"><input type="checkbox" data-slip${it.slip ? ' checked' : ''}><span>${it.slip ? '전표 ' + esc(fmtDay(it.slip)) : '전표처리'}</span></label>
-      <span class="tag">${gift ? '증정' : q > 1 ? `× ${esc(q)} = ${comma(num(it.price) * q)}` : ''}${it.code ? `<i>이카운트 ${esc(it.code)}</i>` : ''}</span>
+      <span class="tag">${lineTag(it)}</span>
     </div>
   </li>`;
 }
@@ -306,20 +361,50 @@ function moneyHtml(d) {
   </div>`;
 }
 
+/** 내부 손익: 줄별 견적가·실질가·원가·마진. 원가를 넣은 줄만 마진이 계산됨 */
+function profitInner(d) {
+  const pr = profit(d);
+  const has = pr.lines.some(l => l.cost != null);
+  const st = Object.keys(pr.stock).length ? `<p class="qt-pst">${STOCK_STATES.filter(s => pr.stock[s]).map(s => `${esc(s)} <b>${pr.stock[s]}</b>`).join('<i class="dot">·</i>')}</p>` : '';
+  const rows = pr.lines.map(l => `<tr${l.cost == null ? ' class="na"' : ''}><td class="nm">${esc(l.it.name)}${l.q > 1 ? ` <small>× ${esc(l.q)}</small>` : ''}${l.it.rate >= 100 ? ' <small>증정</small>' : ''}</td>
+    <td class="n">${comma(l.p)}</td><td class="n">${comma(l.eff)}</td><td class="n">${l.cost == null ? '-' : comma(l.cost)}</td>
+    <td class="n${l.margin != null && l.margin < 0 ? ' neg' : ''}">${l.margin == null ? '-' : comma(l.margin)}</td><td class="n">${l.mrate == null ? '' : pct(l.mrate) + '%'}</td></tr>`).join('');
+  return `${st}
+    <dl class="qt-psum qt-pf"><div><dt>원가 합계 <small>별도</small></dt><dd>${won(pr.cost)}</dd></div><div><dt>공급가액</dt><dd>${won(pr.c.supply)}</dd></div>
+      <div><dt>마진</dt><dd class="${pr.margin < 0 ? 'neg' : ''}">${has ? won(pr.margin) + ` <small>${pct(pr.mrate)}%</small>` : '-'}</dd></div></dl>
+    ${pr.missing && pr.lines.length ? `<p class="qt-snote">원가가 비어 있는 줄 ${pr.missing}개는 원가 0으로 셉니다. 품목 줄의 '원가' 칸에 부가세 별도 단가를 넣어 주세요 (이카운트에서 넣은 품목은 입고단가가 들어옴).</p>` : ''}
+    ${pr.lines.length ? `<table class="qt-ptab"><thead><tr><th scope="col">품목</th><th scope="col" class="n">견적가</th><th scope="col" class="n" title="최종 견적 금액을 견적가 비율로 나눈 금액">실질가</th><th scope="col" class="n">원가 (별도)</th><th scope="col" class="n">마진</th><th scope="col" class="n">마진율</th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
+}
+function profitHtml(d) {
+  return `<details class="ck-group qt-profit"${ui.profit ? ' open' : ''}><summary class="sec-h ko"><span>내부 손익<small>원가 · 실질가 · 마진 · 재고상태, 문서와 고객 포털에 안 나옴</small></span><span class="n"></span></summary>
+    <div data-profit>${profitInner(d)}</div></details>`;
+}
+
 function payHtml(d) {
   const c = calc(d);
-  const rows = d.payments.map((p, i) => `<li class="qt-pay" data-pk="${esc(p.k)}">
+  const rows = d.payments.map((p, i) => `<li class="qt-pay${isRefund(p.label) ? ' rf' : ''}" data-pk="${esc(p.k)}">
     <input data-pf="label" value="${esc(p.label)}" list="qtPayL" placeholder="결제 내용" aria-label="결제 내용" maxlength="60">
     <input type="date" data-pf="date" value="${esc(p.date)}" aria-label="결제 날짜">
-    <input data-pf="amount" value="${p.amount ? esc(comma(p.amount)) : ''}" inputmode="numeric" placeholder="금액" aria-label="결제 금액" class="n">
+    <input data-pf="amount" value="${p.amount ? esc(comma(payAmount(p))) : ''}" inputmode="numeric" placeholder="금액" aria-label="결제 금액" class="n">
     <input data-pf="method" value="${esc(p.method)}" list="qtPayM" placeholder="결제 수단" aria-label="결제 수단" maxlength="30">
+    <select data-prc aria-label="증빙" title="증빙 (현금영수증·세금계산서)"><option value="">증빙 -</option>${RC_STATES.map(s => `<option${s === p.rc ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>
     <button type="button" class="x" data-pdl="${esc(p.k)}" aria-label="이 결제 지우기"><svg class="i"><use href="#i-close"/></svg></button>
   </li>`).join('');
   const rq = d.request || {};
-  return `<section class="ck-group"><h2 class="sec-h ko"><span>지불 현황<small>계약금·예약금이 들어오면 고객관리 단계와 계약금이 함께 바뀜</small></span><span class="n">${d.payments.length || ''}</span></h2>
+  const rc = d.receipt || {};
+  const tax = rc.type === '세금계산서';
+  return `<section class="ck-group"><h2 class="sec-h ko"><span>지불 현황<small>계약금·예약금이 들어오면 고객관리 단계와 계약금이 함께 바뀜. 결제 취소·환불은 음수로 들어감</small></span><span class="n">${d.payments.length || ''}</span></h2>
     ${rows ? `<ol class="qt-pays">${rows}</ol>` : ''}
     <button type="button" class="crm-more" data-padd>+ 결제 추가</button>
     <dl class="qt-psum"><div><dt>총 지불 금액</dt><dd data-v="paid">${won(c.paid)}</dd></div><div><dt>남은 금액</dt><dd data-v="remain">${won(c.remain)}</dd></div></dl>
+    <div class="qt-req qt-rc">
+      <p class="lb">증빙 <small>현금영수증·세금계산서 번호. 문서의 지불 현황 아래에 나오고 고객 포털에는 안 나옴</small></p>
+      <div class="row">
+        <select data-rcf="type" aria-label="증빙 종류"><option value="">종류</option>${RC_TYPES.map(s => `<option${s === rc.type ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>
+        <input data-rcf="no" value="${esc(rc.no)}" placeholder="${tax ? '사업자등록번호' : '휴대폰 번호 또는 사업자등록번호'}" aria-label="증빙 번호" maxlength="40" inputmode="tel">
+        ${tax ? `<input data-rcf="name" value="${esc(rc.name)}" placeholder="상호" aria-label="상호" maxlength="60"><input data-rcf="email" value="${esc(rc.email)}" placeholder="계산서 받을 이메일" aria-label="세금계산서 이메일" maxlength="80" inputmode="email">` : ''}
+      </div>
+    </div>
     <div class="qt-req">
       <p class="lb">결제 요청 <small>문서 맨 위에 '결제 요청 금액 (₩) | 단계'로 나옴. 비워두면 남은 금액</small></p>
       <div class="row">
@@ -339,6 +424,31 @@ function specHtml(d) {
     ${SPEC.map(s => `<p class="qt-sh">${esc(s.title)}</p><div class="qt-sgrid">${s.fields.map(([k, l]) =>
       `<label><span>${esc(l)}</span><input data-sf="${esc(k)}" value="${esc(d.spec[k])}" maxlength="120"></label>`).join('')}</div>`).join('')}
   </details>`;
+}
+
+/** 탈거품: 업그레이드·리빌드로 떼어낸 부품과 처리. 문서 빌드 사양 장과 고객 포털에 나옴 */
+function removedHtml(d) {
+  const rows = d.removed.map(x => `<li class="qt-rm" data-xk="${esc(x.k)}">
+    <input data-xf="name" value="${esc(x.name)}" placeholder="떼어낸 부품 ([브랜드] 모델)" aria-label="떼어낸 부품" maxlength="160">
+    <input data-xf="sn" value="${esc(x.sn)}" placeholder="시리얼" aria-label="시리얼" maxlength="60">
+    <select data-xto aria-label="처리"><option value="">처리</option>${REMOVED_TO.map(s => `<option${s === x.to ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>
+    <input data-xf="note" value="${esc(x.note)}" placeholder="비고 (보상 금액, 보관 위치)" aria-label="비고" maxlength="200">
+    <button type="button" class="x" data-xdl="${esc(x.k)}" aria-label="이 줄 지우기"><svg class="i"><use href="#i-close"/></svg></button>
+  </li>`).join('');
+  const open = d.removed.length || d.kind === UPGRADE;
+  return `<details class="ck-group qt-spec qt-rms"${open ? ' open' : ''}><summary class="sec-h ko"><span>탈거품<small>업그레이드·리빌드로 떼어낸 부품, 문서와 고객 포털에 나옴</small></span><span class="n">${d.removed.length || ''}</span></summary>
+    ${rows ? `<ol class="qt-pays">${rows}</ol>` : ''}
+    <button type="button" class="crm-more" data-xadd>+ 떼어낸 부품 추가</button>
+  </details>`;
+}
+
+/** 업그레이드 견적 연결: 원래 견적 ↔ 업그레이드 견적들 */
+function upgradeLinks(d) {
+  const parent = d.parent && qById(d.parent);
+  const kids = d.id ? quotes.filter(q => q.parent === d.id) : [];
+  const row = q => `<button class="qt-link" data-open="${esc(q.id)}">${esc(q.no)}${q.title ? ' ' + esc(q.title) : ''}</button> <small>${esc(q.status)} · ${won(num(q.total))}</small>`;
+  if (!parent && !kids.length) return '';
+  return `<p class="qt-ulink">${parent ? `원래 견적 ${row(parent)}` : ''}${kids.length ? `${parent ? '<i class="dot">·</i>' : ''}업그레이드 견적 ${kids.map(row).join('<i class="dot">·</i>')}` : ''}</p>`;
 }
 
 function snapsHtml(d) {
@@ -363,10 +473,11 @@ function editHtml() {
   const care = careEnd(d.ship);
   return `${datalists()}<div class="pj-head">
     <button class="pj-back" data-back><span aria-hidden="true">←</span> 견적 목록</button>
-    <div class="pj-ttl"><h2>${d.no ? esc(d.no) : '새 견적'}${d.name ? `<small>${esc(d.name)}</small>` : ''}</h2>
+    <div class="pj-ttl"><h2>${d.kind ? `<b class="qt-kind">${esc(d.kind)}</b>` : ''}${d.no ? esc(d.no) : '새 견적'}${d.name ? `<small>${esc(d.name)}</small>` : ''}</h2>
       <div class="seg qt-seg" role="group" aria-label="상태">${STATUS.map(s => `<button type="button" data-st="${esc(s)}" aria-pressed="${d.status === s}">${esc(s)}</button>`).join('')}</div></div>
     <p class="pj-meta">${[d.createdAt ? `${fmtDay(d.createdAt)} 작성` : '저장 전', d.author ? esc(d.author) : '', d.updatedAt ? `${fmtDay(d.updatedAt)} 수정` : ''].filter(Boolean).join('<i class="dot">·</i>')}
       ${c ? `<i class="dot">·</i><button class="qt-link" data-crm="${esc(c.id)}">고객관리에서 보기 (${esc(c.stage)})</button>` : ''}</p>
+    ${upgradeLinks(d)}
   </div>
   <div class="pj-form qt-form">
     <label class="wide2"><span>고객 건 (고객관리)</span><select data-f="cid">${custOptions(d.cid)}</select></label>
@@ -380,7 +491,7 @@ function editHtml() {
     <label><span>프레임 넘버 (F/N)</span><input data-f="fn" value="${esc(d.fn)}" maxlength="60"></label>
     <label><span>루비 시리얼</span><input data-f="rubiSn" value="${esc(d.rubiSn)}" maxlength="60" placeholder="RB-MTBF-A00001"></label>
     <label><span>유효기간</span><input type="date" data-f="valid" value="${esc(d.valid)}"></label>
-    <label><span>출고일</span><input type="date" data-f="ship" value="${esc(d.ship)}"></label>
+    <label><span>${d.kind === UPGRADE ? '출고일 (원래 자전거)' : '출고일'}</span><input type="date" data-f="ship" value="${esc(d.ship)}"></label>
     <p class="qt-care">루비케어 무상 보증 종료일 <b data-v="care">${care ? esc(fmtKo(care)) : '미정 (출고일을 넣으면 1년 뒤)'}</b></p>
   </div>
   <section class="ck-group"><h2 class="sec-h ko"><span>품목<small>소비자가 · 할인율 · 견적가는 부가세 포함, 증정은 할인율 100</small></span><span class="n">${d.items.length || ''}</span></h2>
@@ -388,8 +499,10 @@ function editHtml() {
     ${searchHtml()}
   </section>
   ${moneyHtml(d)}
+  ${profitHtml(d)}
   ${payHtml(d)}
   ${specHtml(d)}
+  ${removedHtml(d)}
   <div class="pj-form qt-memo">
     <label class="wide"><span>비고 (문서에 보임)</span><textarea data-f="memo" rows="3" maxlength="3000" placeholder="견적 기준(VIP 할인, 페달·파워미터 제외), 납기, 증정 구성">${esc(d.memo)}</textarea></label>
     <label class="wide"><span>내부 메모 (문서에 안 보임)</span><textarea data-f="note" rows="2" maxlength="3000">${esc(d.note)}</textarea></label>
@@ -398,6 +511,7 @@ function editHtml() {
       <button type="button" data-paper>문서 보기 · 인쇄</button>
       ${sibs.length > 1 || (d.cid && !d.id && sibs.length) ? '<button type="button" data-compare>이 고객 건 견적 비교표</button>' : ''}
       ${d.id ? '<button type="button" data-dup>복제해서 새 견적 (다른 kit)</button>' : ''}
+      ${d.id && d.kind !== UPGRADE && (d.ship || d.status === '계약') ? '<button type="button" data-upgrade title="같은 고객 건·자전거 정보·빌드 사양을 이어받고 품목은 비운 새 견적">출고 후 업그레이드 견적</button>' : ''}
       ${d.id ? `<button type="button" class="danger" data-del>${delArmed ? '한 번 더 누르면 지워집니다' : '지우기'}</button>` : ''}
     </div>
   </div>
@@ -409,20 +523,24 @@ function editHtml() {
 const PORTAL_URL = (CFG.PORTAL_URL || 'https://portal.rubiworkshop.com/').replace(/\/?$/, '/');
 const portalLink = key => PORTAL_URL + '#' + key;
 /** 고객에게 보여줄 정제본. 줄별 가격·할인율·줄 비고·시리얼·전표·이카운트 코드·내부 메모는 넣지 않음
+ *  원가·재고상태·증빙 번호와 결제별 증빙 상태도 넣지 않음. 고객 지참 표시, 탈거품, 견적 종류(업그레이드)는 넣음
  *  서버(Code.gs portalClean_)가 이 모양의 칸만 다시 걸러 저장함 */
 function portalView(d) {
   const c = calc(d);
   const items = (d.items || []).filter(it => String(it.name || '').trim()).map((it, i) => [it, i])
     .sort((a, b) => catIdx(a[0].cat) - catIdx(b[0].cat) || a[1] - b[1]).map(x => x[0]);
+  const parent = d.parent && qById(d.parent);
   return {
     no: d.no, issued: String(d.createdAt || '').slice(0, 10), valid: d.valid,
+    kind: d.kind || '', parentNo: parent ? parent.no : '',
     name: d.name, owner: d.owner, brand: d.brand, model: d.model, color: d.color, title: d.title,
     sn: d.sn, fn: d.fn, rubiSn: d.rubiSn, ship: d.ship, care: careEnd(d.ship),
     summary: c.summary, list: c.L, offer: c.offer, total: c.F, paid: c.paid, remain: c.remain,
     request: d.request && d.request.amount !== '' && d.request.amount != null ? { label: d.request.label || '', amount: num(d.request.amount) } : { label: (d.request || {}).label || '', amount: '' },
-    payments: (d.payments || []).filter(p => p.label || num(p.amount)).map(p => ({ label: p.label, date: p.date, amount: num(p.amount), method: p.method })),
-    kit: items.map(it => ({ cat: it.cat, slot: it.slot, name: it.name, qty: qtyNum(it.qty) || 1, gift: rateNum(it.rate) >= 100 })),
+    payments: (d.payments || []).filter(p => p.label || num(p.amount)).map(p => ({ label: p.label, date: p.date, amount: payAmount(p), method: p.method })),
+    kit: items.map(it => ({ cat: it.cat, slot: it.slot, name: it.name, qty: qtyNum(it.qty) || 1, gift: !it.own && rateNum(it.rate) >= 100, own: !!it.own })),
     spec: SPEC.map(sec => ({ title: sec.title, fields: sec.fields.map(([k, l]) => [l, (d.spec || {})[k] || '']) })),
+    removed: (d.removed || []).filter(x => String(x.name || '').trim()).map(x => ({ name: x.name, to: x.to || '' })),
     memo: d.memo,
   };
 }
@@ -432,7 +550,7 @@ function portalHtml(d) {
   const q = qById(d.id);
   const stale = p && p.active && q && String(q.updatedAt || '') > String(p.publishedAt || '');
   const head = `<h2 class="sec-h ko"><span>고객 포털<small>portal.rubiworkshop.com, 고객이 고객코드로 로그인해 정제한 견적을 봄</small></span><span class="n">${p && p.active ? '공개 중' : ''}</span></h2>`;
-  const what = `<p class="qt-pinfo"><b>보임</b> 자전거·시리얼·보증 종료일, 진행 단계와 날짜, 구성품 이름(증정 표시), 분류별 소비자가 · 스페셜오퍼 · 최종 견적 금액, 결제 내역 · 결제 요청 · 입금 계좌, 빌드 사양, 비고<br><b>안 보임</b> 줄별 소비자가 · 할인율 · 견적가, 줄 비고 · 시리얼, 전표처리, 이카운트 코드, 내부 메모, 마일리지, 기록</p>`;
+  const what = `<p class="qt-pinfo"><b>보임</b> 자전거·시리얼·보증 종료일, 진행 단계와 날짜, 구성품 이름(증정 · 고객 지참 표시), 분류별 소비자가 · 스페셜오퍼 · 최종 견적 금액, 결제 내역 · 결제 요청 · 입금 계좌, 빌드 사양 · 피팅, 탈거품과 처리, 업그레이드 표시, 비고<br><b>안 보임</b> 줄별 소비자가 · 할인율 · 견적가, 원가 · 실질가 · 마진, 재고상태, 줄 비고 · 시리얼, 전표처리, 이카운트 코드, 증빙 번호 · 발행 상태, 내부 메모, 마일리지, 기록</p>`;
   if (!shared()) return `<section class="ck-group">${head}<p class="ck-none">로그인한 뒤에 공개할 수 있습니다.</p></section>`;
   if (!p) return `<section class="ck-group">${head}${what}<div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>고객 포털에 공개</button></div></section>`;
   // 고객은 portal.rubiworkshop.com 에서 고객코드로 로그인해 '내 자전거' 목록을 봄 (같은 이름으로 공개한 견적이 모임)
@@ -484,14 +602,18 @@ function paperHtml(d, opt) {
     + `<tr><th scope="row">스페셜오퍼</th><td class="n">${paren(c.offer)}</td></tr>`
     + (c.paid ? `<tr><th scope="row">결제 완료 금액</th><td class="n">${paren(-c.paid)}</td></tr>` : '');
   const pays = (d.payments || []).filter(p => p.label || num(p.amount));
-  const payRows = pays.length ? pays.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(fmtKo(p.date))}</td><td class="n">${comma(p.amount)}</td><td>${esc(p.method)}</td></tr>`).join('')
+  const payRows = pays.length ? pays.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(fmtKo(p.date))}</td><td class="n">${paren(payAmount(p))}</td><td>${esc(p.method)}</td></tr>`).join('')
     : '<tr><td colspan="4" class="none">아직 결제 내역이 없습니다</td></tr>';
-  const meta = [['견적 번호', d.no || '저장 전'], ['담당', d.owner], ['유효기간', d.valid && !c.paid ? fmtKo(d.valid) + '까지' : '']].filter(x => x[1])
+  const parent = d.parent && qById(d.parent);
+  const meta = [['견적 번호', d.no || '저장 전'], ['원래 견적', parent ? parent.no : ''], ['담당', d.owner], ['유효기간', d.valid && !c.paid ? fmtKo(d.valid) + '까지' : '']].filter(x => x[1])
     .map(([k, v]) => `<span><i>${k}</i>${esc(v)}</span>`).join('');
   const terms = (Q.TERMS || []).filter(Boolean);
+  const rc = d.receipt || {};
+  const rcLine = rc.type || rc.no ? `<p class="qp-bank qp-rc">증빙 ${esc([rc.type, rc.no, rc.name, rc.email].filter(Boolean).join(' · '))}</p>` : '';
+  const upg = d.kind === UPGRADE;
 
   const page1 = `<article class="qt-paper" aria-label="Purchase Journey Log">
-    <header class="qp-top">${brandMark()}<p class="qp-k"><span>#Purchase Journey Log</span><b>${esc(fmtDot(issued))}</b></p></header>
+    <header class="qp-top">${brandMark()}<p class="qp-k"><span>#Purchase Journey Log${upg ? ' · Upgrade' : ''}</span><b>${esc(fmtDot(issued))}</b></p></header>
     <h1 class="qp-model">${titleLines(d)}</h1>
     <dl class="qp-facts">
       <div><dd>${esc(d.name || '-')}</dd><dt>고객명</dt></div>
@@ -509,6 +631,7 @@ function paperHtml(d, opt) {
         <table class="qp-t pay"><thead><tr><th scope="col">결제 내용</th><th scope="col">결제 날짜</th><th scope="col" class="n">결제 금액</th><th scope="col">결제 수단</th></tr></thead><tbody>${payRows}</tbody>
           <tfoot><tr><th scope="row" colspan="2">총 지불 금액</th><td class="n">${comma(c.paid)}</td><td></td></tr></tfoot></table>
         ${bank ? `<p class="qp-bank">입금 계좌 ${esc(bank)}</p>` : ''}
+        ${rcLine}
       </section>
     </div>
     ${d.memo || terms.length ? `<section class="qp-notes"><h2>비고</h2>${d.memo ? `<p class="memo">${esc(d.memo)}</p>` : ''}${terms.length ? `<ul>${terms.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}</section>` : ''}
@@ -517,10 +640,15 @@ function paperHtml(d, opt) {
   </article>`;
 
   const specFilled = SPEC.some(s => s.fields.some(([k]) => (d.spec || {})[k]));
-  const page2 = opt.spec && (specFilled || d.sn || d.fn) ? `<article class="qt-paper qp-break" aria-label="빌드 사양">
+  const removed = (d.removed || []).filter(x => String(x.name || '').trim());
+  // 피팅처럼 fit 표시가 있는 묶음은 채운 칸이 있을 때만
+  const secs = SPEC.filter(s => !s.fit || s.fields.some(([k]) => (d.spec || {})[k]));
+  const page2 = opt.spec && (specFilled || d.sn || d.fn || removed.length) ? `<article class="qt-paper qp-break" aria-label="빌드 사양">
     <header class="qp-top">${brandMark()}<p class="qp-k"><span>#Build Specification</span><b>${esc(fmtDot(issued))}</b></p></header>
     <div class="qp-spech"><h1 class="qp-model sm">${titleLines(d)}</h1><p>${[d.sn ? 'S/N: ' + esc(d.sn) : 'S/N: -', d.fn ? 'F/N: ' + esc(d.fn) : '', d.rubiSn ? esc(d.rubiSn) : ''].filter(Boolean).join('<i>·</i>')}</p></div>
-    ${SPEC.map(s => `<section class="qp-spec"><h2>${esc(s.title)}</h2><dl>${s.fields.map(([k, l]) => `<div><dt>${esc(l)}</dt><dd>${esc((d.spec || {})[k] || '-')}</dd></div>`).join('')}</dl></section>`).join('')}
+    ${secs.map(s => `<section class="qp-spec"><h2>${esc(s.title)}</h2><dl>${s.fields.map(([k, l]) => `<div><dt>${esc(l)}</dt><dd>${esc((d.spec || {})[k] || '-')}</dd></div>`).join('')}</dl></section>`).join('')}
+    ${removed.length ? `<section class="qp-spec"><h2>탈거품</h2><table class="qp-t qp-rmt"><thead><tr><th scope="col">떼어낸 부품</th><th scope="col">시리얼</th><th scope="col">처리</th><th scope="col">비고</th></tr></thead>
+      <tbody>${removed.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.sn || '')}</td><td>${esc(x.to || '')}</td><td>${esc(x.note || '')}</td></tr>`).join('')}</tbody></table></section>` : ''}
     <p class="qp-conf">${esc(CONFIDENTIAL)}</p>
     ${footHtml()}
   </article>` : '';
@@ -533,7 +661,8 @@ function paperHtml(d, opt) {
     const q = qtyNum(it.qty) || 1;
     return `<tr${first ? ' class="g"' : ''}><th scope="row">${first ? esc(it.cat) : ''}</th><td>${esc(it.slot)}</td>
       <td class="nm">${esc(it.name)}${q > 1 ? ` <small>× ${esc(q)}</small>` : ''}${it.note ? `<small class="nt">${esc(it.note)}</small>` : ''}</td>
-      <td class="n">${comma(num(it.list) * q)}</td><td class="n">${rateNum(it.rate) >= 100 ? '증정' : rateNum(it.rate) ? pct(rateNum(it.rate)) + '%' : ''}</td><td class="n">${comma(num(it.price) * q)}</td></tr>`;
+      ${it.own ? '<td class="n own" colspan="3">고객 지참</td>'
+        : `<td class="n">${comma(num(it.list) * q)}</td><td class="n">${rateNum(it.rate) >= 100 ? '증정' : rateNum(it.rate) ? pct(rateNum(it.rate)) + '%' : ''}</td><td class="n">${comma(num(it.price) * q)}</td>`}</tr>`;
   }).join('');
   const page3 = opt.items && items.length ? `<article class="qt-paper qp-break" aria-label="세부 품목">
     <header class="qp-top">${brandMark()}<p class="qp-k"><span>#Build Kit</span><b>${esc(fmtDot(issued))}</b></p></header>
@@ -669,7 +798,7 @@ function afterLoad() {
   if (!dirty) render();
 }
 
-const FIELDS = ['cid', 'name', 'title', 'owner', 'status', 'valid', 'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'ship', 'memo', 'note'];
+const FIELDS = ['cid', 'name', 'title', 'owner', 'status', 'valid', 'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'ship', 'memo', 'note', 'kind', 'parent'];
 function payload(d) {
   const o = { id: d.id || '' };
   FIELDS.forEach(k => o[k] = d[k] == null ? '' : d[k]);
@@ -677,11 +806,15 @@ function payload(d) {
   o.items = d.items.filter(it => String(it.name || '').trim()).map(it => ({
     cat: it.cat, slot: it.slot || '', name: it.name, list: num(it.list), rate: rateNum(it.rate), price: num(it.price),
     qty: qtyNum(it.qty) || 1, note: it.note || '', sn: it.sn || '', slip: it.slip || '', code: it.code || '',
+    own: !!it.own, cost: it.cost === '' || it.cost == null ? '' : num(it.cost), stock: it.stock || '',
   }));
-  o.payments = d.payments.filter(p => p.label || num(p.amount)).map(p => ({ label: p.label || '', date: p.date || '', amount: num(p.amount), method: p.method || '' }));
+  o.payments = d.payments.filter(p => p.label || num(p.amount)).map(p => ({ label: p.label || '', date: p.date || '', amount: payAmount(p), method: p.method || '', rc: p.rc || '' }));
   const rq = d.request || {};
   o.request = { label: rq.label || '', amount: rq.amount === '' || rq.amount == null ? '' : num(rq.amount) };
   o.spec = {}; Object.keys(d.spec || {}).forEach(k => { if (String(d.spec[k]).trim()) o.spec[k] = String(d.spec[k]).trim(); });
+  const rc = d.receipt || {};
+  o.receipt = { type: rc.type || '', no: String(rc.no || '').trim(), name: String(rc.name || '').trim(), email: String(rc.email || '').trim() };
+  o.removed = (d.removed || []).filter(x => String(x.name || '').trim()).map(x => ({ name: x.name.trim(), sn: x.sn || '', to: x.to || '', note: x.note || '' }));
   return o;
 }
 
@@ -784,7 +917,7 @@ function openNew(cid) {
 function addLine(it) {
   if (!draft) return null;
   const list = num(it.list), rate = it.rate != null ? it.rate : rateNum(ui.rate);
-  const line = Object.assign({ k: key(), cat: ui.scat, slot: srch.slot || '', name: '', list, rate, price: linePrice(list, rate), qty: 1, note: '', sn: '', slip: '', code: '' }, it, { list, rate, price: linePrice(list, rate) });
+  const line = Object.assign({ k: key(), cat: ui.scat, slot: srch.slot || '', name: '', list, rate, price: linePrice(list, rate), qty: 1, note: '', sn: '', slip: '', code: '', own: false, cost: '', stock: '' }, it, { list, rate, price: linePrice(list, rate) });
   draft.items.push(line);
   dirty = true; msg = ''; okMsg = '';
   return line;
@@ -799,14 +932,15 @@ function updateSums() {
   set('P', won(c.P)); set('F', won(c.F)); set('offer', paren(c.offer)); set('rate', `총 할인 ${pct(c.rate)}%`);
   set('vx', `${won(c.points)} · ${won(c.supply)} · ${won(c.vat)}`); set('paid', won(c.paid)); set('remain', won(c.remain));
   const f = host.querySelector('#qtFinal'); if (f) f.placeholder = comma(c.P);
+  const pf = host.querySelector('[data-profit]'); if (pf) pf.innerHTML = profitInner(draft);
 }
 function paintLine(li, it) {
   const set = (lf, v) => { const el = li.querySelector(`[data-lf=${lf}]`); if (el && document.activeElement !== el) el.value = v; };
   set('list', it.list ? comma(it.list) : ''); set('rate', it.rate ? pct(it.rate) : ''); set('price', it.price || it.list ? comma(it.price) : '');
-  const q = qtyNum(it.qty) || 1, gift = it.rate >= 100;
-  li.classList.toggle('gift', gift);
+  li.classList.toggle('gift', it.rate >= 100);
+  li.classList.toggle('own', !!it.own);
   const tag = li.querySelector('.tag');
-  if (tag) tag.innerHTML = `${gift ? '증정' : q > 1 ? `× ${esc(q)} = ${comma(num(it.price) * q)}` : ''}${it.code ? `<i>이카운트 ${esc(it.code)}</i>` : ''}`;
+  if (tag) tag.innerHTML = lineTag(it);
 }
 
 // 이카운트 품목 찾기
@@ -837,7 +971,9 @@ function paintSearch() {
 function pickResult(i) {
   const p = srch.items[i]; if (!p) return;
   const spec = [p.size].filter(Boolean).join(' ');
-  addLine({ name: spec && !p.name.includes(spec) ? `${p.name} (${spec})` : p.name, code: p.code, list: vatPrice(num(p.price), p.vat) });
+  // 원가: 이카운트 입고단가(부가세 별도로 맞춤). 재고 서비스가 입고단가를 주지 않으면 비워 둠
+  const cost = num(p.cost) ? (p.costVat === 'Y' ? Math.round(num(p.cost) / 1.1) : num(p.cost)) : '';
+  addLine({ name: spec && !p.name.includes(spec) ? `${p.name} (${spec})` : p.name, code: p.code, list: vatPrice(num(p.price), p.vat), cost });
   srch.q = ''; srch.items = []; srch.state = ''; srch.slot = '';
   render();
   const s = host.querySelector('.qt-sslot'); if (s) s.focus();
@@ -851,6 +987,8 @@ function bind() {
   document.addEventListener('input', e => { if (inHost(e) && !e.isComposing) onInput(e); });
   document.addEventListener('compositionend', e => { if (inHost(e)) onInput(e); });
   document.addEventListener('change', e => { if (inHost(e)) onChange(e); });
+  // 내부 손익 묶음을 펼쳐 두었는지 기억 (다시 그려도 그대로)
+  document.addEventListener('toggle', e => { if (inHost(e) && e.target.classList && e.target.classList.contains('qt-profit')) { ui.profit = e.target.open; saveUi(); } }, true);
   // 화면을 다시 그리면 포커스가 body 로 빠지므로, 그때의 Esc 도 이 앱이 받음 (패널 전체가 닫히지 않게)
   document.addEventListener('keydown', e => { if (inHost(e) || (host && view !== 'list' && e.target === document.body)) onKey(e); }, true);
 }
@@ -859,7 +997,30 @@ async function onClick(e) {
   const t = e.target;
   const hit = s => t.closest(s);
   if (hit('[data-new]')) { openNew(''); return; }
-  if (hit('[data-open]')) { const q = qById(hit('[data-open]').dataset.open); if (q) go('edit', toDraft(q)); return; }
+  if (hit('[data-open]')) {
+    const q = qById(hit('[data-open]').dataset.open); if (!q) return;
+    if (view === 'edit' && dirty) { msg = '저장한 뒤에 다른 견적으로 넘어가 주세요'; render(); return; }
+    go('edit', toDraft(q)); return;
+  }
+  if (hit('[data-rcwait]')) { ui.q = '증빙 발행 전'; ui.status = ALL; render(); return; }
+  if (hit('[data-xadd]')) {
+    draft.removed.push({ k: key(), name: '', sn: '', to: '', note: '' }); dirty = true; render();
+    const rows = host.querySelectorAll('.qt-rm [data-xf=name]'); if (rows.length) rows[rows.length - 1].focus();
+    return;
+  }
+  if (hit('[data-xdl]')) { const k = hit('[data-xdl]').dataset.xdl; draft.removed = draft.removed.filter(x => x.k !== k); dirty = true; render(); return; }
+  if (hit('[data-upgrade]')) {
+    if (dirty) { msg = '저장한 뒤에 업그레이드 견적을 만들어 주세요'; render(); return; }
+    const src = draft;
+    const d = toDraft(Object.assign(blank(src.cid), {
+      cid: src.cid, name: src.name, owner: me() || src.owner, brand: src.brand, model: src.model, color: src.color,
+      sn: src.sn, fn: src.fn, rubiSn: src.rubiSn, ship: src.ship, spec: Object.assign({}, src.spec), receipt: Object.assign({}, src.receipt),
+      kind: UPGRADE, parent: src.id, title: UPGRADE,
+    }));
+    go('edit', d); dirty = true;
+    okMsg = `${src.no} 자전거의 업그레이드 견적입니다. 새로 다는 부품을 품목에, 떼어낸 부품을 탈거품에 넣고 저장하면 새 견적 번호가 붙습니다`;
+    render(); return;
+  }
   if (hit('[data-stab]')) { ui.status = hit('[data-stab]').dataset.stab; saveUi(); render(); return; }
   if (hit('[data-back]')) { go('list'); return; }
   if (hit('[data-go]')) { const v = hit('[data-go]').dataset.go; if (v === 'list') go('list'); else { view = v; paperSrc = null; paperSnap = null; msg = ''; okMsg = ''; render(); const b = host.querySelector('.ck-body'); if (b) b.scrollTop = 0; } return; }
@@ -904,7 +1065,8 @@ async function onClick(e) {
   if (hit('[data-save]')) { save(); return; }
   if (hit('[data-print]')) { printPaper(); return; }
   if (hit('[data-dup]')) {
-    const d = toDraft(Object.assign({}, draft, { id: '', no: '', status: STATUS[0], createdAt: '', updatedAt: '', author: '', valid: addDays(+Q.VALID_DAYS || 14), owner: me() || draft.owner, payments: [], request: { label: '', amount: '' }, title: draft.title ? draft.title + ' (복제)' : '' }));
+    const d = toDraft(Object.assign({}, draft, { id: '', no: '', status: STATUS[0], createdAt: '', updatedAt: '', author: '', valid: addDays(+Q.VALID_DAYS || 14), owner: me() || draft.owner, payments: [], request: { label: '', amount: '' }, title: draft.title ? draft.title + ' (복제)' : '',
+      items: draft.items.map(it => Object.assign({}, it, { slip: '', stock: '' })) }));
     go('edit', d); dirty = true; okMsg = '복제했습니다. 지불 현황은 비웠습니다. 옵션 이름과 구성을 고친 뒤 저장하면 새 견적 번호가 붙습니다'; render(); return;
   }
   if (hit('[data-del]')) {
@@ -994,17 +1156,31 @@ function onInput(e) {
     else if (lf === 'rate') { t.value = t.value.replace(/[^\d.]/g, ''); it.rate = rateNum(t.value); it.price = linePrice(num(it.list), it.rate); }
     else if (lf === 'price') { const neg = /^\s*-/.test(t.value); const n = num(t.value); it.price = n; t.value = n ? comma(n) : neg ? '-' : ''; it.rate = num(it.list) ? Math.max(0, Math.min(100, Math.round((1 - n / num(it.list)) * 10000) / 100)) : 0; }
     else if (lf === 'qty') { t.value = t.value.replace(/[^\d.]/g, ''); it.qty = t.value; }
+    else if (lf === 'cost') { const raw = t.value.replace(/[^\d]/g, ''); it.cost = raw === '' ? '' : +raw; t.value = raw ? comma(+raw) : ''; updateSums(); return; }
     else it[lf] = t.value;
     if (['list', 'rate', 'price', 'qty'].includes(lf)) { paintLine(li, it); updateSums(); }
+    else if (lf === 'name') { const pf2 = host.querySelector('[data-profit]'); if (pf2 && ui.profit) pf2.innerHTML = profitInner(draft); }
     return;
   }
   const pf = t.dataset.pf;
   if (pf) {
     const li = t.closest('[data-pk]'); const p = li && draft.payments.find(x => x.k === li.dataset.pk); if (!p) return;
     dirty = true; leaveArmed = false;
-    if (pf === 'amount') { const n = num(t.value); p.amount = n; t.value = n ? comma(n) : ''; updateSums(); }
-    else p[pf] = t.value;
+    // 음수(취소·환불)도 칠 수 있게 '-' 하나만 친 상태를 지킴
+    if (pf === 'amount') { const neg = /^\s*-/.test(t.value); const n = num(t.value); p.amount = n; t.value = n ? comma(n) : neg ? '-' : ''; updateSums(); }
+    else {
+      p[pf] = t.value;
+      // 결제 내용을 '결제 취소'·'환불'로 바꾸면 금액이 음수로 계산됨
+      if (pf === 'label') { li.classList.toggle('rf', isRefund(p.label)); const a = li.querySelector('[data-pf=amount]'); if (a && p.amount) a.value = comma(payAmount(p)); updateSums(); }
+    }
     return;
+  }
+  const rcf = t.dataset.rcf;
+  if (rcf && rcf !== 'type') { draft.receipt[rcf] = t.value; dirty = true; leaveArmed = false; return; }
+  const xf = t.dataset.xf;
+  if (xf) {
+    const li = t.closest('[data-xk]'); const x = li && draft.removed.find(y => y.k === li.dataset.xk); if (!x) return;
+    x[xf] = t.value; dirty = true; leaveArmed = false; return;
   }
   const rf = t.dataset.rf;
   if (rf) {
@@ -1036,6 +1212,27 @@ function onChange(e) {
   if (t.dataset.lf === 'cat') {
     const li = t.closest('[data-k]'); const it = li && draft.items.find(x => x.k === li.dataset.k);
     if (it) { it.cat = t.value; dirty = true; render(); }
+    return;
+  }
+  if (t.matches('[data-own]')) {
+    const li = t.closest('[data-k]'); const it = li && draft.items.find(x => x.k === li.dataset.k);
+    if (it) { it.own = t.checked; dirty = true; paintLine(li, it); updateSums(); }
+    return;
+  }
+  if (t.matches('[data-lstock]')) {
+    const li = t.closest('[data-k]'); const it = li && draft.items.find(x => x.k === li.dataset.k);
+    if (it) { it.stock = t.value; dirty = true; updateSums(); }
+    return;
+  }
+  if (t.matches('[data-prc]')) {
+    const li = t.closest('[data-pk]'); const p = li && draft.payments.find(x => x.k === li.dataset.pk);
+    if (p) { p.rc = t.value; dirty = true; }
+    return;
+  }
+  if (t.matches('[data-rcf=type]')) { draft.receipt.type = t.value; dirty = true; render(); return; }   // 세금계산서면 상호·이메일 칸이 생김
+  if (t.matches('[data-xto]')) {
+    const li = t.closest('[data-xk]'); const x = li && draft.removed.find(y => y.k === li.dataset.xk);
+    if (x) { x.to = t.value; dirty = true; }
     return;
   }
   if (t.matches('[data-slip]')) {

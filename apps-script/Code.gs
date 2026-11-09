@@ -23,6 +23,8 @@
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
  *    지불 현황에 계약금·예약금이 들어오면 고객 건 단계를 그만큼 넘기고, 고객 건의 계약금(원) 칸을 지불 합계로 맞춤
  *    '견적기록' 탭에는 그 시점의 견적 전체를 남김 (예전 시트의 날짜별·결제 단계별 탭 대신, GET quotesnap)
+ *    2026-11-09 판: 품목의 고객 지참(own, 금액에서 뺌)·원가(cost)·재고상태(stock), 결제별 증빙 상태(rc)와 결제 취소·환불(음수),
+ *    증빙(receipt: 현금영수증·세금계산서 번호), 탈거품(removed), 견적 종류(kind '업그레이드')와 원래 견적(parent) 열이 늘어남
  *    입금 계좌는 스크립트 속성 QUOTE_BANK 에 적음 (리포지토리가 공개라서 코드에 두지 않음). 로그인한 직원에게만 돌려줌
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
@@ -107,9 +109,18 @@ const POINT_AUTO_USE = '[견적 결제]';   // 견적 지불 현황에서 자동
 
 // 견적 탭 (assets/quote.js). 새 열은 뒤에만 붙임 (이미 만든 시트의 열 순서를 지키려고)
 const QUOTE_COLS = ['id', 'no', 'cid', 'name', 'title', 'items', 'subtotal', 'discount', 'total', 'memo', 'note', 'valid', 'status', 'owner', 'author', 'email', 'createdAt', 'updatedAt',
-  'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'final', 'payments', 'request', 'ship', 'spec', 'paid'];
+  'brand', 'model', 'color', 'sn', 'rubiSn', 'fn', 'final', 'payments', 'request', 'ship', 'spec', 'paid',
+  'receipt', 'removed', 'kind', 'parent'];
 const QUOTE_HEADERS = ['ID', '견적 번호', '고객 건 ID', '고객명', '견적 제목(옵션 이름)', '품목(JSON)', '소비자가 합계(원)', '할인 합계(원)', '최종 견적 금액(원)', '비고(문서에 보임)', '내부 메모', '유효기간', '상태', '담당', '작성자', '이메일', '작성일시', '수정일시',
-  '브랜드', '모델', '컬러·사양', '고유 시리얼', '루비 시리얼', '프레임 넘버', '최종 금액 직접 입력(원)', '지불 현황(JSON)', '결제 요청(JSON)', '출고일', '빌드 사양(JSON)', '지불 합계(원)'];
+  '브랜드', '모델', '컬러·사양', '고유 시리얼', '루비 시리얼', '프레임 넘버', '최종 금액 직접 입력(원)', '지불 현황(JSON)', '결제 요청(JSON)', '출고일', '빌드 사양(JSON)', '지불 합계(원)',
+  '증빙(JSON)', '탈거품(JSON)', '견적 종류', '원래 견적 ID'];
+// 견적 종류: '' 보통 견적, '업그레이드' 출고한 자전거의 업그레이드 작업 견적 (parent 에 원래 견적 ID)
+const QUOTE_KINDS = ['업그레이드'];
+// 증빙 종류와 결제별 증빙 상태, 품목 재고상태, 탈거품 처리 (포털 quote.js 와 같게)
+const QUOTE_RC_TYPES = ['현금영수증 (소득공제)', '현금영수증 (지출증빙)', '세금계산서', '카드 매출전표', '자진발급', '발행 안 함'];
+const QUOTE_RC_STATES = ['발행 전', '발행 완료', '자진발급', '미발행', '해당 없음'];
+const QUOTE_STOCK = ['재고 있음', '발주 필요', '발주함', '입고', '이동완료', '불출완료'];
+const QUOTE_REMOVED_TO = ['고객 반환', '매장 보관', '보상 매입', '다른 빌드로', '폐기'];
 const QUOTE_STATUS = ['작성중', '보냄', '계약', '취소'];
 // 분류. 포털 quote.js 의 CATS 와 같게 (예전 견적 시트 DB 탭의 분류)
 const QUOTE_CATS = ['서비스', '완성차', '프레임', '드라이브트레인', '휠세트', '컴포넌트', '스몰 파츠', '자전거 악세사리', '라이더 이큅먼트'];
@@ -642,7 +653,7 @@ function crmData_() {
     customers: crmRows_(crmSheet_()).map(o => { delete o.email; return o; }),
     crmLogs: crmLogRows_().filter(l => String(l.at).slice(0, 10) >= cutoff),
     // 고객 상세 화면의 '견적' 묶음용 요약 (품목은 빼고)
-    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, ship: q.ship, at: q.updatedAt || q.createdAt })),
+    quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.kind, q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, ship: q.ship, at: q.updatedAt || q.createdAt })),
     points: pointRows_().map(o => { delete o.email; return o; }),
   };
 }
@@ -865,8 +876,10 @@ function portalClean_(v) {
   const n = x => { const k = Math.round(Number(x) || 0); return isFinite(k) ? k : 0; };
   const day = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
   const arr = (x, max) => (Array.isArray(x) ? x : []).slice(0, max);
+  // 원가·재고상태·증빙(번호·발행 상태)·줄 가격은 여기 목록에 없어서 보내도 저장되지 않음
   return {
     no: t(v.no, 20), issued: day(v.issued), valid: day(v.valid),
+    kind: QUOTE_KINDS.indexOf(v.kind) >= 0 ? v.kind : '', parentNo: t(v.parentNo, 20),
     name: t(v.name, 40), owner: t(v.owner, 40),
     brand: t(v.brand, 60), model: t(v.model, 80), color: t(v.color, 80), title: t(v.title, 120),
     sn: t(v.sn, 60), fn: t(v.fn, 60), rubiSn: t(v.rubiSn, 60), ship: day(v.ship), care: day(v.care),
@@ -874,8 +887,10 @@ function portalClean_(v) {
     list: n(v.list), offer: n(v.offer), total: n(v.total), paid: n(v.paid), remain: n(v.remain),
     request: { label: t(v.request && v.request.label, 40), amount: v.request && v.request.amount !== '' && v.request.amount != null ? n(v.request.amount) : '' },
     payments: arr(v.payments, 40).map(p => ({ label: t(p.label, 60), date: day(p.date), amount: n(p.amount), method: t(p.method, 30) })),
-    kit: arr(v.kit, 120).map(k => ({ cat: t(k.cat, 20), slot: t(k.slot, 40), name: t(k.name, 160), qty: Math.max(1, Math.min(999, Number(k.qty) || 1)), gift: !!k.gift })),
+    kit: arr(v.kit, 120).map(k => ({ cat: t(k.cat, 20), slot: t(k.slot, 40), name: t(k.name, 160), qty: Math.max(1, Math.min(999, Number(k.qty) || 1)), gift: !!k.gift && !k.own, own: !!k.own })),
     spec: arr(v.spec, 8).map(sec => ({ title: t(sec.title, 30), fields: arr(sec.fields, 20).map(f => [t(f[0], 40), t(f[1], 120)]).filter(f => f[1]) })).filter(sec => sec.fields.length),
+    // 탈거품: 이름과 처리만 (시리얼·비고는 내부용)
+    removed: arr(v.removed, 60).map(x => ({ name: t(x && x.name, 160), to: QUOTE_REMOVED_TO.indexOf(x && x.to) >= 0 ? x.to : '' })).filter(x => x.name),
     memo: t(v.memo, 3000),
   };
 }
@@ -1043,7 +1058,7 @@ function portalLogin_(input) {
 //  할인 합계(discount) = 소비자가 합계 − 최종 견적 금액 (예전 시트의 '스페셜오퍼'와 줄별 할인을 합친 값)
 
 const quoteParse_ = (v, d) => { try { const x = JSON.parse(v || ''); return x == null ? d : x; } catch (e) { return d; } };
-const QUOTE_JSON = ['items', 'payments', 'request', 'spec'];
+const QUOTE_JSON = ['items', 'payments', 'request', 'spec', 'receipt', 'removed'];
 
 function quoteSheet_() {
   const ss = indexSs_();
@@ -1094,6 +1109,8 @@ function quoteOut_(q) {
   o.payments = quoteParse_(q.payments, []);
   o.request = quoteParse_(q.request, {});
   o.spec = quoteParse_(q.spec, {});
+  o.receipt = quoteParse_(q.receipt, {});
+  o.removed = quoteParse_(q.removed, []);
   return o;
 }
 
@@ -1139,16 +1156,30 @@ function quoteInput_(b) {
     const rate = Math.max(0, Math.min(100, Math.round((Number(it.rate) || 0) * 100) / 100));
     const price = it.price != null && it.price !== '' ? Math.max(-1e9, Math.min(1e10, int(it.price))) : Math.round(list * (1 - rate / 100));
     const cat = QUOTE_CATS.indexOf(it.cat) >= 0 ? it.cat : (QUOTE_CAT_OLD[it.cat] || '컴포넌트');
-    return { cat, slot: txt(it.slot, 40), name: txt(it.name, 160), list, rate, price, qty, note: txt(it.note, 200), sn: txt(it.sn, 60), slip: day(it.slip), code: txt(it.code, 40) };
+    // own: 고객 지참(금액에서 뺌), cost: 원가(부가세 별도 단가, 내부용), stock: 재고상태(내부용)
+    const cost = it.cost === '' || it.cost == null ? '' : Math.max(0, Math.min(1e10, int(it.cost)));
+    const stock = QUOTE_STOCK.indexOf(it.stock) >= 0 ? it.stock : '';
+    return { cat, slot: txt(it.slot, 40), name: txt(it.name, 160), list, rate, price, qty, note: txt(it.note, 200), sn: txt(it.sn, 60), slip: day(it.slip), code: txt(it.code, 40), own: !!it.own, cost, stock };
   }).filter(it => it.name);
-  const listSum = items.reduce((m, it) => m + Math.round(it.list * it.qty), 0);
-  const priceSum = items.reduce((m, it) => m + Math.round(it.price * it.qty), 0);
+  const paidItems = items.filter(it => !it.own);
+  const listSum = paidItems.reduce((m, it) => m + Math.round(it.list * it.qty), 0);
+  const priceSum = paidItems.reduce((m, it) => m + Math.round(it.price * it.qty), 0);
   const final = b.final === '' || b.final == null ? '' : Math.max(0, int(b.final));
   const total = final === '' ? priceSum : final;
+  // 결제 취소·환불은 적은 부호와 상관없이 음수 (지불 합계에서 빠짐). rc: 결제별 증빙 상태
   const payments = (Array.isArray(b.payments) ? b.payments : []).slice(0, 40)
-    .map(p => ({ label: txt(p.label, 60), date: day(p.date), amount: int(p.amount), method: txt(p.method, 30) }))
+    .map(p => {
+      const label = txt(p.label, 60), a = int(p.amount);
+      return { label, date: day(p.date), amount: /취소|환불/.test(label) ? -Math.abs(a) : a, method: txt(p.method, 30), rc: QUOTE_RC_STATES.indexOf(p.rc) >= 0 ? p.rc : '' };
+    })
     .filter(p => p.label || p.amount);
   const paid = payments.reduce((m, p) => m + p.amount, 0);
+  const rc0 = b.receipt || {};
+  const receipt = { type: QUOTE_RC_TYPES.indexOf(rc0.type) >= 0 ? rc0.type : '', no: txt(rc0.no, 40), name: txt(rc0.name, 60), email: txt(rc0.email, 80) };
+  const removed = (Array.isArray(b.removed) ? b.removed : []).slice(0, 60)
+    .map(x => ({ name: txt(x.name, 160), sn: txt(x.sn, 60), to: QUOTE_REMOVED_TO.indexOf(x.to) >= 0 ? x.to : '', note: txt(x.note, 200) }))
+    .filter(x => x.name);
+  const kind = QUOTE_KINDS.indexOf(b.kind) >= 0 ? b.kind : '';
   const rq = b.request || {};
   const request = { label: txt(rq.label, 40), amount: rq.amount === '' || rq.amount == null ? '' : int(rq.amount) };
   const spec = {};
@@ -1168,6 +1199,8 @@ function quoteInput_(b) {
     sn: txt(b.sn, 60), rubiSn: txt(b.rubiSn, 60), fn: txt(b.fn, 60),
     payments: JSON.stringify(payments), paid: String(paid),
     request: JSON.stringify(request), ship: day(b.ship), spec: JSON.stringify(spec),
+    receipt: JSON.stringify(receipt), removed: JSON.stringify(removed),
+    kind, parent: kind ? txt(b.parent, 20) : '',
   };
 }
 
@@ -1271,7 +1304,9 @@ function nextQuoteNo_(sh) {
 /** 견적을 고객 건에 연결
  *  - 단계: 문의·상담이면 '견적'으로. 지불 현황에 계약금이 있으면 '계약금', 예약금이 있으면 '예약금'까지 (앞으로만)
  *  - 브랜드·모델이 비어 있으면 견적의 모델(또는 제목)으로
- *  - 계약금(원) 칸: 지불 합계로 맞춤 (고객관리의 '진행중 계약금' 숫자)
+ *  - 계약금(원) 칸: 이 고객 건에 연결된 견적(취소 제외)의 지불 합계 (고객관리의 '진행중 계약금' 숫자)
+ *    출고 후 업그레이드 견적처럼 한 고객 건에 결제한 견적이 둘 이상이어도 합계가 맞게
+ *  - 단계는 앞으로만 가므로, 이미 출고·루비케어인 건에 업그레이드 견적을 붙여도 단계는 그대로
  *  - 기록: 처음 연결할 때, 단계가 바뀔 때, 결제가 새로 들어올 때 고객로그에 한 줄 */
 function quoteLinkCrm_(q, first, prevPays, who) {
   const sh = crmSheet_();
@@ -1284,14 +1319,16 @@ function quoteLinkCrm_(q, first, prevPays, who) {
   const cur = sh.getRange(row, 1, 1, CRM_COLS.length).getValues()[0];
   const c = {}; CRM_COLS.forEach((k, j) => c[k] = noteCell_(cur[j], k));
   const pays = quoteParse_(q.payments, []);
-  const paid = pays.reduce((m, p) => m + (+p.amount || 0), 0);
+  const paidHere = pays.reduce((m, p) => m + (+p.amount || 0), 0);
+  // 같은 고객 건에 연결된 견적들(취소 제외)의 지불 합계. 이 견적은 방금 시트에 쓴 값이 들어 있음
+  const paid = quoteRows_().filter(x => x.cid === q.cid && x.status !== '취소').reduce((m, x) => m + (+x.paid || 0), 0) || paidHere;
   const key = p => [p.label, p.date, p.amount].join('|');
   const before = {}; (prevPays || []).forEach(p => before[key(p)] = 1);
   const added = first ? pays : pays.filter(p => !before[key(p)]);
 
   let target = '견적';
   if (pays.some(p => /예약금/.test(p.label))) target = '예약금';
-  else if (pays.some(p => /계약금/.test(p.label)) || paid > 0) target = '계약금';
+  else if (pays.some(p => /계약금/.test(p.label)) || paidHere > 0) target = '계약금';
   const si = CRM_STAGES.indexOf(c.stage), ti = CRM_STAGES.indexOf(target);
   const moved = si >= 0 && c.stage !== '종료' && si < ti;
   const model = [q.brand, q.model].filter(Boolean).join(' ') || q.title;
@@ -1305,7 +1342,8 @@ function quoteLinkCrm_(q, first, prevPays, who) {
   if (moved || first || added.length) {
     const lsh = crmLogSheet_();
     const parts = [];
-    if (first) parts.push(`견적서 ${q.no}${model ? ' ' + model : ''}, ${wonText_(q.total)}`);
+    const kind = q.kind ? q.kind + ' ' : '';
+    if (first) parts.push(`${kind}견적서 ${q.no}${model ? ' ' + model : ''}, ${wonText_(q.total)}`);
     added.forEach(p => parts.push(`${p.label || '결제'} ${wonText_(p.amount)} 받음`));
     if (!parts.length) parts.push(`견적서 ${q.no}, ${wonText_(q.total)}`);
     const l = { id: Utilities.getUuid().slice(0, 8), cid: c.id, name: c.name, stage: c.stage, memo: parts.join(' · '), flag: c.flag, by: who, at: now_() };

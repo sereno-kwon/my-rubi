@@ -58,14 +58,26 @@
 .qt-line .r2 label{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--faint)}
 .qt-line .r2 input{height:28px;padding:0 8px;font-size:13px}
 .qt-line .r2 .q{width:52px}
-.qt-line .r2 .wd{flex:1 1 220px}
+.qt-line .r2 .wd{flex:1 1 160px}
 .qt-line .r2 .wd input{flex:1}
-.qt-line .r2 [data-lf=sn]{width:140px}
+.qt-line .r2 [data-lf=sn]{width:120px}
 .qt-line .slip input{width:14px;height:14px;margin:0;accent-color:#101114}
 .qt-line .slip input:checked + span{color:var(--fg)}
 .qt-line .tag{margin-left:auto;font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .qt-line .tag i{font-style:normal;color:var(--faint);margin-left:10px}
 .qt-line.gift .tag{color:var(--accent)}
+/* 원가·재고 (내부용)와 고객 지참 */
+.qt-line .r2 .in span{color:var(--faint)}
+.qt-line .r2 [data-lf=cost]{width:92px}
+.qt-line .r2 select{height:28px;padding:0 6px;font-size:13px}
+.qt-line .r2 .slip{cursor:pointer}
+.qt-line .r2 [data-own]{width:14px;height:14px;margin:0;accent-color:#101114}
+.qt-line .r2 [data-own]:checked + span{color:var(--fg)}
+.qt-line.own [data-lf=list],.qt-line.own [data-lf=price],.qt-line.own .rt input{color:var(--faint);text-decoration:line-through}
+.qt-line.own .tag{color:var(--fg)}
+.qt-kind{display:inline-block;margin-right:8px;padding:1px 6px;border:1px solid var(--fg);font-weight:400;font-size:12px;line-height:16px;letter-spacing:0;vertical-align:2px}
+.qt-ulink{margin:8px 0 0;font-size:13px;line-height:18px;color:var(--muted)}
+.qt-ulink small{font-size:12px;color:var(--faint);margin-left:4px}
 
 .qt-add{display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line)}
 .qt-add select,.qt-add .qt-sslot{flex:none;height:40px;padding:0 10px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--fg);font:inherit;font-size:14px;outline:none}
@@ -120,9 +132,35 @@
 
 /* 지불 현황 */
 .qt-pays{list-style:none;margin:0;padding:0}
-.qt-pay{display:grid;grid-template-columns:minmax(0,1.4fr) 150px 140px minmax(0,1fr) 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
-.qt-pay input{min-width:0;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--fg);font:inherit;font-size:14px;outline:none}
-.qt-pay input:focus{border-color:var(--fg)}
+.qt-pay{display:grid;grid-template-columns:minmax(0,1.4fr) 150px 140px minmax(0,1fr) 112px 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.qt-pay input,.qt-pay select,.qt-rm input,.qt-rm select,.qt-rc select{min-width:0;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--fg);font:inherit;font-size:14px;outline:none}
+.qt-pay select,.qt-rm select,.qt-rc select{padding:0 6px}
+.qt-pay input:focus,.qt-pay select:focus,.qt-rm input:focus,.qt-rm select:focus,.qt-rc select:focus{border-color:var(--fg)}
+.qt-pay.rf [data-pf=amount]{color:var(--danger)}
+.qt-rc [data-rcf=no]{width:220px}
+.qt-rc [data-rcf=name]{width:180px}
+.qt-rc [data-rcf=email]{width:240px}
+/* 탈거품 */
+.qt-rm{display:grid;grid-template-columns:minmax(0,1.6fr) 140px 120px minmax(0,1fr) 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.qt-rm input::placeholder{color:var(--faint)}
+.qt-rm .x{width:32px;height:32px;display:grid;place-items:center;border:none;background:none;border-radius:0;color:var(--faint)}
+.qt-rm .x:hover{color:var(--danger)}
+.qt-rms .crm-more{margin-top:8px}
+/* 내부 손익 */
+.qt-profit summary{cursor:pointer;list-style:none}
+.qt-profit summary::-webkit-details-marker{display:none}
+.qt-profit summary > span:first-child::after{content:"펼치기";margin-left:12px;font-size:12px;color:var(--faint)}
+.qt-profit[open] summary > span:first-child::after{content:"접기"}
+.qt-pst{margin:12px 0 0;font-size:13px;line-height:18px;color:var(--muted)}
+.qt-pst b{font-weight:400;color:var(--fg);margin-left:4px}
+.qt-pf{flex-wrap:wrap}
+.qt-pf small{font-size:12px;color:var(--faint);margin-left:4px}
+.qt .neg{color:var(--danger)}
+.qt-ptab{width:100%;margin-top:12px;border-collapse:collapse;font-size:13px;line-height:18px;font-variant-numeric:tabular-nums}
+.qt-ptab th,.qt-ptab td{padding:6px 6px;border-bottom:1px solid var(--line);font-weight:400;text-align:left}
+.qt-ptab thead th{font-size:12px;color:var(--faint);border-bottom-color:var(--fg)}
+.qt-ptab td.nm small{color:var(--faint)}
+.qt-ptab tr.na td{color:var(--faint)}
 .qt-psum{display:flex;justify-content:flex-end;gap:32px;margin:12px 0 0}
 .qt-psum div{display:flex;gap:12px;align-items:baseline}
 .qt-psum dt{font-size:13px;color:var(--muted)}
@@ -212,6 +250,10 @@
 .qp-t td.none{padding:20px 6px;color:#a4a5a9;text-align:center}
 .qp-note{margin-top:8px!important;font-size:12px;line-height:16px;color:#8a8b8f}
 .qp-bank{margin-top:10px!important;padding:8px 10px;background:#f4f4f4;font-size:12px;line-height:18px}
+.qp-rc{margin-top:6px!important;background:none;padding:0 10px;color:#3a3b3f}
+.qp-items td.own{color:#6e6f73;text-align:right}
+.qp-rmt{margin-top:0}
+.qp-rmt td{font-size:12px;line-height:18px}
 .qp-notes{margin-top:28px;padding-top:12px;border-top:1px solid #d9d9dc;break-inside:avoid}
 .qp-notes .memo{white-space:pre-wrap;margin-bottom:8px}
 .qp-notes ul{margin:0;padding-left:16px;color:#6e6f73;font-size:12px;line-height:18px}
@@ -268,6 +310,10 @@
   .qt-pay{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
   .qt-pay [data-pf=label]{grid-column:1/3}
   .qt-pay .x{grid-column:3;grid-row:1}
+  .qt-rm{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
+  .qt-rm [data-xf=name]{grid-column:1/3}
+  .qt-rm .x{grid-column:3;grid-row:1}
+  .qt-ptab th:nth-child(3),.qt-ptab td:nth-child(3){display:none}
   .qt-sgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .qt-pwrap{padding:16px 0}
   .qt-paper{zoom:.6}
