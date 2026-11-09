@@ -18,6 +18,10 @@
 }
 *{box-sizing:border-box}
 html{background:var(--t-bg);color-scheme:dark}
+/* 스크롤바 숨김: 페이지와 패널 안 목록은 그대로 스크롤되고 막대만 안 보이게 (오른쪽 요약 .side 와 같은 방식)
+   창보다 내용이 길면 브라우저가 오른쪽에 15px 막대를 띄워 화면 폭이 줄어드는 것을 막음 */
+html,.p-body,.ck-body,.nas-list,.stk-list,.stk-detail,.qt-sres,.qt-pwrap{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,.p-body::-webkit-scrollbar,.ck-body::-webkit-scrollbar,.nas-list::-webkit-scrollbar,.stk-list::-webkit-scrollbar,.stk-detail::-webkit-scrollbar,.qt-sres::-webkit-scrollbar,.qt-pwrap::-webkit-scrollbar{display:none;width:0;height:0}
 :root[data-theme="light"]{color-scheme:light}
 body{
   margin:0;min-height:100vh;background:var(--t-bg);color:var(--t-fg);
