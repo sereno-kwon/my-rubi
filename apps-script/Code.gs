@@ -14,6 +14,7 @@
  *    견적의 지불 현황에서 결제 수단이 '마일리지'(예전 '적립금')인 금액은 그 견적의 '사용' 줄로 자동 기록됨
  *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
  *    GET portal&k=키 는 로그인 없이 그 사본만 돌려줌 (줄별 가격·할인율·내부 메모·이카운트 코드는 사본에 아예 없음)
+ *    고객 키(ckey)로 열면 그 고객의 공개 중인 견적 전체를 목록으로 돌려줌 (포털 첫 화면 '내 자전거'). 고객은 이름(띄어쓰기 무시)으로 묶음
  *    진행 단계와 단계별 날짜는 고객관리에서 그때그때 읽어 붙임 (가격과 무관해서 다시 공개하지 않아도 바로 반영)
  *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
@@ -113,8 +114,8 @@ const QUOTE_CATS = ['서비스', '완성차', '프레임', '드라이브트레�
 const QUOTE_CAT_OLD = { '프레임셋': '프레임', '구동계': '드라이브트레인', '휠·타이어': '휠세트', '콕핏': '컴포넌트', '안장·시트포스트': '컴포넌트', '페달': '컴포넌트', '액세서리': '자전거 악세사리', '공임': '서비스', '기타': '컴포넌트' };
 const QUOTE_SNAP_COLS = ['id', 'qid', 'no', 'label', 'data', 'total', 'by', 'at'];
 // 포털 탭: 고객에게 공개한 정제 사본. key 는 고객 링크(portal.rubiworkshop.com/#키)
-const PORTAL_COLS = ['key', 'qid', 'cid', 'name', 'data', 'publishedAt', 'by', 'active', 'views', 'lastView'];
-const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공개한 내용(JSON)', '공개 일시', '공개한 사람', '공개 중', '열어 본 횟수', '마지막으로 열어 본 일시'];
+const PORTAL_COLS = ['key', 'qid', 'cid', 'name', 'data', 'publishedAt', 'by', 'active', 'views', 'lastView', 'ckey'];
+const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공개한 내용(JSON)', '공개 일시', '공개한 사람', '공개 중', '열어 본 횟수', '마지막으로 열어 본 일시', '고객 키'];
 const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
@@ -823,12 +824,18 @@ function portalSheet_() {
   let sh = ss.getSheetByName('포털');
   if (!sh) {
     sh = ss.insertSheet('포털');
-    sh.getRange(1, 1, 1, PORTAL_HEADERS.length).setValues([PORTAL_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
+  }
+  // 처음 만들 때, 그리고 열이 늘어난 판(고객 키)으로 바꾼 뒤 처음 쓸 때 머리글을 맞춤
+  if (sh.getLastColumn() < PORTAL_COLS.length) {
+    if (sh.getMaxColumns() < PORTAL_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), PORTAL_COLS.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, PORTAL_HEADERS.length).setValues([PORTAL_HEADERS]).setFontWeight('bold');
     sh.getRange(1, 1, sh.getMaxRows(), PORTAL_COLS.length).setNumberFormat('@');
   }
   return sh;
 }
+const portalNewKey_ = () => (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+const portalPerson_ = name => String(name || '').replace(/\s+/g, '');
 function portalRows_() {
   const sh = portalSheet_(), last = sh.getLastRow();
   if (last < 2) return [];
@@ -871,40 +878,67 @@ function portalPublish_(b, user) {
   if (!q) throw new Error('저장한 견적만 공개할 수 있습니다');
   const data = portalClean_(b.view);
   const sh = portalSheet_();
-  const ex = portalRows_().find(x => x.qid === q.id);
-  // 키: UUID 두 개를 이어 하이픈을 뺀 64자 (추측할 수 없게)
-  const key = ex ? ex.key : (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const rows = portalRows_();
+  const ex = rows.find(x => x.qid === q.id);
+  // 견적 키: UUID 두 개를 이어 하이픈을 뺀 64자 (추측할 수 없게)
+  const key = ex ? ex.key : portalNewKey_();
+  // 고객 이름: 고객 건에 연결돼 있으면 고객관리의 이름, 아니면 견적의 고객명
+  let person = q.name;
+  if (q.cid) { const c = crmRows_(crmSheet_()).find(x => x.id === q.cid); if (c) person = c.name; }
+  // 고객 키: 같은 이름(띄어쓰기 무시)으로 이미 공개한 견적이 있으면 그 키를 함께 씀. 첫 화면에서 그 고객의 자전거가 한 목록에 모임
+  const same = rows.find(x => x.qid !== q.id && x.ckey && portalPerson_(x.name) === portalPerson_(person));
+  const ckey = (ex && ex.ckey && portalPerson_(ex.name) === portalPerson_(person)) ? ex.ckey : same ? same.ckey : portalNewKey_();
   const o = Object.assign(ex || { views: '0', lastView: '' }, {
-    key, qid: q.id, cid: q.cid || '', name: q.name, data: JSON.stringify(data), publishedAt: now_(), by: user.name || user.email, active: 'Y',
+    key, ckey, qid: q.id, cid: q.cid || '', name: person, data: JSON.stringify(data), publishedAt: now_(), by: user.name || user.email, active: 'Y',
   });
   portalWrite_(ex ? ex._row : sh.getLastRow() + 1, o);
   return key;
 }
 
-/** GET portal: 키에 맞는 정제 사본 + 고객관리의 지금 단계·단계별 날짜 + 입금 계좌. 키가 틀리거나 공개를 끝냈으면 같은 답 */
-function portalView_(key) {
-  key = String(key || '').replace(/[^0-9a-f]/gi, '');
-  const none = { ok: false, error: 'not found' };
-  if (key.length < 32) return none;
-  const r = portalRows_().find(x => x.key === key);
-  if (!r || r.active !== 'Y') return none;
+/** 포털 한 줄 → 고객에게 줄 견적 하나: 정제 사본 + 고객관리의 지금 단계·단계별 날짜(메모 없이) + 남은 금액이 있을 때 입금 계좌 */
+function portalItem_(r, crm, logs, bank) {
   const data = quoteParse_(r.data, null);
-  if (!data) return none;
+  if (!data) return null;
   let stage = '', stages = {};
   if (r.cid) {
-    const c = crmRows_(crmSheet_()).find(x => x.id === r.cid);
+    const c = crm.find(x => x.id === r.cid);
     if (c && c.stage !== '종료') {
       stage = c.stage;
-      // 단계별로 처음 들어선 날짜 (내용 메모는 빼고 날짜만)
-      crmLogRows_().filter(l => l.cid === r.cid).sort((a, b) => String(a.at).localeCompare(String(b.at)))
+      logs.filter(l => l.cid === r.cid).sort((a, b) => String(a.at).localeCompare(String(b.at)))
         .forEach(l => { if (l.stage && !stages[l.stage]) stages[l.stage] = String(l.at).slice(0, 10); });
       if (c.stageAt && !stages[c.stage]) stages[c.stage] = String(c.stageAt).slice(0, 10);
     }
   }
-  const bank = data.remain > 0 ? (PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '') : '';
+  return { id: r.key, quote: data, stage, stages, bank: data.remain > 0 ? bank : '', publishedAt: r.publishedAt };
+}
+
+/** GET portal
+ *  - 고객 키(ckey): 그 고객의 공개 중인 견적 목록 { mode: 'list', name, items }  (포털 첫 화면 '내 자전거')
+ *  - 견적 키(key): 견적 하나 { mode: 'one', ...item }  (예전에 보낸 견적 링크)
+ *  키가 틀리거나 공개를 끝냈으면 같은 답(not found) */
+function portalView_(key) {
+  key = String(key || '').replace(/[^0-9a-f]/gi, '');
+  const none = { ok: false, error: 'not found' };
+  if (key.length < 32) return none;
+  const all = portalRows_();
+  const mine = all.filter(x => x.ckey === key && x.active === 'Y');
+  const one = mine.length ? null : all.find(x => x.key === key && x.active === 'Y');
+  if (!mine.length && !one) return none;
+  const crm = crmRows_(crmSheet_()), logs = crmLogRows_();
+  const bank = PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '';
   // 열어 본 횟수 (직원 화면에서 고객이 봤는지 확인용)
-  try { portalWrite_(r._row, Object.assign({}, r, { views: String((+r.views || 0) + 1), lastView: now_() })); } catch (e) {}
-  return { ok: true, quote: data, stage, stages, bank, publishedAt: r.publishedAt };
+  const seen = rows => rows.forEach(r => { try { portalWrite_(r._row, Object.assign({}, r, { views: String((+r.views || 0) + 1), lastView: now_() })); } catch (e) {} });
+  if (one) {
+    const it = portalItem_(one, crm, logs, bank);
+    if (!it) return none;
+    seen([one]);
+    return Object.assign({ ok: true, mode: 'one' }, it);
+  }
+  const items = mine.map(r => portalItem_(r, crm, logs, bank)).filter(Boolean)
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)));
+  if (!items.length) return none;
+  seen(mine);
+  return { ok: true, mode: 'list', name: mine[0].name, items };
 }
 
 // ───────────────────────────── 견적 (견적 탭) ─────────────────────────────
@@ -983,7 +1017,7 @@ function quoteData_() {
   // 고객별 적립금 잔액 (이름의 띄어쓰기를 빼고 묶음). 견적 화면에서 잔액을 보여주는 데 씀
   const pointBalance = {};
   pointRows_().forEach(p => { const k = String(p.name).replace(/\s+/g, ''); pointBalance[k] = (pointBalance[k] || 0) + (+p.amount || 0); });
-  const portals = portalRows_().map(r => ({ key: r.key, qid: r.qid, publishedAt: r.publishedAt, by: r.by, active: r.active === 'Y', views: +r.views || 0, lastView: r.lastView }));
+  const portals = portalRows_().map(r => ({ key: r.key, ckey: r.ckey, qid: r.qid, name: r.name, publishedAt: r.publishedAt, by: r.by, active: r.active === 'Y', views: +r.views || 0, lastView: r.lastView }));
   return { quotes, customers, snaps, bank, pointBalance, portals };
 }
 

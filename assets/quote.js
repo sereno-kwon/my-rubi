@@ -433,9 +433,13 @@ function portalHtml(d) {
   const what = `<p class="qt-pinfo"><b>보임</b> 자전거·시리얼·보증 종료일, 진행 단계와 날짜, 구성품 이름(증정 표시), 분류별 소비자가 · 스페셜오퍼 · 최종 견적 금액, 결제 내역 · 결제 요청 · 입금 계좌, 빌드 사양, 비고<br><b>안 보임</b> 줄별 소비자가 · 할인율 · 견적가, 줄 비고 · 시리얼, 전표처리, 이카운트 코드, 내부 메모, 마일리지, 기록</p>`;
   if (!shared()) return `<section class="ck-group">${head}<p class="ck-none">로그인한 뒤에 공개할 수 있습니다.</p></section>`;
   if (!p) return `<section class="ck-group">${head}${what}<div class="qt-prow"><button type="button" class="pj-btn pri" data-publish${busy ? ' disabled' : ''}>고객 포털에 공개</button></div></section>`;
-  const link = portalLink(p.key);
+  // 고객에게 보내는 링크는 고객 키: 첫 화면이 그 고객의 '내 자전거' 목록 (같은 이름으로 공개한 견적이 모임)
+  const link = portalLink(p.ckey || p.key);
+  const together = p.ckey ? portals.filter(x => x.ckey === p.ckey && x.active && x.qid !== p.qid).map(x => qById(x.qid)).filter(Boolean) : [];
   return `<section class="ck-group">${head}
-    ${p.active ? `<div class="qt-plink"><input readonly value="${esc(link)}" aria-label="고객 포털 링크"><button type="button" class="pj-btn" data-plcopy>링크 복사</button><a class="pj-btn" href="${esc(link)}" target="_blank" rel="noopener">포털 열기</a></div>` : '<p class="qt-warn">공개를 끝냈습니다. 다시 공개하면 같은 링크가 다시 열립니다.</p>'}
+    ${p.active ? `<div class="qt-plink"><input readonly value="${esc(link)}" aria-label="고객 포털 링크 (내 자전거 목록)"><button type="button" class="pj-btn" data-plcopy>링크 복사</button><a class="pj-btn" href="${esc(link)}" target="_blank" rel="noopener">포털 열기</a></div>
+      <p class="qt-pmeta">${esc(p.name || d.name)} 고객의 '내 자전거' 목록 링크입니다. ${together.length ? `같은 목록에 공개 중: ${together.map(x => esc(x.no + (bikeName(x) ? ' ' + bikeName(x) : ''))).join(', ')}` : '지금은 이 견적 하나만 목록에 있습니다.'} 동명이인이면 고객관리에서 이름을 구분해 주세요 (예: 홍길동 분당).
+        ${p.ckey ? `<a class="qt-link" href="${esc(portalLink(p.key))}" target="_blank" rel="noopener">이 견적만 여는 링크</a>` : ''}</p>` : '<p class="qt-warn">공개를 끝냈습니다. 다시 공개하면 같은 링크가 다시 열립니다.</p>'}
     <p class="qt-pmeta">${esc(fmtDay(p.publishedAt))} ${esc(String(p.publishedAt).slice(11, 16))} ${esc(p.by)} 공개<i class="dot">·</i>고객이 ${p.views ? `${p.views}번 열어 봄 (마지막 ${esc(fmtDay(p.lastView))} ${esc(String(p.lastView).slice(11, 16))})` : '아직 열어 보지 않음'}</p>
     ${stale ? '<p class="qt-warn">공개한 뒤 견적이 바뀌었습니다. 지금 내용으로 다시 공개해야 고객 화면에 반영됩니다. 진행 단계는 고객관리에서 바로 반영됩니다.</p>' : ''}
     ${what}
