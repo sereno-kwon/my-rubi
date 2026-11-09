@@ -1073,6 +1073,8 @@ const BRANDS = [
   { id: 'specialized', name: '스페셜라이즈드', en: 'Specialized' },
   { id: 'trek', name: '트렉', en: 'Trek' },
   { id: 'pinarello', name: '피나렐로', en: 'Pinarello' },
+  { id: 'parlee', name: '팔리 사이클', en: 'Parlee Cycles', short: 'Parlee' },
+  { id: 'crust', name: '크러스트', en: 'Crust Bikes', short: 'Crust' },
 ];
 const CATS = [
   ['road', '로드'], ['aero', '에어로 로드'], ['endurance', '엔듀런스 로드'], ['gravel', '그래블'], ['cyclocross', '사이클로크로스'], ['track', '트랙'], ['touring', '투어링'],
@@ -1083,7 +1085,7 @@ const CATS = [
 const CAT_NAME = Object.fromEntries(CATS);
 const brandCache = {};
 function loadBrand(id) {
-  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261109b`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
+  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261109d`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
   return brandCache[id];
 }
 const isNum = v => typeof v === 'number' && isFinite(v);
@@ -1094,7 +1096,7 @@ function brandBike(br, m, sz) {
   const rwheel = sz.rearWheel || m.rearWheel || wheel;   // 멀릿 (앞 29, 뒤 27.5)
   const b = clone(DEF);
   Object.assign(b, {
-    name: `${br.en} ${m.model}${m.variant ? ' (' + m.variant + ')' : ''} ${sz.size}`, brand: br.en, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size),
+    name: `${br.short || br.en} ${m.model}${m.variant ? ' (' + m.variant + ')' : ''} ${sz.size}`, brand: br.short || br.en, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size),
     note: m.year ? `${m.year} 공식 지오메트리` : '공식 지오메트리',
     seatAngle: sz.sa, headAngle: sz.ha, reachMode: 'reach', reachVal: sz.reach, stackMode: 'stack', stackVal: sz.stack,
     csMode: 'len', csVal: sz.cs, rearBSD: rwheel, frontBSD: wheel, rearTire: tire, frontTire: tire, sameWheels: rwheel === wheel,
@@ -1117,6 +1119,7 @@ function brandBike(br, m, sz) {
     else b.forkLen = r1(L - sz.ht - b.lowerStack);
   } else if (isNum(sz.forkLen)) b.forkLen = sz.forkLen;
   const ht = isNum(sz.ht) ? sz.ht : L - b.lowerStack - b.forkLen;
+  if (b.forkType === 'susp' && b.forkLen < 450) b.forkType = 'straight';   // 짧은 포크는 리지드로 그림
   b.htTopExt = r1(Math.min(28.9, Math.max(12, ht * 0.2))); b.htBotExt = r1(Math.min(49.2, Math.max(18, ht * 0.3)));
   if (b.stMode === 'ct') b.stExt = r1(Math.min(80, Math.max(25, b.stVal * 0.11)));
   // 튜브 굵기 (그림용)
@@ -1141,7 +1144,7 @@ function brandBike(br, m, sz) {
     stCT: sz.stType === 'cc' ? null : sz.st, stCC: sz.stType === 'cc' ? sz.st : null, csLen: sz.cs, bbDrop: sz.bbDrop, bbH: sz.bbHeight,
     wb: sz.wb, rake: sz.rake, trail: sz.trail, standover: sz.standover, forkLen: sz.forkLen,
   };
-  b.src = { brand: br.en, brandKo: br.name, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size), year: m.year || '', url: m.source || '' };
+  b.src = { brand: br.short || br.en, brandKo: br.name, model: m.model + (m.variant ? ' ' + m.variant : ''), size: String(sz.size), year: m.year || '', url: m.source || '' };
   return b;
 }
 
@@ -1161,13 +1164,13 @@ function openFly(level, anchor, fill) {
 function flyItem(html, cls) { const b = el('button', cls || '', html); return b; }
 function hoverOpen(btn, open) {
   let t = 0;
-  btn.addEventListener('mouseenter', () => { clearTimeout(t); t = setTimeout(open, 120); });
+  btn.addEventListener('mouseenter', () => { clearTimeout(t); t = setTimeout(open, 220); });
   btn.addEventListener('mouseleave', () => clearTimeout(t));
   btn.addEventListener('click', e => { e.stopPropagation(); open(); });
 }
 function sizeLabel(sz) { return `<span class="sz">${esc(sz.size)}</span><span class="kb">스택 ${isNum(sz.stack) ? r1(sz.stack) : '–'} · 리치 ${isNum(sz.reach) ? r1(sz.reach) : '–'}</span>`; }
 function fillSizes(f, br, m) {
-  f.appendChild(el('div', 'fh', `${esc(br.en)} ${esc(m.model)}${m.variant ? ' · ' + esc(m.variant) : ''}${m.year ? ` <span>${esc(m.year)}</span>` : ''}`));
+  f.appendChild(el('div', 'fh', `${esc(br.short || br.en)} ${esc(m.model)}${m.variant ? ' · ' + esc(m.variant) : ''}${m.year ? ` <span>${esc(m.year)}</span>` : ''}`));
   (m.sizes || []).forEach(sz => {
     const ok = [sz.stack, sz.reach, sz.ha, sz.sa, sz.cs].every(isNum) && (isNum(sz.bbDrop) || isNum(sz.bbHeight));
     const b = flyItem(sizeLabel(sz)); b.disabled = !ok; if (!ok) b.title = '제조사 표에 값이 모자라 그릴 수 없습니다';
@@ -1203,7 +1206,7 @@ function fillModels(f, br, data) {
 }
 function buildBrandMenu() {
   const m = $('#mBrand'); m.innerHTML = '';
-  const q = document.createElement('input'); q.type = 'text'; q.className = 'txt bq'; q.placeholder = '모델 찾기 (예: Tarmac, Madone, Dogma)';
+  const q = document.createElement('input'); q.type = 'text'; q.className = 'txt bq'; q.placeholder = '모델 찾기 (예: Tarmac, Madone, Dogma, Ouray, Evasion)';
   q.addEventListener('pointerdown', e => e.stopPropagation());
   m.appendChild(q);
   const box = el('div'); m.appendChild(box);
@@ -1225,7 +1228,7 @@ function buildBrandMenu() {
       let n = 0;
       all.forEach(({ br, d }) => (d.models || []).forEach(md => {
         if (![br.en, br.name, md.model, md.variant || '', CAT_NAME[md.category] || ''].join(' ').toLowerCase().includes(t) || n >= 40) return;
-        n++; const b = modelBtn(br, md, 1); b.insertAdjacentHTML('afterbegin', `<span class="bn">${esc(br.en)}</span> `); box.appendChild(b);
+        n++; const b = modelBtn(br, md, 1); b.insertAdjacentHTML('afterbegin', `<span class="bn">${esc(br.short || br.en)}</span> `); box.appendChild(b);
       }));
       if (!n) box.appendChild(el('div', 'ff', '찾는 모델이 없습니다'));
     });
