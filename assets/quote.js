@@ -445,7 +445,7 @@ function portalHtml(d) {
       <p class="qt-pmeta">${esc(fmtDay(cd.issuedAt))} ${esc(cd.by)} 발급<i class="dot">·</i>${cd.logins ? `로그인 ${cd.logins}번 (마지막 ${esc(fmtDay(cd.lastLogin))} ${esc(String(cd.lastLogin).slice(11, 16))})` : '아직 로그인하지 않음'}
         <i class="dot">·</i><button type="button" class="qt-link" data-recode>${recodeArmed ? '한 번 더 누르면 새 코드로 바뀌고 예전 코드·로그인이 끊깁니다' : '다시 발급'}</button></p>`
     : `<div class="qt-prow"><button type="button" class="pj-btn pri" data-code${busy ? ' disabled' : ''}>고객코드 발급</button><a class="pj-btn" href="${esc(preview)}" target="_blank" rel="noopener">포털 미리보기</a></div>
-      <p class="qt-pmeta">고객은 portal.rubiworkshop.com 에서 이 코드로 로그인해 자기 자전거 목록을 봅니다. 코드는 고객마다 하나입니다.</p>`;
+      <p class="qt-pmeta">고객은 portal.rubiworkshop.com 에서 이 코드로 로그인해 자기 자전거 목록을 봅니다. 코드는 고객마다 하나, RUBI-가입연도-임의 8자 꼴입니다 (가입연도는 고객관리의 첫 건 연도).</p>`;
   return `<section class="ck-group">${head}
     ${codeBox}
     ${p.active ? `<p class="qt-pmeta">${esc(p.name || d.name)} 고객의 목록에 ${together.length ? `이 견적과 함께 공개 중: ${together.map(x => esc(x.no + (bikeName(x) ? ' ' + bikeName(x) : ''))).join(', ')}` : '지금은 이 견적 하나만 있습니다.'} 동명이인이면 고객관리에서 이름을 구분해 주세요 (예: 홍길동 분당).</p>` : ''}

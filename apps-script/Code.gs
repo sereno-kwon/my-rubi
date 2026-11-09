@@ -15,9 +15,9 @@
  *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
  *    GET portal&k=키 는 로그인 없이 그 사본만 돌려줌 (줄별 가격·할인율·내부 메모·이카운트 코드는 사본에 아예 없음)
  *    고객 키(ckey)로 열면 그 고객의 공개 중인 견적 전체를 목록으로 돌려줌 (포털 첫 화면 '내 자전거'). 고객은 이름(띄어쓰기 무시)으로 묶음
- *    고객 로그인: 직원이 견적 앱에서 발급한 고객코드(12자, 예: 7K3M-9QXP-H2DW)로 GET portal&c=코드 → 그 고객의 목록과 세션(고객 키)
+ *    고객 로그인: 직원이 견적 앱에서 발급한 고객코드(RUBI-가입연도-임의 8자, 예: RUBI-2026-7K3M9QXP)로 GET portal&c=코드 → 그 고객의 목록과 세션(고객 키)
  *    코드는 '고객코드' 탭. 다시 발급하면 예전 코드와 고객 키가 함께 바뀌어 이미 로그인한 기기와 예전 링크도 끊김
- *    틀린 코드가 10분에 30번을 넘으면 잠시 모든 코드 로그인을 막음 (코드는 60비트라 추측은 사실상 불가능하지만 한 번 더)
+ *    틀린 코드가 10분에 30번을 넘으면 잠시 모든 코드 로그인을 막음 (임의 8자는 40비트, 이 제한 아래에서는 추측으로 맞힐 수 없음)
  *    진행 단계와 단계별 날짜는 고객관리에서 그때그때 읽어 붙임 (가격과 무관해서 다시 공개하지 않아도 바로 반영)
  *  - 견적: 자전거 견적을 '견적' 탭에 저장함 (GET quotes / POST quote). 한 줄 = 견적 하나, 품목·지불 현황·빌드 사양은 JSON으로 한 칸씩
  *    고객관리의 고객 건(cid)에 연결하면, 저장할 때 그 건의 단계가 문의·상담이면 '견적'으로 넘기고 고객로그에 견적 번호와 금액을 남김
@@ -119,7 +119,8 @@ const QUOTE_SNAP_COLS = ['id', 'qid', 'no', 'label', 'data', 'total', 'by', 'at'
 // 포털 탭: 고객에게 공개한 정제 사본. key 는 고객 링크(portal.rubiworkshop.com/#키)
 const PORTAL_COLS = ['key', 'qid', 'cid', 'name', 'data', 'publishedAt', 'by', 'active', 'views', 'lastView', 'ckey'];
 const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공개한 내용(JSON)', '공개 일시', '공개한 사람', '공개 중', '열어 본 횟수', '마지막으로 열어 본 일시', '고객 키'];
-// 고객코드 탭: 포털 로그인 코드. code 는 하이픈 없이 대문자 12자 (Crockford Base32, 헷갈리는 I·L·O·U 없음)
+// 고객코드 탭: 포털 로그인 코드. 꼴은 RUBI-가입연도-임의 8자 (임의 부분은 Crockford Base32, 헷갈리는 I·L·O·U 없음)
+// 시트에는 하이픈 없이 'RUBI' + 연도 4자리 + 임의 8자 = 16자로 저장
 const CODE_COLS = ['code', 'ckey', 'name', 'issuedAt', 'by', 'active', 'logins', 'lastLogin'];
 const CODE_HEADERS = ['고객코드', '고객 키', '고객명', '발급 일시', '발급한 사람', '사용 중', '로그인 횟수', '마지막 로그인'];
 const CODE_ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -968,17 +969,30 @@ function codeRows_() {
     .filter(o => o.code);
 }
 const codeWrite_ = (row, o) => codeSheet_().getRange(row, 1, 1, CODE_COLS.length).setNumberFormat('@').setValues([CODE_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
-/** 입력한 코드 → 비교용 (대문자, 하이픈·띄어쓰기 빼고, 헷갈리는 글자는 Crockford 규칙대로 O→0, I·L→1) */
-const codeNorm_ = c => String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
-const codeFmt_ = c => String(c).replace(/(.{4})(?=.)/g, '$1-');
-/** 새 코드 12자 = 60비트. 무작위 UUID 두 개를 SHA-256 으로 섞은 바이트의 아래 5비트를 32글자 표에 대응 */
-function codeNew_() {
+/** 입력한 코드 → 비교용: 대문자, 하이픈·띄어쓰기 빼고, 'RUBI' 를 빼고 적었으면 붙임.
+ *  임의 부분만 Crockford 규칙대로 O→0, I·L→1 (RUBI 의 I 는 그대로) */
+function codeNorm_(c) {
+  let v = String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  if (v.indexOf('RUBI') === 0) v = v.slice(4);
+  return 'RUBI' + v.replace(/O/g, '0').replace(/[IL]/g, '1');
+}
+/** 시트 값(16자) → 보여줄 꼴 RUBI-2026-7K3M9QXP */
+const codeFmt_ = c => { const v = String(c || ''); return v.length === 16 && v.indexOf('RUBI') === 0 ? `RUBI-${v.slice(4, 8)}-${v.slice(8)}` : v; };
+/** 가입연도: 고객관리에서 같은 이름(띄어쓰기 무시)의 가장 이른 건의 연도, 없으면 올해 */
+function codeYear_(name) {
+  const k = portalPerson_(name);
+  const ys = crmRows_(crmSheet_()).filter(c => portalPerson_(c.name) === k).map(c => String(c.createdAt).slice(0, 4)).filter(y => /^\d{4}$/.test(y)).sort();
+  return ys[0] || Utilities.formatDate(new Date(), CONFIG.TZ, 'yyyy');
+}
+/** 새 코드: RUBI + 가입연도 + 임의 8자(40비트). 무작위 UUID 두 개를 SHA-256 으로 섞은 바이트의 아래 5비트를 32글자 표에 대응 */
+function codeNew_(year) {
   const used = new Set(codeRows_().map(c => c.code));
   for (let t = 0; t < 10; t++) {
     const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Utilities.getUuid() + Date.now());
     let out = '';
-    for (let i = 0; i < 12; i++) out += CODE_ABC[bytes[i] & 31];
-    if (!used.has(out)) return out;
+    for (let i = 0; i < 8; i++) out += CODE_ABC[bytes[i] & 31];
+    const code = 'RUBI' + year + out;
+    if (!used.has(code)) return code;
   }
   throw new Error('코드를 만들지 못했습니다. 다시 눌러 주세요');
 }
@@ -998,7 +1012,7 @@ function portalCode_(qid, renew, user) {
     portalRows_().filter(x => x.ckey === ckey).forEach(x => portalWrite_(x._row, Object.assign({}, x, { ckey: nk })));
     ckey = nk;
   }
-  const code = codeNew_();
+  const code = codeNew_(codeYear_(r.name));
   codeWrite_(codeSheet_().getLastRow() + 1, { code, ckey, name: r.name, issuedAt: now_(), by: user.name || user.email, active: 'Y', logins: '0', lastLogin: '' });
   return codeFmt_(code);
 }
@@ -1009,7 +1023,7 @@ function portalLogin_(input) {
   const fails = +(cache.get('portalFail') || 0);
   if (fails >= 30) return { ok: false, error: 'busy' };
   const code = codeNorm_(input);
-  const c = code.length === 12 ? codeRows_().find(x => x.code === code && x.active === 'Y') : null;
+  const c = code.length === 16 ? codeRows_().find(x => x.code === code && x.active === 'Y') : null;
   const v = c ? portalView_(c.ckey) : null;
   if (!c || !v || !v.ok || v.mode !== 'list') {
     cache.put('portalFail', String(fails + 1), 600);
