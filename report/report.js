@@ -20,6 +20,7 @@
 (function () {
   'use strict';
   const CFG = window.MYRUBI_CONFIG || {};
+  const MODE = (document.body && document.body.dataset.mode) || 'sales';   // 'sales' 매출 보고서, 'purchase' 매입 보고서 (/report/purchase/)
   const RC = Object.assign({
     RATE_DAYS: 90,      // 하루 평균 판매를 계산하는 기간
     DEAD_DAYS: 180,     // 이 날수 넘게 안 팔리면 장기 무판매
@@ -131,8 +132,8 @@
     });
     const findItem = (code, name) => (code && items.get(code)) || itemByName.get(normName(name)) || itemByName.get(normName(String(name || '').replace(/\s*\[[^\]]*\]\s*$/, ''))) || null;
 
-    const sales = (r.sales || []).map(row => {
-      const o = pick(row, C.sales);
+    const lineOf = cols => row => {
+      const o = pick(row, cols);
       const it = findItem(o.code, o.name);
       const name = o.name || (it && it.name) || '';
       const bk = brandKey(name) || (it ? brandKey(it.name) : '');
@@ -142,21 +143,28 @@
         partner: o.partner, plat: platformOf(o.partner), rb: isRB(o.partner),
         brand: bk, model: modelOf(name), cat: it ? it.cat : '',
       };
-    }).filter(x => x.d);
-    sales.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    };
+    const byDate = (a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0;
+    const sales = (r.sales || []).map(lineOf(C.sales)).filter(x => x.d).sort(byDate);
+    const purchases = (r.purchases || []).map(lineOf(C.purchases || C.sales)).filter(x => x.d).sort(byDate);
+    // 최근 매입 단가: 품목등록에 입고단가가 없을 때 재고 금액에 씀
+    const lastCost = new Map();
+    purchases.forEach(x => { if (x.qty > 0 && x.supply > 0) { const u = x.supply / x.qty; if (x.code) lastCost.set(x.code, u); lastCost.set(normName(x.name), u); } });
 
     const stockAll = (r.stock || []).map(row => pick(row, C.stock));
     const stockDate = stockAll.reduce((m, o) => o.date > m ? o.date : m, '');
     const stock = stockAll.filter(o => o.date === stockDate).map(o => {
       const it = findItem(o.code, o.name);
       const name = o.name || (it && it.name) || '';
-      return { code: o.code, name, wh: o.wh, qty: num(o.qty), brand: brandKey(name) || (it ? brandKey(it.name) : ''), model: modelOf(name), cost: it ? it.cost : 0, retail: it ? it.retail : 0 };
+      const cost = (it && it.cost) || lastCost.get(o.code) || lastCost.get(normName(name)) || 0;
+      return { code: o.code, name, wh: o.wh, qty: num(o.qty), brand: brandKey(name) || (it ? brandKey(it.name) : ''), model: modelOf(name), cost, retail: it ? it.retail : 0 };
     }).filter(o => o.qty > 0);   // 마이너스 재고는 0으로 봄
     const stockDates = [...new Set(stockAll.map(o => o.date))].sort();
 
     return {
-      sales, stock, stockDate, stockDates, items, uploads: r.uploads || [],
+      sales, purchases, stock, stockDate, stockDates, items, uploads: r.uploads || [],
       minD: sales.length ? sales[0].d : '', maxD: sales.length ? sales[sales.length - 1].d : '',
+      pMinD: purchases.length ? purchases[0].d : '', pMaxD: purchases.length ? purchases[purchases.length - 1].d : '',
     };
   }
 
@@ -164,9 +172,11 @@
   const PRESETS = [
     ['lastMonth', '지난달'], ['thisMonth', '이번 달'], ['lastWeek', '지난주'], ['3m', '최근 3개월'], ['12m', '최근 12개월'], ['ytd', '올해'], ['custom', '직접'],
   ];
+  const dmax = () => db ? (MODE === 'purchase' ? db.pMaxD : db.maxD) : '';
+  const dmin = () => db ? (MODE === 'purchase' ? db.pMinD : db.minD) : '';
   function period() {
-    const today = todayKST();
-    const anchor = db && db.maxD ? (db.maxD < today ? db.maxD : today) : today;
+    const today = todayKST(), mx = dmax();
+    const anchor = mx ? (mx < today ? mx : today) : today;
     let from, to, label;
     switch (ui.preset) {
       case 'thisMonth': from = monthStart(today); to = today; label = `${+today.slice(5, 7)}월 (진행 중)`; break;
@@ -180,7 +190,7 @@
       case 'custom': from = ui.from || monthStart(anchor); to = ui.to || anchor; if (from > to) [from, to] = [to, from]; label = `${from.replace(/-/g, '.')} ~ ${to.replace(/-/g, '.')}`; break;
       default: {   // 지난달: 오늘 기준 지난달. 데이터가 그보다 앞에서 끝나면 데이터가 있는 마지막 온전한 달
         let m = addMonths(today, -1);
-        if (db && db.maxD && db.maxD < monthEnd(m)) m = db.maxD === monthEnd(db.maxD) ? monthStart(db.maxD) : addMonths(db.maxD, -1);
+        if (mx && mx < monthEnd(m)) m = mx === monthEnd(mx) ? monthStart(mx) : addMonths(mx, -1);
         from = monthStart(m); to = monthEnd(m); label = `${from.slice(0, 4)}년 ${+from.slice(5, 7)}월`;
       }
     }
@@ -195,7 +205,7 @@
   }
   // 기준 날짜까지 끝난 마지막 달의 말일 (기준이 말일이면 그 달)
   function lastFull(s) { return s === monthEnd(s) ? s : monthEnd(addMonths(s, -1)); }
-  const covers = (f, t) => db && db.minD && db.minD <= f && db.maxD >= t;
+  const covers = (f, t) => db && dmin() && dmin() <= f && dmax() >= t;
 
   // ─────────── 집계 ───────────
   const val = x => ui.metric === 'total' ? x.total : x.supply;
@@ -302,6 +312,7 @@
 
   function render() {
     renderBar();
+    if (MODE === 'purchase') { renderPurchase(); return; }
     const main = $('#main');
     if (!db || (!db.sales.length && !db.stock.length)) { main.innerHTML = emptyView(); statusLine(); return; }
     statusLine();
@@ -327,6 +338,8 @@
     const el = $('#status');
     if (!db) return;
     const parts = [];
+    const pp = db.purchases.length ? `구매현황 ${db.pMinD.replace(/-/g, '.')} ~ ${db.pMaxD.replace(/-/g, '.')} (${fmt(db.purchases.length)}줄)` : '구매현황 없음';
+    if (MODE === 'purchase') parts.push(pp);
     parts.push(db.sales.length ? `판매현황 ${db.minD.replace(/-/g, '.')} ~ ${db.maxD.replace(/-/g, '.')} (${fmt(db.sales.length)}줄)` : '판매현황 없음');
     parts.push(db.stockDate ? `재고 기준 ${db.stockDate.replace(/-/g, '.')}` : '재고현황 없음');
     parts.push(db.items.size ? `품목 ${fmt(db.items.size)}개` : '품목등록 없음');
@@ -335,7 +348,7 @@
 
   function emptyView() {
     return `<section class="rp-empty">
-      <h2>아직 올린 자료가 없습니다</h2>
+      <h2>${MODE === 'purchase' ? '아직 올린 구매현황이 없습니다' : '아직 올린 자료가 없습니다'}</h2>
       <p>이카운트에서 아래 세 가지를 엑셀로 내려받아 <b>이카운트 엑셀 올리기</b>에 한꺼번에 놓으면 됩니다. 처음에는 판매현황을 12개월 이상 올려야 회전율과 장기 무판매가 정확해집니다.</p>
       ${guideList()}
       <p><button class="btn pri" type="button" data-open-upload>이카운트 엑셀 올리기</button></p>
@@ -344,6 +357,7 @@
   function guideList() {
     return `<ol class="rp-guide">
       <li><b>판매현황</b>: 영업관리 › 판매현황. 기간을 정하고 거래처 조건은 비운 채 조회해 엑셀로 받습니다. 표시 항목에 <b>품목코드</b>와 <b>거래처명</b>을 넣어 두면 재고와 정확히 이어집니다.</li>
+      <li><b>구매현황</b>: 구매관리 › 구매현황. 판매현황과 같은 방법으로 기간을 정해 엑셀로 받습니다. 매입 보고서에 씁니다.</li>
       <li><b>재고현황</b>: 재고 › 재고현황(전 창고). 오늘 날짜로 조회해 엑셀로 받습니다. 품목코드, 품목명, 재고 수량 열이 있으면 됩니다.</li>
       <li><b>품목등록</b>: 기초등록 › 품목등록 목록을 엑셀로 받습니다. 입고단가로 재고 금액을, 계층그룹으로 분류를 계산합니다. 품목이 바뀔 때만 다시 올리면 됩니다.</li>
     </ol>`;
@@ -539,10 +553,170 @@
 
   function uploadsView() {
     const ups = db.uploads.slice(0, 12);
-    const kind = { sales: '판매현황', stock: '재고현황', items: '품목등록' };
+    const kind = KIND_L;
     return `<section class="rp-sec rp-ups" id="uploads"><header><h2>올린 기록</h2><p>최근 12건 · 지우면 그 파일로 들어간 줄이 모두 빠집니다. 판매현황을 다시 올려 바꾼 기간이면 지운 뒤 그 기간을 다시 올려 주세요</p></header>
       ${ups.length ? `<table class="mini"><thead><tr><th>종류</th><th>파일</th><th>기간</th><th class="n">줄</th><th>올린 사람</th><th></th></tr></thead><tbody>${ups.map(u => `<tr><td>${kind[u.kind] || esc(u.kind)}</td><td>${esc(u.file)}${u.scope ? `<br><small>거래처 ${esc(u.scope)}</small>` : ''}</td><td>${esc(u.from)}${u.to && u.to !== u.from ? ' ~ ' + esc(u.to) : ''}</td><td class="n">${fmt(num(u.rows))}</td><td>${esc(u.by)}<br><small>${esc(u.at)}</small></td><td><button class="btn sm ghost" type="button" data-del="${esc(u.id)}">지우기</button></td></tr>`).join('')}</tbody></table>` : '<p class="none">기록이 없습니다.</p>'}
       <details class="rp-tbl"><summary>이카운트에서 받는 법</summary>${guideList()}</details></section>`;
+  }
+
+  // ─────────── 매입 보고서 ───────────
+  // 매입 = 구매현황 줄. 회전율·재고일수는 매출 보고서와 같은 계산(turnover)을 씀
+  const pIn = (f, t) => db.purchases.filter(x => x.d >= f && x.d <= t && (!ui.brand || x.brand === ui.brand));
+  const sIn = (f, t) => db.sales.filter(x => x.d >= f && x.d <= t && (!ui.brand || x.brand === ui.brand));
+  const monthsOf = P => P.from.slice(8) === '01' && P.to === monthEnd(P.to)
+    ? (+P.to.slice(0, 4) - +P.from.slice(0, 4)) * 12 + (+P.to.slice(5, 7) - +P.from.slice(5, 7)) + 1
+    : P.len / 30.4375;
+  const STT = { slow: { l: '소진 부진', c: STATUS.critical, ic: '■' }, fast: { l: '빠른 소진', c: STATUS.good, ic: '✓' } };
+  const PSLOW_DAYS = 60, PSLOW_RATE = 0.3, PFAST_RATE = 0.8;
+
+  /** 모델(또는 브랜드)별 매입과 매입 후 판매 */
+  function sellThrough(f, t, keyOf) {
+    const m = new Map();
+    pIn(f, t).forEach(x => {
+      const k = keyOf(x);
+      const o = m.get(k) || { k, brand: x.brand, model: x.model, pq: 0, pv: 0, first: x.d, last: x.d, n: 0, sup: new Set() };
+      o.pq += x.qty; o.pv += val(x); o.n++; if (x.d < o.first) o.first = x.d; if (x.d > o.last) o.last = x.d; if (x.partner) o.sup.add(x.partner);
+      m.set(k, o);
+    });
+    const sold = new Map();
+    db.sales.forEach(x => { if (ui.brand && x.brand !== ui.brand) return; const k = keyOf(x), o = m.get(k); if (o && x.d >= o.first) sold.set(k, (sold.get(k) || 0) + x.qty); });
+    const end = db.maxD || t;
+    return [...m.values()].map(o => {
+      const sq = sold.get(o.k) || 0, rate = o.pq > 0 ? sq / o.pq : null, age = days(o.last, end);
+      const flag = rate != null && age >= PSLOW_DAYS && rate < PSLOW_RATE ? 'slow' : rate != null && rate >= PFAST_RATE ? 'fast' : '';
+      return Object.assign(o, { sq, rate, age, flag });
+    });
+  }
+  // 매입 전부터 있던 재고도 함께 팔리므로 100%를 넘을 수 있음 → '100% 이상'으로 보여줌
+  const rateCell = r => r == null ? '–' : `<span class="rate"${r > 1 ? ` data-tip="${esc(`매입 수량보다 ${Math.round(r * 100)}%만큼 팔렸습니다. 이 매입 전부터 있던 재고도 함께 팔린 것입니다`)}"` : ''}><span class="rbar"><span style="width:${Math.min(100, r * 100)}%"></span></span>${r > 1 ? '100% 이상' : Math.round(r * 100) + '%'}</span>`;
+
+  function renderPurchase() {
+    const main = $('#main');
+    statusLine();
+    if (!db || !db.purchases.length) { main.innerHTML = emptyView(); return; }
+    const P = period(), mo = monthsOf(P);
+    const cur = pIn(P.from, P.to), prev = pIn(P.prev.from, P.prev.to), yoy = pIn(P.yoy.from, P.yoy.to);
+    const sc = sum(cur), sp = sum(prev), sy = sum(yoy);
+    const hasPrev = covers(P.prev.from, P.prev.to), hasYoy = covers(P.yoy.from, P.yoy.to);
+    const T = turnover();
+    const out = [];
+    if (!covers(P.from, P.to)) out.push(`<p class="rp-warn">선택한 기간(${esc(P.label)}) 중 일부는 올린 구매현황 밖입니다. 구매현황은 ${esc(db.pMinD)} ~ ${esc(db.pMaxD)} 만 있습니다.</p>`);
+    // 요약
+    const e12 = lastFull(db.pMaxD), f12 = addMonths(e12, -11);
+    const m12 = Math.max(1, Math.min(12, Math.round(days(f12 < db.pMinD ? db.pMinD : f12, e12) / 30.4375)));
+    const v12 = sum(pIn(f12, e12)).v / m12;
+    const salesV = sum(sIn(P.from, P.to)).v;
+    const brands = new Set(cur.map(x => x.brand)), sups = new Set(cur.map(x => x.partner).filter(Boolean));
+    const stockRows = T.rows.filter(r => r.stock > 0), sv = stockRows.reduce((m, r) => m + r.value, 0), sq = stockRows.reduce((m, r) => m + r.stock, 0);
+    const dsum = T.rows.reduce((m, r) => m + r.daily, 0), dosAll = dsum > 0 ? sq / dsum : null;
+    const tile = (label, value, sub, d1, d2, tipTxt) => `<div class="kpi"${tipTxt ? ` data-tip="${esc(tipTxt)}"` : ''}><p class="l">${label}</p><p class="v">${value}</p>${sub ? `<p class="s">${sub}</p>` : ''}<p class="d">${d1 || ''}${d2 || ''}</p></div>`;
+    out.push(`<section class="rp-sec rp-kpis" id="summary"><header><h2>${esc(P.label)} 매입 요약</h2><p>${esc(P.from.replace(/-/g, '.'))} ~ ${esc(P.to.replace(/-/g, '.'))} · ${ui.metric === 'total' ? '합계, 부가세 포함' : '공급가액, 부가세 별도'}${ui.brand ? ' · 거른 조건 적용' : ''}</p></header>
+      <div class="kpi-row">
+        ${tile('매입 금액', fmtShort(sc.v) + '원', fmt(sc.v) + '원', hasPrev ? deltaHtml(chg(sc.v, sp.v), '전 기간') : '', hasYoy ? deltaHtml(chg(sc.v, sy.v), '전년') : '')}
+        ${tile('월 평균 매입', fmtShort(sc.v / mo) + '원', `이 기간 ${mo % 1 ? mo.toFixed(1) : mo}개월 기준`, `<span class="dl">최근 12개월 월 평균 ${fmtShort(v12)}원</span>`, '', `최근 12개월: ${f12.slice(0, 7)} ~ ${e12.slice(0, 7)}${m12 < 12 ? ` (구매현황이 ${m12}개월치라 ${m12}개월로 나눔)` : ''}`)}
+        ${tile('매입 수량', fmt(sc.q) + '개', `전표 ${fmt(sc.orders)}건${sc.retQ ? ` · 반품 ${fmt(-sc.retQ)}개` : ''}`, hasPrev ? deltaHtml(chg(sc.q, sp.q), '전 기간') : '', '')}
+        ${tile('매입 브랜드', fmt(brands.size) + '개', `공급처 ${fmt(sups.size)}곳`, '', '')}
+        ${tile('매출 대비 매입', salesV ? Math.round(sc.v / salesV * 100) + '%' : '–', salesV ? `같은 기간 매출 ${fmtShort(salesV)}원` : '판매현황 없음', '', '', '100%를 넘으면 판 것보다 많이 사들여 재고가 늘어나는 중입니다')}
+        ${tile('재고 금액', db.stockDate ? fmtShort(sv) + '원' : '–', db.stockDate ? `재고일수 ${dosAll == null ? '–' : isFinite(dosAll) ? fmt(dosAll) + '일' : '판매 없음'}` : '재고현황을 올려 주세요', '', '', '입고단가(없으면 최근 매입 단가) × 재고 수량')}
+      </div></section>`);
+    out.push(pTrend(P));
+    out.push(pRecent(T));
+    out.push(`<div class="rp-two">${pBrands(cur, prev, hasPrev, P, mo, T)}${pSuppliers(cur)}</div>`);
+    out.push(pModels(P, T));
+    out.push(uploadsView());
+    main.innerHTML = out.join('');
+  }
+
+  function pTrend(P) {
+    const endM = monthStart(P.to);
+    const months = []; for (let i = 11; i >= 0; i--) months.push(addMonths(endM, -i).slice(0, 7));
+    const data = months.map(m => ({ m, p: 0, s: 0 }));
+    const idx = new Map(months.map((m, i) => [m, i]));
+    db.purchases.forEach(x => { if (ui.brand && x.brand !== ui.brand) return; const i = idx.get(ym(x.d)); if (i != null) data[i].p += val(x); });
+    db.sales.forEach(x => { if (ui.brand && x.brand !== ui.brand) return; const i = idx.get(ym(x.d)); if (i != null) data[i].s += val(x); });
+    const withP = data.filter(o => o.m >= db.pMinD.slice(0, 7) && o.m <= db.pMaxD.slice(0, 7));
+    const avg = withP.length ? withP.reduce((m, o) => m + o.p, 0) / withP.length : 0;
+    const W = 760, H = 260, L = 52, R = 8, Tp = 18, B = 30, iw = W - L - R, ih = H - Tp - B;
+    const max = niceMax(Math.max(1, ...data.map(o => Math.max(o.p, o.s))));
+    const y = v => Tp + ih - Math.max(0, v) / max * ih;
+    const band = iw / 12, bw = Math.min(14, band * 0.3);
+    const inP = m => m >= P.from.slice(0, 7) && m <= P.to.slice(0, 7);
+    const C1 = SLOTS[0], C2 = SLOTS[1];
+    const bar = (x, v, c, op) => { const yy = y(v), h = Tp + ih - yy; if (h <= 0.5) return ''; const r = Math.min(4, h); return `<path d="M${x},${Tp + ih} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + bw - r} Q${x + bw},${yy} ${x + bw},${yy + r} V${Tp + ih} Z" fill="${c}" opacity="${op}"/>`; };
+    let g = '';
+    for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="${i ? 'grid' : 'base'}"/><text x="${L - 8}" y="${yy + 4}" class="ax" text-anchor="end">${i ? fmtShort(v) : '0'}</text>`; }
+    data.forEach((o, i) => {
+      const cx = L + band * i + band / 2, op = inP(o.m) ? 1 : 0.38;
+      g += bar(cx - bw - 1, o.p, C1, op) + bar(cx + 1, o.s, C2, op);
+      g += `<rect x="${L + band * i}" y="${Tp}" width="${band}" height="${ih}" class="hit" data-tip="${esc(`<b>${o.m.replace('-', '년 ')}월</b><br><i style="background:${C1}"></i>매입 ${fmt(o.p)}원<br><i style="background:${C2}"></i>매출 ${fmt(o.s)}원${o.s ? `<br>매출 대비 매입 ${Math.round(o.p / o.s * 100)}%` : ''}`)}"/>`;
+      g += `<text x="${cx}" y="${H - 10}" class="ax${inP(o.m) ? ' on' : ''}" text-anchor="middle">${+o.m.slice(5)}월</text>`;
+    });
+    if (avg > 0) { const ya = y(avg); g += `<line x1="${L}" x2="${W - R}" y1="${ya}" y2="${ya}" class="avg"/><text x="${L + 6}" y="${ya - 6}" class="cap avgl">월 평균 매입 ${fmtShort(avg)}</text>`; }
+    const tbl = `<details class="rp-tbl"><summary>표로 보기</summary><div class="scroll"><table><thead><tr><th>월</th><th class="n">매입</th><th class="n">매출</th><th class="n">매출 대비 매입</th></tr></thead><tbody>${data.map(o => `<tr><td>${o.m.replace('-', '.')}</td><td class="n">${fmt(o.p)}</td><td class="n">${fmt(o.s)}</td><td class="n">${o.s ? Math.round(o.p / o.s * 100) + '%' : '–'}</td></tr>`).join('')}</tbody></table></div></details>`;
+    return sec('ptrend', '월별 매입과 매출', '최근 12개월 · 점선은 구매현황이 있는 달의 월 평균 매입 · 진한 막대가 선택한 기간',
+      `<ul class="legend"><li><i style="background:${C1}"></i>매입</li><li><i style="background:${C2}"></i>매출</li><li><i class="ln"></i>월 평균 매입</li></ul><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="월별 매입과 매출">${g}</svg>${tbl}`);
+  }
+
+  function pRecent(T) {
+    const end = db.pMaxD, from = addDays(end, -89);
+    const rows = sellThrough(from, end, x => x.brand).sort((a, b) => a.last < b.last ? 1 : a.last > b.last ? -1 : b.pv - a.pv).slice(0, 15);
+    const st = new Map(); T.rows.forEach(r => { const o = st.get(r.brand) || { v: 0, q: 0, d: 0 }; o.v += r.value; o.q += r.stock; o.d += r.daily; st.set(r.brand, o); });
+    const body = rows.length ? `<div class="scroll"><table class="promo"><thead><tr><th>브랜드</th><th>마지막 매입</th><th class="n">90일 매입</th><th class="n">매입 수량</th><th class="n">매입 후 판매</th><th>소진율</th><th class="n">재고 금액</th><th class="n">재고일수</th><th class="n">연 회전율</th></tr></thead><tbody>${rows.map(r => {
+      const s = st.get(r.k) || { v: 0, q: 0, d: 0 }, dos = s.q > 0 ? (s.d > 0 ? s.q / s.d : Infinity) : null;
+      return `<tr><td><button type="button" class="lnk" data-brand="${esc(r.k)}">${esc(brandLabel(r.k))}</button>${r.flag ? ` <span class="flag sm" style="--c:${STT[r.flag].c}"><span class="ic">${STT[r.flag].ic}</span>${STT[r.flag].l}</span>` : ''}</td><td>${r.last.replace(/-/g, '.')} <small>${r.age}일 전</small></td><td class="n">${fmtShort(r.pv)}</td><td class="n">${fmt(r.pq)}</td><td class="n">${fmt(r.sq)}</td><td>${rateCell(r.rate)}</td><td class="n">${s.q > 0 ? fmtShort(s.v) : '–'}</td><td class="n ${dos == null ? '' : dos === Infinity || dos > RC.OVER_DAYS ? 'bad' : dos < RC.LOW_DAYS ? 'low' : ''}">${dos == null ? '–' : dos === Infinity ? '판매 없음' : fmt(dos)}</td><td class="n">${dos && isFinite(dos) ? (365 / dos).toFixed(1) + '회' : '–'}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<p class="none">최근 90일 매입이 없습니다.</p>';
+    return sec('precent', '최근 매입한 브랜드', `${from.replace(/-/g, '.')} ~ ${end.replace(/-/g, '.')} 매입, 마지막 매입이 최근인 순 · 소진율은 그 기간 첫 매입일부터 지금까지 판 수량 ÷ 매입 수량 · 재고일수와 회전율은 최근 ${T.win}일 판매 속도`, body + `<p class="foot">소진 부진: 마지막 매입 후 ${PSLOW_DAYS}일이 지났는데 소진율 ${PSLOW_RATE * 100}% 미만 · 빠른 소진: 소진율 ${PFAST_RATE * 100}% 이상 (재매입 검토)</p>`);
+  }
+
+  function pBrands(cur, prev, hasPrev, P, mo, T) {
+    const g = groupBy(cur, x => x.brand), gp = groupBy(prev, x => x.brand), gs = groupBy(sIn(P.from, P.to), x => x.brand);
+    const st = new Map(); T.rows.forEach(r => { const o = st.get(r.brand) || { q: 0, d: 0 }; o.q += r.stock; o.d += r.daily; st.set(r.brand, o); });
+    const tot = [...g.values()].reduce((m, o) => m + o.v, 0);
+    const rows = [...g.values()].sort((a, b) => b.v - a.v), top = ui.brand ? rows : rows.slice(0, 15), rest = ui.brand ? [] : rows.slice(15);
+    const max = Math.max(1, ...top.map(r => r.v));
+    const line = r => {
+      const p = gp.get(r.k), d = hasPrev ? chg(r.v, p ? p.v : 0) : null, s = gs.get(r.k), sv = s ? s.v : 0, k = st.get(r.k) || { q: 0, d: 0 };
+      const dos = k.q > 0 ? (k.d > 0 ? k.q / k.d : Infinity) : null;
+      return `<li><button type="button" class="hb pb${ui.brand === r.k ? ' on' : ''}" data-brand="${esc(r.k)}" data-tip="${esc(`<b>${esc(brandLabel(r.k))}</b><br>매입 ${fmt(r.v)}원 · ${fmt(r.q)}개 · 비중 ${share(r.v, tot).toFixed(1)}%<br>월 평균 ${fmt(r.v / mo)}원${hasPrev ? `<br>전 기간 ${fmt(p ? p.v : 0)}원` : ''}<br>같은 기간 매출 ${fmt(sv)}원<br>누르면 이 브랜드만 봅니다`)}">
+        <span class="nm">${esc(brandLabel(r.k))}</span><span class="tr"><span class="fill" style="width:${Math.max(0.5, r.v / max * 100)}%"></span></span>
+        <span class="vv">${fmtShort(r.v)}</span><span class="sh">${share(r.v, tot).toFixed(0)}%</span><span class="st">${fmtShort(r.v / mo)}</span><span class="dd">${sv ? Math.round(r.v / sv * 100) + '%' : '–'}</span>
+        <span class="ds ${dos == null ? '' : dos === Infinity || dos > RC.OVER_DAYS ? 'bad' : dos < RC.LOW_DAYS ? 'low' : ''}">${dos == null ? '–' : dos === Infinity ? '판매 없음' : fmt(dos) + '일'}</span></button></li>`;
+    };
+    const head = `<li class="hh"><span class="nm">브랜드</span><span class="tr">매입</span><span class="vv"></span><span class="sh">비중</span><span class="st">월 평균</span><span class="dd">매출 대비</span><span class="ds">재고일수</span></li>`;
+    const restLine = rest.length ? `<li class="rest"><span class="nm">그 밖 ${rest.length}개 브랜드</span><span class="tr"></span><span class="vv">${fmtShort(rest.reduce((m, o) => m + o.v, 0))}</span><span class="sh">${share(rest.reduce((m, o) => m + o.v, 0), tot).toFixed(0)}%</span></li>` : '';
+    return sec('pbrands', '브랜드별 매입', '상위 15개 · 매출 대비는 같은 기간 그 브랜드 매출에 견준 매입 · 브랜드를 누르면 페이지 전체가 걸러집니다', rows.length ? `<ul class="hbars pbrands">${head}${top.map(line).join('')}${restLine}</ul>` : '<p class="none">이 기간 매입이 없습니다.</p>');
+  }
+
+  function pSuppliers(cur) {
+    const g = [...groupBy(cur, x => x.partner).values()].sort((a, b) => b.v - a.v), tot = g.reduce((m, o) => m + o.v, 0);
+    const bm = new Map(); cur.forEach(x => { const s = bm.get(x.partner) || new Set(); s.add(x.brand); bm.set(x.partner, s); });
+    return sec('psup', '공급처별 매입 상위 10', '구매현황의 거래처명', g.length ? `<table class="mini"><thead><tr><th>공급처</th><th class="n">매입</th><th class="n">비중</th><th>브랜드</th></tr></thead><tbody>${g.slice(0, 10).map(o => `<tr><td>${esc(partnerLabel(o.k))}</td><td class="n">${fmtShort(o.v)}</td><td class="n">${share(o.v, tot).toFixed(0)}%</td><td><small>${esc([...(bm.get(o.k) || [])].slice(0, 4).map(brandLabel).join(', '))}</small></td></tr>`).join('')}</tbody></table>${g.length > 10 ? `<p class="foot">그 밖 ${g.length - 10}곳 ${fmtShort(g.slice(10).reduce((m, o) => m + o.v, 0))}원</p>` : ''}` : '<p class="none">이 기간 매입이 없습니다.</p>');
+  }
+
+  const PCOLS = [
+    ['brand', '브랜드', r => brandLabel(r.brand)], ['model', '모델', r => r.model], ['last', '마지막 매입', r => r.last],
+    ['pq', '매입 수량', r => r.pq, 'n'], ['pv', '매입 금액', r => r.pv, 'n'], ['sq', '매입 후 판매', r => r.sq, 'n'], ['rate', '소진율', r => r.rate],
+    ['stock', '재고', r => r.stock, 'n'], ['dos', '재고일수', r => r.dos, 'n'], ['turn', '연 회전율', r => r.turn, 'n'],
+  ];
+  function pModelRows(P, T) {
+    const tm = new Map(T.rows.map(r => [r.k, r]));
+    return sellThrough(P.from, P.to, x => x.brand + '|' + x.model).map(o => { const t = tm.get(o.k) || {}; return Object.assign(o, { stock: t.stock || 0, dos: t.stock > 0 ? t.dos : null, turn: t.turn, value: t.value || 0 }); });
+  }
+  function pModels(P, T) {
+    const q = ui.q.trim().toLowerCase();
+    let rows = pModelRows(P, T).filter(r => !q || (r.brand + ' ' + brandLabel(r.brand) + ' ' + r.model).toLowerCase().includes(q));
+    const ps = ui.psort || 'pv', pd = ui.pdir || -1, col = PCOLS.find(c => c[0] === ps) || PCOLS[4];
+    rows.sort((a, b) => { let x = col[2](a), y = col[2](b); if (x == null) x = -1; if (y == null) y = -1; if (x === Infinity) x = 1e12; if (y === Infinity) y = 1e12; return (x > y ? 1 : x < y ? -1 : 0) * pd; });
+    const show = rows.slice(0, ui.tableN);
+    const th = c => `<th class="${c[3] || ''}"><button type="button" data-psort="${c[0]}" aria-sort="${ps === c[0] ? (pd < 0 ? 'descending' : 'ascending') : 'none'}">${c[1]}${ps === c[0] ? (pd < 0 ? ' ↓' : ' ↑') : ''}</button></th>`;
+    const tr = r => `<tr><td>${esc(brandLabel(r.brand))}</td><td>${esc(r.model)}${r.flag ? ` <span class="flag sm" style="--c:${STT[r.flag].c}"><span class="ic">${STT[r.flag].ic}</span>${STT[r.flag].l}</span>` : ''}</td><td class="n">${r.last.slice(2).replace(/-/g, '.')}</td><td class="n">${fmt(r.pq)}</td><td class="n">${fmtShort(r.pv)}</td><td class="n">${fmt(r.sq)}</td><td>${rateCell(r.rate)}</td><td class="n">${r.stock ? fmt(r.stock) : '–'}</td><td class="n ${r.dos === Infinity || r.dos > RC.OVER_DAYS ? 'bad' : r.dos && r.dos < RC.LOW_DAYS ? 'low' : ''}">${r.dos == null ? '–' : r.dos === Infinity ? '판매 없음' : fmt(r.dos)}</td><td class="n">${r.turn ? r.turn.toFixed(1) + '회' : r.turn == null && r.stock <= 0 ? '품절' : '–'}</td></tr>`;
+    const slow = rows.filter(r => r.flag === 'slow'), slowV = slow.reduce((m, r) => m + r.value, 0);
+    const body = `${slow.length ? `<p class="lead">매입 후 소진이 느린 모델 <b>${slow.length}개</b>, 재고 <b>${fmtShort(slowV)}원</b></p>` : ''}
+      <div class="tbl-tools"><input type="search" id="tq" placeholder="브랜드·모델 찾기" value="${esc(ui.q)}" aria-label="브랜드·모델 찾기"><span class="cnt">${fmt(rows.length)}개 모델</span></div>
+      <div class="scroll"><table class="turn"><thead><tr>${PCOLS.map(th).join('')}</tr></thead><tbody>${show.map(tr).join('')}</tbody></table></div>
+      ${rows.length > show.length ? `<p class="more"><button class="btn sm" type="button" data-more>${fmt(Math.min(100, rows.length - show.length))}개 더 보기</button></p>` : ''}
+      <p class="foot">${esc(P.label)}에 매입한 모델 · 매입 후 판매는 그 기간 첫 매입일부터 판매현황 끝(${esc(db.maxD || '–')})까지 · 재고일수와 회전율은 ${kDateY(T.end)} 기준</p>`;
+    return sec('pmodels', '모델별 매입과 소진', '머리글을 누르면 정렬', body, `<button class="btn sm" type="button" data-csv="pmodel">CSV 받기</button>`);
   }
 
   // ─────────── CSV ───────────
@@ -557,6 +731,11 @@
   function exportCsv(kind) {
     const T = turnover(), P = period();
     const base = r => [brandLabel(r.brand), r.model, r.stock, Math.round(r.value), r.dos === Infinity ? '판매 없음' : Math.round(r.dos), r.q90, r.qPrev, r.last];
+    if (kind === 'pmodel') {
+      csv(`모델별매입소진_${P.from}_${P.to}.csv`, ['브랜드', '모델', '첫 매입', '마지막 매입', '매입 수량', '매입 금액', '매입 후 판매', '소진율(%)', '재고', '재고 금액', '재고일수', '연 회전율', '공급처', '상태'],
+        pModelRows(P, T).sort((a, b) => b.pv - a.pv).map(r => [brandLabel(r.brand), r.model, r.first, r.last, r.pq, Math.round(r.pv), r.sq, r.rate == null ? '' : Math.round(r.rate * 100), r.stock, Math.round(r.value), r.dos == null ? '' : r.dos === Infinity ? '판매 없음' : Math.round(r.dos), r.turn ? r.turn.toFixed(2) : '', [...r.sup].map(partnerLabel).join(' / '), r.flag ? STT[r.flag].l : '']));
+      return;
+    }
     if (kind === 'promo') {
       const rows = T.rows.filter(r => ['dead', 'over', 'slow', 'low', 'out'].includes(r.flag)).sort((a, b) => b.value - a.value);
       csv(`프로모션필요_${T.end}.csv`, ['구분', '브랜드', '모델', '재고', '재고 금액', '재고일수', `최근 ${T.win}일 판매`, `그 전 ${T.win}일 판매`, '마지막 판매', '제안'], rows.map(r => [FLAG[r.flag].l].concat(base(r), [FLAG[r.flag].act])));
@@ -576,7 +755,8 @@
     if (t.hasAttribute('data-brand')) { ui.brand = ui.brand === t.dataset.brand ? '' : t.dataset.brand; ui.tableN = 40; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (t.dataset.plat) { ui.plat = ui.plat === t.dataset.plat ? '' : t.dataset.plat; render(); return; }
     if (t.dataset.sort) { if (ui.sort === t.dataset.sort) ui.dir = -ui.dir; else { ui.sort = t.dataset.sort; ui.dir = ['brand', 'model'].includes(ui.sort) ? 1 : -1; } render(); keepAt('#turnover'); return; }
-    if (t.hasAttribute('data-more')) { ui.tableN += 100; render(); keepAt('#turnover'); return; }
+    if (t.dataset.psort) { if (ui.psort === t.dataset.psort) ui.pdir = -(ui.pdir || -1); else { ui.psort = t.dataset.psort; ui.pdir = ['brand', 'model'].includes(ui.psort) ? 1 : -1; } render(); keepAt('#pmodels'); return; }
+    if (t.hasAttribute('data-more')) { ui.tableN += 100; render(); keepAt(MODE === 'purchase' ? '#pmodels' : '#turnover'); return; }
     if (t.dataset.csv) { exportCsv(t.dataset.csv); return; }
     if (t.dataset.del) { delUpload(t.dataset.del, t); return; }
     if (t.hasAttribute('data-open-upload')) { openUpload(); return; }
@@ -610,7 +790,7 @@
   }
   function drawUpload(msg) {
     dlgBody.innerHTML = `
-      <label class="drop" id="drop"><input type="file" id="files" multiple accept=".xlsx,.xls,.csv"><span class="t">판매현황 · 재고현황 · 품목등록 엑셀을 여기에 놓거나 눌러서 고르세요</span><span class="s">여러 파일을 한꺼번에 놓아도 됩니다. 종류는 파일의 제목 줄과 머리글로 알아봅니다</span></label>
+      <label class="drop" id="drop"><input type="file" id="files" multiple accept=".xlsx,.xls,.csv"><span class="t">판매현황 · 구매현황 · 재고현황 · 품목등록 엑셀을 여기에 놓거나 눌러서 고르세요</span><span class="s">여러 파일을 한꺼번에 놓아도 됩니다. 종류는 파일의 제목 줄과 머리글로 알아봅니다</span></label>
       ${msg ? `<p class="rp-warn">${esc(msg)}</p>` : ''}
       <div id="pend">${pending.map(pendView).join('')}</div>
       ${pending.length ? `<div class="dlg-acts"><button type="button" class="btn" value="cancel" id="dlgCancel">닫기</button><button type="button" class="btn pri" id="dlgSave"${pending.some(p => p.ok) ? '' : ' disabled'}>저장 (${pending.filter(p => p.ok).length}개 파일)</button></div>` : ''}
@@ -663,7 +843,9 @@
     stock: [['code', '품목코드', /품목\s*코드/], ['name', '품목명', /품목명/, true], ['spec', '규격', /^규격$/], ['wh', '창고', /창고\s*명|^창고$/], ['qty', '재고 수량', /재고\s*수량|^재고$|^합계$|^계$|^수량$|현재\s*재고|재고\s*합계/, true]],
     items: [['code', '품목코드', /품목\s*코드/, true], ['name', '품목명', /품목명/, true], ['cost', '입고단가', /입고\s*단가/], ['out', '출고단가', /출고\s*단가/], ['retail', '소비자가격', /소비자\s*가/], ['supply', '서플라이', /서플라이|딜러/], ['cat', '계층그룹명', /계층\s*그룹/], ['group', '품목그룹1명', /품목\s*그룹\s*1/]],
   };
-  const KIND_L = { sales: '판매현황', stock: '재고현황', items: '품목등록' };
+  FIELDS.purchase = FIELDS.sales.map(f => f[0] === 'partner' ? ['partner', '거래처명(공급처)', /거래처\s*명|공급처|매입처|^거래처$/, false] : f);
+  const KIND_L = { sales: '판매현황', purchase: '구매현황', stock: '재고현황', items: '품목등록' };
+  const isLines = k => k === 'sales' || k === 'purchase';
 
   function inspect(file, aoa, sheet) {
     const rows = aoa.map(r => r.map(c => String(c == null ? '' : c).trim()));
@@ -675,8 +857,8 @@
     const head = rows[hi];
     const H = head.join('|');
     const tt = title + ' ' + (sheet || '');
-    let kind = /판매\s*현황|판매\s*조회/.test(tt) ? 'sales' : /재고/.test(tt) ? 'stock' : /품목\s*등록/.test(tt) ? 'items'
-      : /공급가액/.test(H) && /거래처|판매\s*채널/.test(H) ? 'sales' : /입고\s*단가|소비자\s*가/.test(H) ? 'items' : /재고/.test(H) ? 'stock' : '';
+    let kind = /판매\s*현황|판매\s*조회/.test(tt) ? 'sales' : /구매\s*현황|구매\s*조회|매입\s*현황/.test(tt) ? 'purchase' : /재고/.test(tt) ? 'stock' : /품목\s*등록/.test(tt) ? 'items'
+      : /공급가액/.test(H) && /거래처|판매\s*채널|공급처/.test(H) ? (MODE === 'purchase' ? 'purchase' : 'sales') : /입고\s*단가|소비자\s*가/.test(H) ? 'items' : /재고/.test(H) ? 'stock' : '';
     const p = { file, title, head, data: rows.slice(hi + 1), kind, map: {}, ok: false, from: '', to: '', date: '', scope: [], scopeMode: 'all' };
     const tm = title.match(/(\d{4})[\/.-](\d{2})[\/.-](\d{2})\s*~\s*(\d{4})[\/.-](\d{2})[\/.-](\d{2})/);
     if (tm) { p.from = `${tm[1]}-${tm[2]}-${tm[3]}`; p.to = `${tm[4]}-${tm[5]}-${tm[6]}`; }
@@ -684,7 +866,7 @@
     p.date = one ? `${one[1]}-${one[2]}-${one[3]}` : todayKST();
     if (p.date > todayKST()) p.date = todayKST();
     // 제목 줄의 조건 (회사명과 기간을 뺀 나머지): 거래처로 걸러 받은 판매현황인지 확인
-    p.filters = title.split(/\s+\/\s+/).map(x => x.trim()).filter(x => x && !/회사명|^\d{4}[\/.-]\d{2}[\/.-]\d{2}/.test(x) && !/^(판매|재고)\s*현황$|품목\s*등록/.test(x) && !/~/.test(x));
+    p.filters = title.split(/\s+\/\s+/).map(x => x.trim()).filter(x => x && !/회사명|^\d{4}[\/.-]\d{2}[\/.-]\d{2}/.test(x) && !/^(판매|구매|재고)\s*현황$|품목\s*등록/.test(x) && !/~/.test(x));
     if (kind) p.map = autoMap(kind, head);
     build(p);
     return p;
@@ -705,7 +887,7 @@
     const m = p.map, need = (FIELDS[p.kind] || []).filter(f => f[3] && !(m[f[0]] >= 0));
     if (need.length) { p.err = `열을 찾지 못했습니다: ${need.map(f => f[1]).join(', ')}. 아래에서 열을 골라 주세요`; return; }
     const g = (r, k) => m[k] >= 0 ? r[m[k]] : '';
-    if (p.kind === 'sales') {
+    if (isLines(p.kind)) {
       let min = '', max = '', amt = 0, skipped = 0;
       p.data.forEach(r => {
         const dm = String(g(r, 'date')).match(DATE_RE);
@@ -717,7 +899,7 @@
         p.rows.push([d, dm[4] || '', g(r, 'code'), g(r, 'name'), qty, num(g(r, 'price')), supply, vat, total, g(r, 'partner'), g(r, 'wh')]);
         amt += supply; if (!min || d < min) min = d; if (!max || d > max) max = d;
       });
-      if (!p.rows.length) { p.err = '판매 줄을 찾지 못했습니다. 일자 열이 2026/10/01 -1 같은 모양인지 확인해 주세요'; return; }
+      if (!p.rows.length) { p.err = (p.kind === 'sales' ? '판매' : '구매') + ' 줄을 찾지 못했습니다. 일자 열이 2026/10/01 -1 같은 모양인지 확인해 주세요'; return; }
       if (!p.from) { p.from = monthStart(min); p.to = max; p.warn.push('제목 줄에서 기간을 찾지 못해 줄의 날짜로 잡았습니다. 실제 조회 기간과 다르면 고쳐 주세요'); }
       const out = p.rows.filter(r => r[0] < p.from || r[0] > p.to).length;
       if (out) p.warn.push(`기간 밖의 줄 ${out}개는 저장하지 않습니다`);
@@ -728,10 +910,10 @@
       if ((p.filters || []).length) {
         if (fp.length && p.scopeMode === 'all' && !p.scopeTouched) { p.scopeMode = 'partners'; p.scopeTouched = true; }
         const other = p.filters.filter(f => !fp.includes(f));
-        if (other.length) p.warn.push(`제목 줄에 조건이 있습니다: ${other.join(', ')}. 전체 판매현황이 아니면 같은 기간의 다른 매출이 지워질 수 있으니 '이 파일의 거래처만 바꾸기'를 고르세요`);
+        if (other.length) p.warn.push(`제목 줄에 조건이 있습니다: ${other.join(', ')}. 전체 ${KIND_L[p.kind]}이 아니면 같은 기간의 다른 줄이 지워질 수 있으니 '이 파일의 거래처만 바꾸기'를 고르세요`);
       }
       p.scope = p.scopeMode === 'partners' ? partners : [];
-      if (!p.rows.some(r => r[2])) p.warn.push('품목코드 열이 없어 품목명으로 재고와 잇습니다. 이카운트 판매현황 표시 항목에 품목코드를 넣으면 더 정확합니다');
+      if (!p.rows.some(r => r[2])) p.warn.push(`품목코드 열이 없어 품목명으로 재고와 잇습니다. 이카운트 ${KIND_L[p.kind]} 표시 항목에 품목코드를 넣으면 더 정확합니다`);
     } else if (p.kind === 'stock') {
       const agg = new Map();
       p.data.forEach(r => {
@@ -768,12 +950,12 @@
     const maps = p.kind ? (FIELDS[p.kind] || []).map(([k, l, , req]) => `<label><span>${l}${req ? '' : ' (선택)'}</span><select data-pi="${i}" data-f="${k}">${opts(p.map[k])}</select></label>`).join('') : '';
     let sum = '';
     if (p.ok || (p.rows && p.rows.length)) {
-      if (p.kind === 'sales') sum = `${fmt(p.rows.filter(r => r[0] >= p.from && r[0] <= p.to).length)}줄 · 공급가액 ${fmt(p.amount)}원 · 거래처 ${p.partners.length}곳 · 날짜 ${p.min} ~ ${p.max}`;
+      if (isLines(p.kind)) sum = `${fmt(p.rows.filter(r => r[0] >= p.from && r[0] <= p.to).length)}줄 · 공급가액 ${fmt(p.amount)}원 · 거래처 ${p.partners.length}곳 · 날짜 ${p.min} ~ ${p.max}`;
       if (p.kind === 'stock') sum = `${fmt(p.rows.length)}개 품목(창고별) · 재고 ${fmt(p.qtySum)}개`;
       if (p.kind === 'items') sum = `${fmt(p.rows.length)}개 품목`;
     }
-    const extra = p.kind === 'sales' ? `<div class="pf"><label><span>기간 시작</span><input type="date" data-pi="${i}" data-f="from" value="${esc(p.from)}"></label><label><span>기간 끝</span><input type="date" data-pi="${i}" data-f="to" value="${esc(p.to)}"></label>
-        <label class="wide"><span>바꿀 범위</span><select data-pi="${i}" data-f="scopeMode"><option value="all"${p.scopeMode === 'all' ? ' selected' : ''}>이 기간의 매출 전체를 이 파일로 바꾸기</option><option value="partners"${p.scopeMode === 'partners' ? ' selected' : ''}>이 기간에서 이 파일에 있는 거래처 줄만 바꾸기</option></select></label></div>`
+    const extra = isLines(p.kind) ? `<div class="pf"><label><span>기간 시작</span><input type="date" data-pi="${i}" data-f="from" value="${esc(p.from)}"></label><label><span>기간 끝</span><input type="date" data-pi="${i}" data-f="to" value="${esc(p.to)}"></label>
+        <label class="wide"><span>바꿀 범위</span><select data-pi="${i}" data-f="scopeMode"><option value="all"${p.scopeMode === 'all' ? ' selected' : ''}>이 기간의 ${p.kind === 'sales' ? '매출' : '매입'} 전체를 이 파일로 바꾸기</option><option value="partners"${p.scopeMode === 'partners' ? ' selected' : ''}>이 기간에서 이 파일에 있는 거래처 줄만 바꾸기</option></select></label></div>`
       : p.kind === 'stock' ? `<div class="pf"><label><span>재고 기준일</span><input type="date" data-pi="${i}" data-f="date" value="${esc(p.date)}"></label></div>`
       : p.kind === 'items' ? `<p class="s">품목등록은 통째로 바뀝니다 (예전 품목 목록을 이 파일로 대체)</p>` : '';
     return `<article class="pend${p.ok ? '' : ' bad'}">
@@ -790,12 +972,13 @@
   async function saveAll() {
     const list = pending.filter(p => p.ok);
     // 품목 → 재고 → 판매 순 (뒤의 화면 계산이 품목 정보를 쓰므로)
-    list.sort((a, b) => ['items', 'stock', 'sales'].indexOf(a.kind) - ['items', 'stock', 'sales'].indexOf(b.kind));
+    const ORD = ['items', 'stock', 'purchase', 'sales'];
+    list.sort((a, b) => ORD.indexOf(a.kind) - ORD.indexOf(b.kind));
     const btn = $('#dlgSave'); btn.disabled = true;
     const CH = 1500;
     try {
       for (const p of list) {
-        const rows = p.kind === 'sales' ? p.rows.filter(r => r[0] >= p.from && r[0] <= p.to) : p.rows;
+        const rows = isLines(p.kind) ? p.rows.filter(r => r[0] >= p.from && r[0] <= p.to) : p.rows;
         const up = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const n = Math.max(1, Math.ceil(rows.length / CH));
         for (let i = 0; i < n; i++) {

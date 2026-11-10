@@ -12,6 +12,7 @@
 // tint : ruby slate green blue amber teal paper
 // mono : 아이콘 대신 글자 한두 개 (브랜드 사이트용)
 // group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
+// only : 이 계정에게만 보임 (이메일 아이디, 예: ['ohyun', 'oryun']). 화면에서 숨기는 것이고 데이터는 Apps Script 가 따로 막음
 
 window.MYRUBI_APPS = [
   // ESSENTIAL
@@ -28,8 +29,9 @@ window.MYRUBI_APPS = [
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
-  // REPORT
-  { id: 'sales-report', title: '매출 보고서',   icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
+  // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
+  { id: 'sales-report',    title: '매출 보고서', icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', only: ['ohyun', 'oryun'], note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
+  { id: 'purchase-report', title: '매입 보고서', icon: 'box',   tint: 'teal',  kind: 'frame', url: '/report/purchase/', only: ['ohyun', 'oryun'], note: '이카운트 구매현황으로 월 평균 매입, 최근 매입 브랜드, 브랜드·공급처별 매입, 모델별 매입 후 소진율과 회전율' },
 
   // BOOKMARK (바로가기)
   { id: 'ecount',    title: 'Ecount',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
@@ -121,9 +123,20 @@ window.MYRUBI_APPS = [
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
   { label: 'App',       ids: ['customers', 'quote', 'geometry', 'inbound', 'imweb-update'] },
-  { label: 'Report',    ids: ['sales-report'] },
+  { label: 'Report',    ids: ['sales-report', 'purchase-report'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
 // 처음 쓰는 기기에서 작업 표시줄에 고정되는 앱
 window.MYRUBI_PINNED = ['checklist', 'ecount', 'channel', 'nas'];
+
+// only 가 있는 앱은 로그인한 계정이 맞을 때만 목록에 남김 (구역이 비면 구역도 안 보임)
+(() => {
+  const key = e => { e = String(e || '').toLowerCase().trim(); const at = e.lastIndexOf('@'); return at < 0 ? e : e.slice(0, at); };
+  const can = (a, email) => !a.only || a.only.map(key).includes(key(email));
+  let email = '';
+  try { email = window.MR && MR.session() ? MR.user().email : ''; } catch (e) {}
+  window.MYRUBI_CAN = can;
+  window.MYRUBI_APPS_HIDDEN = window.MYRUBI_APPS.filter(a => !can(a, email));
+  window.MYRUBI_APPS = window.MYRUBI_APPS.filter(a => can(a, email));
+})();

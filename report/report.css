@@ -219,3 +219,22 @@ table.turn tbody tr:hover, table.promo tbody tr:hover { background: var(--surfac
   .rp-sec { break-inside: avoid-page; padding-top: 28px; }
   .rp-tip { display: none; }
 }
+
+/* 매입 보고서 */
+.chart .avg { stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .avgl { paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.legend i.ln { width: 16px; height: 0; border-top: 2px dashed var(--fg); border-radius: 0; vertical-align: 3px; }
+.hbars.pbrands .hb, .hbars.pbrands .hh, .hbars.pbrands .rest { grid-template-columns: minmax(90px, 150px) minmax(40px, 1fr) 60px 40px 60px 60px 64px; }
+.rate { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rbar { position: relative; width: 56px; height: 6px; background: var(--chart-grid); border-radius: 3px; overflow: hidden; }
+.rbar span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--slot1); border-radius: 3px; }
+.lnk { border: 0; background: none; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.lnk:hover { text-decoration-color: var(--fg); }
+.rp-switch { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 1px solid var(--line); font-size: 14px; text-decoration: none; color: var(--fg); }
+.rp-switch:hover { border-color: var(--fg); }
+@media (max-width: 640px) {
+  .hbars.pbrands .hb, .hbars.pbrands .hh, .hbars.pbrands .rest { grid-template-columns: minmax(80px, 110px) minmax(40px, 1fr) 56px 56px; }
+  .hbars.pbrands .sh, .hbars.pbrands .dd, .hbars.pbrands .ds { display: none; }
+  table.turn, #precent table { min-width: 860px; }
+}
+@media print { .rp-switch { display: none; } }

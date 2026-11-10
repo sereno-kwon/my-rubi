@@ -628,7 +628,12 @@ function renderGBtn() {
 }
 async function onCredential(r) {
   setMsg('확인하는 중', true);
-  try { await MR.login(r.credential); justLoggedOut = false; unlock(true); }
+  try {
+    await MR.login(r.credential); justLoggedOut = false;
+    // 이 계정에게만 보이는 앱(apps.js only)이 있으면 목록을 다시 만들도록 새로 불러옴
+    if ((window.MYRUBI_APPS_HIDDEN || []).some(a => window.MYRUBI_CAN(a, MR.user().email))) { location.reload(); return; }
+    unlock(true);
+  }
   catch (e) { setMsg(e.message); }
 }
 function unlock(animate) {
