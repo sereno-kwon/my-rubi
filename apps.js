@@ -28,6 +28,9 @@ window.MYRUBI_APPS = [
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
+  // 보고서
+  { id: 'sales-report', title: '매출 보고서',   icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
+
   // BOOKMARK (바로가기)
   { id: 'ecount',    title: 'Ecount',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
   { id: 'channel',   title: 'Channel Talk', icon: 'bubble', tint: 'paper', kind: 'link', url: 'https://desk.channel.io/', note: '채널톡' },
@@ -118,6 +121,7 @@ window.MYRUBI_APPS = [
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
   { label: 'App',       ids: ['customers', 'quote', 'geometry', 'inbound', 'imweb-update'] },
+  { label: '보고서',     ids: ['sales-report'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 

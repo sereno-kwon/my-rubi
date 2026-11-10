@@ -26,6 +26,10 @@
  *    2026-11-09 판: 품목의 고객 지참(own, 금액에서 뺌)·원가(cost)·재고상태(stock), 결제별 증빙 상태(rc)와 결제 취소·환불(음수),
  *    증빙(receipt: 현금영수증·세금계산서 번호), 탈거품(removed), 견적 종류(kind '업그레이드')와 원래 견적(parent) 열이 늘어남
  *    입금 계좌는 스크립트 속성 QUOTE_BANK 에 적음 (리포지토리가 공개라서 코드에 두지 않음). 로그인한 직원에게만 돌려줌
+ *  - 매출 보고서(/report/): 직원이 올린 이카운트 판매현황·재고현황·품목등록 엑셀을 '매출'·'재고'·'품목' 탭에 저장하고
+ *    올린 기록은 '보고서업로드' 탭에 남김 (GET report / POST report). 집계와 그래프는 보고서 페이지가 함
+ *    판매현황은 파일의 기간(과 거래처 필터)에 해당하는 예전 줄을 지우고 새로 넣으므로 같은 달을 다시 올려도 겹치지 않음
+ *    매출은 민감한 정보라서 CONFIG.REPORT_VIEWERS 에 적은 계정만 보고 올릴 수 있음 (비워두면 로그인한 직원 모두)
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -74,6 +78,10 @@ const CONFIG = {
   CALENDARS: ['rubiworkshop.com_dl9dl4aqajbc3gludolt5of1o8@group.calendar.google.com'],
   // 같은 달을 다시 물을 때 이 시간(초) 동안은 캘린더를 다시 읽지 않고 받아 둔 결과를 돌려줌
   CALENDAR_CACHE_SEC: 120,
+
+  // 매출 보고서를 보고 올릴 수 있는 계정 (이메일 아이디만 적으면 rubiworkshop.com, rubi.kr 어느 쪽이든 맞음)
+  //  비워두면 로그인한 직원 모두. 예: ['ohyun', 'oryun', 'someone@rubiworkshop.com']
+  REPORT_VIEWERS: ['ohyun', 'oryun'],
 };
 
 // 공지 탭 컬럼 (바탕화면 포스트잇)
@@ -135,6 +143,16 @@ const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공�
 const CODE_COLS = ['code', 'ckey', 'name', 'issuedAt', 'by', 'active', 'logins', 'lastLogin'];
 const CODE_HEADERS = ['고객코드', '고객 키', '고객명', '발급 일시', '발급한 사람', '사용 중', '로그인 횟수', '마지막 로그인'];
 const CODE_ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+// 매출 보고서 탭 (이카운트 엑셀에서 읽은 값)
+const SALE_COLS = ['date', 'no', 'code', 'name', 'qty', 'price', 'supply', 'vat', 'total', 'partner', 'wh', 'up'];
+const SALE_HEADERS = ['일자', '전표 번호', '품목코드', '품목명(규격)', '수량', '단가', '공급가액', '부가세', '합계', '거래처명', '창고', '올린 기록 ID'];
+const STOCK_COLS = ['date', 'code', 'name', 'wh', 'qty', 'up'];
+const STOCK_HEADERS = ['기준일', '품목코드', '품목명(규격)', '창고', '재고 수량', '올린 기록 ID'];
+const ITEM_COLS = ['code', 'name', 'cost', 'out', 'retail', 'supply', 'cat', 'group', 'up'];
+const ITEM_HEADERS = ['품목코드', '품목명', '입고단가', '출고단가', '소비자가격', '서플라이(딜러가)', '계층그룹명', '품목그룹1명', '올린 기록 ID'];
+const UPLOAD_COLS = ['id', 'kind', 'file', 'from', 'to', 'scope', 'rows', 'amount', 'by', 'at'];
+const UPLOAD_HEADERS = ['ID', '종류(sales/stock/items)', '파일 이름', '시작일', '끝일', '거래처 필터', '줄 수', '금액 합계(공급가액)', '올린 사람', '올린 일시'];
+
 const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
 // ───────────────────────────── HTTP ─────────────────────────────
@@ -154,6 +172,7 @@ function doGet(e) {
       case 'crm':      return json_({ ok: true, ...crmData_() });
       case 'quotes':   return json_({ ok: true, ...quoteData_() });
       case 'quotesnap': return json_({ ok: true, snap: quoteSnap_(p.id) });
+      case 'report':   return json_({ ok: true, ...reportData_(user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -178,6 +197,7 @@ function doPost(e) {
       case 'crm':      { const saved = saveCrm_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
       case 'point':    { const saved = savePoint_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
       case 'quote':    { const saved = saveQuote_(body, user) || ''; return json_({ ok: true, saved, ...quoteData_() }); }
+      case 'report':   return json_({ ok: true, ...saveReport_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -1559,4 +1579,142 @@ function test_calendar() {
   const r = listCalendar_('');
   Logger.log(r.month + ' · 캘린더 ' + r.calendars.map(c => c.name).join(', ') + ' · 일정 ' + r.events.length + '건');
   r.events.slice(0, 10).forEach(e => Logger.log(e.date + ' ' + (e.allDay ? '종일' : e.start + '-' + e.end) + '  ' + e.title));
+}
+
+// ───────────────────────────── 매출 보고서 (매출·재고·품목·보고서업로드 탭) ─────────────────────────────
+// 보고서 페이지가 이카운트 엑셀을 읽어 줄 단위로 보내면 여기서 탭에 씀. 집계는 페이지가 함
+// 판매현황: 파일 기간(from~to) 안의 예전 줄을 지우고 넣음. 파일이 거래처로 걸러진 것이면(scope) 그 거래처 줄만 지움
+// 재고현황: 기준일(date)별 스냅샷. 같은 기준일을 다시 올리면 그날 스냅샷을 바꿈
+// 품목등록: 통째로 바꿈 (입고단가로 재고 금액, 계층그룹으로 분류를 계산)
+
+function canReport_(user) {
+  const list = (CONFIG.REPORT_VIEWERS || []).map(emailKey_);
+  return !list.length || list.includes(emailKey_(user.email));
+}
+function needReport_(user) {
+  if (!canReport_(user)) throw new Error('매출 보고서를 볼 수 있는 계정이 아닙니다. 관리자에게 요청해 주세요');
+}
+
+function reportSheet_(name, headers, ncol) {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), ncol).setNumberFormat('@');
+  }
+  return sh;
+}
+const saleSheet_ = () => reportSheet_('매출', SALE_HEADERS, SALE_COLS.length);
+const stockSheet_ = () => reportSheet_('재고', STOCK_HEADERS, STOCK_COLS.length);
+const itemSheet_ = () => reportSheet_('품목', ITEM_HEADERS, ITEM_COLS.length);
+const uploadSheet_ = () => reportSheet_('보고서업로드', UPLOAD_HEADERS, UPLOAD_COLS.length);
+
+/** 탭 전체를 배열로 (머리글 제외) */
+function reportValues_(sh, n) {
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, n).getValues().map(r => r.map(v => v instanceof Date ? Utilities.formatDate(v, CONFIG.TZ, 'yyyy-MM-dd') : (v == null ? '' : String(v))));
+}
+/** 탭 내용을 통째로 바꿈 (머리글은 그대로) */
+function reportRewrite_(sh, n, rows) {
+  const last = sh.getLastRow();
+  if (last >= 2) sh.getRange(2, 1, last - 1, n).clearContent();
+  reportAppend_(sh, n, rows, true);
+}
+function reportAppend_(sh, n, rows, fromTop) {
+  if (!rows.length) return;
+  const start = fromTop ? 2 : sh.getLastRow() + 1;
+  const need = start + rows.length - 1;
+  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
+  const rng = sh.getRange(start, 1, rows.length, n);
+  rng.setNumberFormat('@');
+  rng.setValues(rows);
+}
+const rnum_ = v => { const n = Number(String(v == null ? '' : v).replace(/[,\s]/g, '')); return isFinite(n) ? n : 0; };
+const rstr_ = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
+const rdate_ = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[0] : ''; };
+
+/** 보고서 응답: 줄은 배열의 배열로 (열 순서는 *_COLS) */
+function reportData_(user) {
+  needReport_(user);
+  const ups = reportValues_(uploadSheet_(), UPLOAD_COLS.length).map(r => { const o = {}; UPLOAD_COLS.forEach((k, i) => o[k] = r[i]); return o; }).filter(o => o.id);
+  return {
+    cols: { sales: SALE_COLS, stock: STOCK_COLS, items: ITEM_COLS },
+    sales: reportValues_(saleSheet_(), SALE_COLS.length).filter(r => r[0]),
+    stock: reportValues_(stockSheet_(), STOCK_COLS.length).filter(r => r[0]),
+    items: reportValues_(itemSheet_(), ITEM_COLS.length).filter(r => r[0] || r[1]),
+    uploads: ups.reverse(),
+  };
+}
+
+/**
+ * POST report
+ *  op 'sales' : { up, file, from, to, scope:[거래처…] 또는 [], rows:[[date,no,code,name,qty,price,supply,vat,total,partner,wh]], first, last }
+ *               first 일 때 기간(과 scope) 안의 예전 줄을 지우고, 모든 조각을 같은 up(올린 기록 ID)으로 덧붙임. last 일 때 올린 기록을 남김
+ *  op 'stock' : { up, file, date, rows:[[code,name,wh,qty]], first, last }  같은 기준일의 예전 스냅샷을 first 일 때 지움
+ *  op 'items' : { up, file, rows:[[code,name,cost,out,retail,supply,cat,group]], first, last }  first 일 때 통째로 비움
+ *  op 'del'   : { id }  그 올린 기록으로 들어간 줄과 기록을 지움
+ */
+function saveReport_(b, user) {
+  needReport_(user);
+  const who = user.name || user.email;
+  const up = rstr_(b.up, 40) || ('u' + Date.now().toString(36));
+  const rows = Array.isArray(b.rows) ? b.rows : [];
+  if (b.op === 'sales') {
+    const from = rdate_(b.from), to = rdate_(b.to);
+    if (!from || !to || from > to) throw new Error('판매현황의 기간을 알 수 없습니다');
+    const scope = (Array.isArray(b.scope) ? b.scope : []).map(x => rstr_(x, 100)).filter(Boolean);
+    const sh = saleSheet_(), n = SALE_COLS.length;
+    const clean = rows.map(r => {
+      const d = rdate_(r[0]); if (!d) return null;
+      return [d, rstr_(r[1], 20), rstr_(r[2], 60), rstr_(r[3], 200), rnum_(r[4]), rnum_(r[5]), rnum_(r[6]), rnum_(r[7]), rnum_(r[8]), rstr_(r[9], 100), rstr_(r[10], 60), up].map(String);
+    }).filter(Boolean);
+    if (b.first) {
+      const keep = reportValues_(sh, n).filter(r => !(r[0] >= from && r[0] <= to && (!scope.length || scope.includes(r[9]))));
+      reportRewrite_(sh, n, keep.concat(clean));
+    } else reportAppend_(sh, n, clean);
+    if (b.last) reportLog_(Object.assign({}, b, { from, to, scope: scope.join(', ') }), up, 'sales', who);
+    return { saved: up, count: clean.length };
+  }
+  if (b.op === 'stock') {
+    const date = rdate_(b.date); if (!date) throw new Error('재고 기준일을 알 수 없습니다');
+    const sh = stockSheet_(), n = STOCK_COLS.length;
+    const clean = rows.map(r => [date, rstr_(r[0], 60), rstr_(r[1], 200), rstr_(r[2], 60), rnum_(r[3]), up].map(String)).filter(r => r[1] || r[2]);
+    if (b.first) reportRewrite_(sh, n, reportValues_(sh, n).filter(r => r[0] !== date).concat(clean));
+    else reportAppend_(sh, n, clean);
+    if (b.last) reportLog_(Object.assign({}, b, { from: date, to: date }), up, 'stock', who);
+    return { saved: up, count: clean.length };
+  }
+  if (b.op === 'items') {
+    const sh = itemSheet_(), n = ITEM_COLS.length;
+    const clean = rows.map(r => [rstr_(r[0], 60), rstr_(r[1], 200), rnum_(r[2]), rnum_(r[3]), rnum_(r[4]), rnum_(r[5]), rstr_(r[6], 100), rstr_(r[7], 100), up].map(String)).filter(r => r[0] || r[1]);
+    if (b.first) reportRewrite_(sh, n, clean); else reportAppend_(sh, n, clean);
+    if (b.last) reportLog_(b, up, 'items', who);
+    return { saved: up, count: clean.length };
+  }
+  if (b.op === 'del') {
+    const id = rstr_(b.id, 40); if (!id) throw new Error('지울 기록이 없습니다');
+    [[saleSheet_(), SALE_COLS], [stockSheet_(), STOCK_COLS], [itemSheet_(), ITEM_COLS]].forEach(([sh, cols]) => {
+      const all = reportValues_(sh, cols.length), keep = all.filter(r => r[cols.length - 1] !== id);
+      if (keep.length !== all.length) reportRewrite_(sh, cols.length, keep);
+    });
+    const ush = uploadSheet_(), all = reportValues_(ush, UPLOAD_COLS.length);
+    reportRewrite_(ush, UPLOAD_COLS.length, all.filter(r => r[0] !== id));
+    return { saved: id };
+  }
+  throw new Error('unknown op');
+}
+
+function reportLog_(b, up, kind, who) {
+  const sh = uploadSheet_(), n = UPLOAD_COLS.length;
+  const old = reportValues_(sh, n).filter(r => r[0] !== up);
+  const row = [up, kind, rstr_(b.file, 120), rstr_(b.from, 10), rstr_(b.to, 10), rstr_(b.scope, 300), String(rnum_(b.total_rows)), String(rnum_(b.amount)), who, now_()];
+  reportRewrite_(sh, n, old.concat([row]));
+}
+
+/** 편집기에서 직접 실행용: 보고서 탭 줄 수 확인 */
+function test_report() {
+  Logger.log('매출 ' + reportValues_(saleSheet_(), SALE_COLS.length).length + '줄 · 재고 ' + reportValues_(stockSheet_(), STOCK_COLS.length).length + '줄 · 품목 ' + reportValues_(itemSheet_(), ITEM_COLS.length).length + '줄');
 }
