@@ -368,7 +368,7 @@
     if (MODE === 'garage') return `<ol class="rp-guide">
       <li><b>판매현황 (루비개러지)</b>: 이카운트 영업관리 › 판매현황에서 거래처를 <b>루비개러지 스마트스토어</b>로 걸러 조회한 뒤 엑셀로 받습니다. 그 거래처의 그 기간 줄만 바뀝니다.</li>
       <li><b>재고현황</b>: 재고 › 재고현황(전 창고). 오늘 날짜로 조회해 엑셀로 받습니다. 회전 부진 분석에 씁니다.</li>
-      <li><b>스마트스토어 통계</b>: 루비개러지 스마트스토어센터 › 통계(비즈어드바이저)에서 받은 엑셀. 일별 요약, 마케팅 분석(채널별 유입수·결제수), 상품별 조회·결제, 검색 키워드를 올릴 수 있습니다. 종류는 머리글로 알아보고, 구분과 기간은 미리보기에서 고칩니다.</li>
+      <li><b>스마트스토어 방문 분석</b>: 루비개러지 스마트스토어센터 › 통계 › 방문 분석(경로 전체)을 30일 기간으로 엑셀 다운로드합니다(visit_시작일-끝일.xlsx). 30일치만 받을 수 있으니 <b>매달 한 번</b> 올리면 앞 달과 비교됩니다. 첫 줄 '전체'(총계)는 경로에서 빼고 요약 숫자에만 씁니다. 같은 기간을 다시 올리면 바뀝니다.</li>
       <li>회사 전체 판매현황과 품목등록은 대표님·권오륜 님이 매출 보고서에서 올립니다. 이 화면은 그 자료를 함께 씁니다.</li>
     </ol>`;
     return `<ol class="rp-guide">
@@ -787,8 +787,8 @@
         ${tile('주문(전표)', fmt(sc.orders) + '건', aov ? `건당 ${fmtShort(aov)}원` : '', hasPrev ? deltaHtml(chg(sc.orders, sp.orders), '전 기간') : '', hasPrev && aovP ? deltaHtml(chg(aov, aovP), '건당') : '')}
         ${tile('판매 수량', fmt(sc.q) + '개', '', hasPrev ? deltaHtml(chg(sc.q, sp.q), '전 기간') : '', '')}
         ${tile('반품·취소', sc.ret ? fmtShort(sc.ret) + '원' : '없음', sc.ret ? `${fmt(-sc.retQ)}개` : '', '', '')}
-        ${tile('유입수', tr ? fmt(tr.v) : '–', tr ? `${esc(tr.label)}` : '통계를 올리면 보입니다', '', '')}
-        ${tile('유입당 결제율', tr && tr.v ? (tr.o / tr.v * 100).toFixed(2) + '%' : '–', tr ? `결제 ${fmt(tr.o)}건` : '', '', '')}
+        ${tile('스토어 방문고객수', tr ? fmt(tr.v) + '명' : '–', tr ? `${esc(tr.label)}` : '방문 분석 엑셀을 올리면 보입니다', '', '')}
+        ${tile('구매전환율(고객)', tr && tr.v ? (tr.o / tr.v * 100).toFixed(1) + '%' : '–', tr ? `결제고객 ${fmt(tr.o)}명` : '', '', '')}
       </div></section>`);
     out.push(gTrend(P));
     out.push(`<div class="rp-two">${gSplit(cur, '코너별', cornerOf, '출하창고(RG·REF·BGR)와 세컨핸즈 품목코드(SR-B)로 나눔')}${gSplit(cur, '장르별', x => x.cat, '품목등록의 계층그룹명', 'genre')}</div>`);
@@ -838,8 +838,159 @@
     return sec('gtop', '많이 팔린 품목', '선택한 기간, 매출 순', g.length ? `<table class="mini"><thead><tr><th>품목</th><th class="n">수량</th><th class="n">매출</th></tr></thead><tbody>${g.map(o => `<tr><td>${esc(o.k || '품목명 없음')}</td><td class="n">${fmt(o.q)}</td><td class="n">${fmtShort(o.v)}</td></tr>`).join('')}</tbody></table>` : '<p class="none">이 기간 매출이 없습니다.</p>');
   }
 
-  // ─── 트래픽 ───
-  /** 구분별로 쓸 기간 하나 고르기: 선택한 기간과 가장 많이 겹치는 것, 없으면 가장 최근 */
+  // ─── 트래픽 (스마트스토어센터 통계 › 방문 분석, 경로별) ───
+  // 방문 분석 엑셀은 30일치 한 묶음(날짜 칸이 '시작~끝')이고 경로 1·2·3단계 줄로 나뉨. 첫 줄 '전체'는 총계라 경로에서 빼고
+  // '(전체)' 줄로 따로 저장해 요약 숫자에만 씀 (경로별 방문고객수의 합은 한 사람이 여러 경로로 들어와 총계보다 큼)
+  const PSEP = ' › ', PTOTAL = '(전체)';
+  const pathL = (key, n) => String(key || '').split(PSEP).slice(0, n).join(PSEP);
+  const pathShow = k => String(k || '').split(PSEP).join(' > ');
+  function pathSets() {
+    const m = new Map();
+    db.traffic.filter(t => t.dim === 'path').forEach(t => {
+      const k = t.from + '|' + t.to;
+      let s = m.get(k); if (!s) { s = { k, from: t.from, to: t.to, rows: [], total: null }; m.set(k, s); }
+      if (t.key === PTOTAL) { s.total = s.total || { v: 0, o: 0, a: 0 }; s.total.v += t.visits; s.total.o += t.orders; s.total.a += t.amount; }
+      else s.rows.push(t);
+    });
+    return [...m.values()].sort((a, b) => a.to < b.to ? -1 : a.to > b.to ? 1 : 0).map(s => {
+      if (!s.total) s.total = { v: s.rows.reduce((x, t) => x + t.visits, 0), o: s.rows.reduce((x, t) => x + t.orders, 0), a: s.rows.reduce((x, t) => x + t.amount, 0), approx: true };
+      s.dated = s.rows.some(t => t.d);
+      return s;
+    });
+  }
+  /** 보여줄 묶음: 직접 고른 것 → 선택한 기간과 가장 많이 겹치는 것 → 가장 최근 */
+  function pickSet(sets, P) {
+    if (!sets.length) return null;
+    const own = sets.find(s => s.k === ui.tset);
+    if (own) return own;
+    const ov = s => Math.max(0, days(s.from > P.from ? s.from : P.from, s.to < P.to ? s.to : P.to) + 1);
+    return sets.slice().sort((a, b) => ov(b) - ov(a) || (a.to < b.to ? 1 : -1))[0];
+  }
+  const prevSet = (sets, s) => sets.filter(x => x.to < s.from).pop() || null;
+  const setLabel = s => `${s.from.replace(/-/g, '.')} ~ ${s.to.replace(/-/g, '.')}`;
+  function aggPaths(rows, n) {
+    const m = new Map();
+    rows.forEach(t => { const k = pathL(t.key, n); const o = m.get(k) || { k, v: 0, o: 0, a: 0 }; o.v += t.visits; o.o += t.orders; o.a += t.amount; m.set(k, o); });
+    return [...m.values()];
+  }
+
+  function trafficSummary(P) {
+    const sets = pathSets(), s = pickSet(sets, P);
+    if (s) return { v: s.total.v, o: s.total.o, label: setLabel(s) };
+    const daily = db.traffic.filter(t => t.dim === 'daily' && t.d >= P.from && t.d <= P.to);
+    if (daily.length) return { v: daily.reduce((m, t) => m + t.visits, 0), o: daily.reduce((m, t) => m + t.orders, 0), label: `일별 통계 ${daily.length}일` };
+    return null;
+  }
+
+  const TM = [
+    { k: 'v', l: '방문고객수', unit: '명', val: o => o.v, share: (o, T) => T.v ? o.v / T.v : null },
+    { k: 'o', l: '결제고객수', unit: '명', val: o => o.o, share: (o, T) => T.o ? o.o / T.o : null },
+    { k: 'cr', l: '구매전환율(고객)', unit: '%', val: o => o.v ? o.o / o.v * 100 : 0, min: o => o.v >= 20 },
+    { k: 'a', l: '판매금액(총)', unit: '원', val: o => o.a, share: (o, T) => T.a ? o.a / T.a : null },
+    { k: 'aov', l: '객단가', unit: '원', val: o => o.o ? o.a / o.o : 0, min: o => o.o >= 1 },
+  ];
+  // 스마트스토어센터처럼 만 단위는 소수 한 자리 (22.9만원)
+  const won1 = x => Math.abs(x) >= 1e8 ? fmtShort(x) : Math.abs(x) >= 1e4 ? String(+(x / 1e4).toFixed(1)) + '만' : fmt(x);
+  const tFmt = (m, x) => m.unit === '%' ? x.toFixed(1) + '%' : m.unit === '원' ? won1(x) + '원' : fmt(x) + '명';
+  const tDelta = (cur, prev) => {
+    if (prev == null || !isFinite(prev) || prev === 0) return '<span class="dl na">비교기간 없음</span>';
+    const p = (cur - prev) / Math.abs(prev) * 100;
+    return `<span class="dl ${p > 0.05 ? 'up' : p < -0.05 ? 'down' : ''}">비교기간 대비 ${p > 0.05 ? '▲' : p < -0.05 ? '▼' : '·'} ${Math.abs(p).toFixed(1)}%</span>`;
+  };
+
+  function trafficView(P) {
+    const sets = pathSets();
+    const legacy = legacyTraffic(P);
+    if (!sets.length && !legacy) return sec('gtraffic', '스마트스토어 트래픽', '', `<p class="none">루비개러지 스마트스토어센터 › 통계의 방문 분석(경로 전체) 엑셀을 매달 한 번 올리면 방문고객수·결제고객수·구매전환율·판매금액·객단가와 경로별 순위·추이를 보여 줍니다.</p>`);
+    if (!sets.length) return sec('gtraffic', '스마트스토어 트래픽', '', legacy);
+    const s = pickSet(sets, P), pv = prevSet(sets, s), T = s.total, TP = pv ? pv.total : null;
+    const asO = t => ({ v: t.v, o: t.o, a: t.a });
+    const pick = `<label class="tsel"><span>기간</span><select id="tset">${sets.slice().reverse().map(x => `<option value="${esc(x.k)}"${x.k === s.k ? ' selected' : ''}>${setLabel(x)}</option>`).join('')}</select></label>`;
+    // 방문 분석 요약 (총계 줄 기준)
+    const tiles = TM.map(m => `<div class="kpi"><p class="l">${m.l}</p><p class="v">${tFmt(m, m.val(asO(T)))}</p><p class="d">${tDelta(m.val(asO(T)), TP ? m.val(asO(TP)) : null)}</p></div>`).join('');
+    // 지표별 랭킹 (2단계)
+    const p2 = aggPaths(s.rows, 2);
+    const cards = TM.map(m => {
+      const list = p2.filter(o => !m.min || m.min(o)).sort((a, b) => m.val(b) - m.val(a)).filter(o => m.val(o) > 0);
+      const more = ui.rankMore === m.k, n = more ? 10 : 3;
+      const top = list[0];
+      if (!top) return `<div class="rank"><p class="l">${m.l}</p><p class="none">자료 없음</p></div>`;
+      const sh = m.share ? m.share(top, asO(T)) : null;
+      return `<div class="rank"><p class="l">${m.l}</p><p class="no">1위</p><p class="nm">${esc(pathShow(top.k))}</p>
+        <p class="row"><span>${m.l}</span><span>${tFmt(m, m.val(top))}</span></p>${sh != null ? `<p class="row"><span>전체 대비</span><span>${(sh * 100).toFixed(1)}%</span></p>` : `<p class="row"><span>${m.k === 'cr' ? '방문' : '결제'}</span><span>${m.k === 'cr' ? fmt(top.v) + '명' : fmt(top.o) + '명'}</span></p>`}
+        <ol start="2">${list.slice(1, n).map(o => `<li data-tip="${esc(`<b>${esc(pathShow(o.k))}</b><br>${m.l} ${tFmt(m, m.val(o))}`)}"><span>${esc(pathShow(o.k))}</span><span>${tFmt(m, m.val(o))}</span></li>`).join('')}</ol>
+        ${list.length > 3 ? `<button type="button" class="more-r" data-rank="${m.k}">${more ? '접기 −' : '순위 더보기 +'}</button>` : ''}</div>`;
+    }).join('');
+    const minNote = `구매전환율 순위는 방문고객수 20명 이상, 객단가 순위는 결제고객수 1명 이상인 경로만`;
+    // 경로별 추이 (2단계, 쌓은 막대)
+    const metric = TM.find(m => m.k === (ui.tmetric || 'v')) || TM[0];
+    const tSum = { v: o => o.v, o: o => o.o, a: o => o.a }[metric.k] || (o => o.v);
+    const allP2 = new Map(); sets.forEach(x => aggPaths(x.rows, 2).forEach(o => allP2.set(o.k, (allP2.get(o.k) || 0) + o.v)));
+    const order = [...allP2.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+    const named = order.slice(0, SLOTS.length), colorOf = k => named.includes(k) ? SLOTS[named.indexOf(k)] : OTHER;
+    let cols;
+    if (s.dated) {
+      const ds = [...new Set(s.rows.map(t => t.d).filter(Boolean))].sort();
+      cols = ds.map(d => ({ label: `${d.slice(5, 7)}.${d.slice(8)}`, tip: d.replace(/-/g, '.'), on: true, parts: aggPaths(s.rows.filter(t => t.d === d), 2) }));
+    } else {
+      cols = sets.slice(-12).map(x => ({ label: `${x.from.slice(5).replace('-', '.')}~${x.to.slice(5).replace('-', '.')}`, tip: setLabel(x), on: x.k === s.k, parts: aggPaths(x.rows, 2) }));
+    }
+    const chart = (() => {
+      if (!['v', 'o', 'a'].includes(metric.k)) return '<p class="none">구매전환율·객단가는 경로별로 더할 수 없어 쌓은 막대로 그리지 않습니다. 위 순위와 아래 표를 봐 주세요.</p>';
+      const W = 760, H = 260, L = 56, R = 8, Tp = 14, B = 30, iw = W - L - R, ih = H - Tp - B;
+      const stacks = cols.map(c => { const by = new Map(); c.parts.forEach(o => { const k = named.includes(o.k) ? o.k : '그 외'; by.set(k, (by.get(k) || 0) + tSum(o)); }); return by; });
+      const max = niceMax(Math.max(1, ...stacks.map(by => [...by.values()].reduce((x, y) => x + y, 0))));
+      const y = v => Tp + ih - v / max * ih, band = iw / Math.max(1, cols.length), bw = Math.max(4, Math.min(cols.length > 12 ? 18 : 40, band * 0.56));
+      const keys = named.concat('그 외');
+      let g = '';
+      for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="${i ? 'grid' : 'base'}"/><text x="${L - 8}" y="${yy + 4}" class="ax" text-anchor="end">${i ? (metric.unit === '원' ? fmtShort(v) : fmt(v) + '명') : '0'}</text>`; }
+      const every = Math.ceil(cols.length / 12);
+      cols.forEach((c, i) => {
+        const cx = L + band * i + band / 2, x0 = cx - bw / 2, by = stacks[i];
+        let acc = 0; const segs = keys.filter(k => (by.get(k) || 0) > 0);
+        segs.forEach((k, j) => {
+          const v = by.get(k), yy = y(acc + v), h = v / max * ih - (j ? 2 : 0); acc += v;
+          if (h <= 0) return;
+          const top = j === segs.length - 1, r = top ? Math.min(3, h) : 0;
+          g += `<path d="M${x0},${yy + h} V${yy + r} ${r ? `Q${x0},${yy} ${x0 + r},${yy}` : ''} H${x0 + bw - r} ${r ? `Q${x0 + bw},${yy} ${x0 + bw},${yy + r}` : ''} V${yy + h} Z" fill="${colorOf(k)}" opacity="${c.on ? 1 : 0.45}"/>`;
+        });
+        const tot = [...by.values()].reduce((x, z) => x + z, 0);
+        g += `<rect x="${L + band * i}" y="${Tp}" width="${band}" height="${ih}" class="hit" data-tip="${esc(`<b>${c.tip}</b><br>${metric.l} 합 ${metric.unit === '원' ? fmt(tot) + '원' : fmt(tot) + '명'}` + segs.slice().reverse().map(k => `<br><i style="background:${colorOf(k)}"></i>${esc(pathShow(k))} ${metric.unit === '원' ? fmt(by.get(k)) + '원' : fmt(by.get(k)) + '명'}`).join(''))}"/>`;
+        if (i % every === 0) g += `<text x="${cx}" y="${H - 10}" class="ax${c.on ? ' on' : ''}" text-anchor="middle">${c.label}</text>`;
+      });
+      const used = keys.filter(k => stacks.some(by => (by.get(k) || 0) > 0));
+      return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="경로별 ${metric.l}">${g}</svg><ul class="legend lg-b">${used.map(k => `<li><i style="background:${colorOf(k)}"></i>${esc(pathShow(k))}</li>`).join('')}</ul>`;
+    })();
+    const mSel = `<select id="tmetric" aria-label="지표">${TM.filter(m => ['v', 'o', 'a'].includes(m.k)).map(m => `<option value="${m.k}"${m.k === metric.k ? ' selected' : ''}>${m.l}</option>`).join('')}</select>`;
+    // 경로 표
+    const lv = ui.tlevel || 2;
+    const pr = aggPaths(s.rows, lv).sort((a, b) => b.v - a.v);
+    const prevMap = pv ? new Map(aggPaths(pv.rows, lv).map(o => [o.k, o])) : null;
+    const maxV = Math.max(1, ...pr.map(o => o.v));
+    const table = `<div class="tbl-tools"><div class="seg" role="group" aria-label="경로 단계"><button type="button" data-tlevel="1" aria-pressed="${lv === 1}">1단계</button><button type="button" data-tlevel="2" aria-pressed="${lv === 2}">2단계</button><button type="button" data-tlevel="3" aria-pressed="${lv === 3}">3단계</button></div><span class="cnt">${pr.length}개 경로</span></div>
+      <div class="scroll"><table class="promo paths"><thead><tr><th>경로</th><th class="n">방문고객수</th><th></th><th class="n">전체 대비</th>${prevMap ? '<th class="n">비교기간 대비</th>' : ''}<th class="n">결제고객수</th><th class="n">구매전환율</th><th class="n">판매금액</th><th class="n">객단가</th></tr></thead>
+      <tbody>${pr.map(o => { const p0 = prevMap && prevMap.get(o.k); const d = p0 && p0.v ? (o.v - p0.v) / p0.v * 100 : null; return `<tr><td>${esc(pathShow(o.k))}</td><td class="n">${fmt(o.v)}</td><td class="bar"><span class="rbar wide"><span style="width:${o.v / maxV * 100}%;background:${colorOf(pathL(o.k, 2))}"></span></span></td><td class="n">${T.v ? (o.v / T.v * 100).toFixed(1) + '%' : '–'}</td>${prevMap ? `<td class="n ${d == null ? '' : d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d == null ? '새 경로' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d).toFixed(0) + '%'}</td>` : ''}<td class="n">${fmt(o.o)}</td><td class="n">${o.v ? (o.o / o.v * 100).toFixed(1) + '%' : '–'}</td><td class="n">${o.a ? won1(o.a) : '–'}</td><td class="n">${o.o ? won1(o.a / o.o) : '–'}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return sec('gtraffic', '스마트스토어 트래픽', `루비개러지 스마트스토어센터 통계 › 방문 분석(경로 전체) · ${setLabel(s)}${pv ? ` · 비교기간 ${setLabel(pv)}` : ' · 비교기간: 앞 기간 엑셀을 올리면 보입니다'}${T.approx ? ' · 총계 줄이 없어 경로 합으로 셈(방문고객수가 실제보다 큼)' : ''}`,
+      `<div class="kpi-row k5">${tiles}</div>
+      <h3>지표별 랭킹 <small>경로 2단계 · ${minNote}</small></h3><div class="ranks">${cards}</div>
+      <div class="th3"><h3>경로별 ${metric.l} <small>${s.dated ? '일별' : '올린 기간별 (진한 막대가 보고 있는 기간)'} · 경로별 방문고객수의 합은 한 사람이 여러 경로로 들어와 전체보다 큼</small></h3>${mSel}</div>${chart}
+      <h3>경로별 성과</h3>${table}${legacy ? `<div class="legacy">${legacy}</div>` : ''}`, pick);
+  }
+
+  /** 예전 형식 통계 (일별·채널별·상품별·키워드별 엑셀) */
+  function legacyTraffic(P) {
+    const tbl = (dim, title, keyL) => {
+      const set = trafficSet(dim, P); if (!set) return '';
+      const m = new Map(); set.rows.forEach(t => { const o = m.get(t.key) || { k: t.key, v: 0, w: 0, o: 0, a: 0 }; o.v += t.visits; o.w += t.views; o.o += t.orders; o.a += t.amount; m.set(t.key, o); });
+      const rows = [...m.values()].sort((a, b) => (b.v || b.w) - (a.v || a.w));
+      const reach = o => o.v || o.w, tr = rows.reduce((s, o) => s + reach(o), 0), to = rows.reduce((s, o) => s + o.o, 0), base = tr ? to / tr : 0;
+      const med = (() => { const a = rows.map(reach).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; })();
+      const weak = o => dim === 'product' && reach(o) >= med && reach(o) > 0 && base > 0 && o.o / reach(o) < base / 2;
+      return `<h3>${title} <small>${set.from.replace(/-/g, '.')} ~ ${set.to.replace(/-/g, '.')}</small></h3><div class="scroll"><table class="promo"><thead><tr><th>${keyL}</th><th class="n">유입·조회</th><th class="n">결제수</th><th class="n">결제율</th><th class="n">결제금액</th></tr></thead><tbody>${rows.slice(0, 15).map(o => `<tr><td>${esc(o.k)}${weak(o) ? ` <span class="flag sm" style="--c:${STATUS.warn}"><span class="ic">!</span>조회 대비 결제 낮음</span>` : ''}</td><td class="n">${fmt(reach(o))}</td><td class="n">${fmt(o.o)}</td><td class="n">${reach(o) ? (o.o / reach(o) * 100).toFixed(2) + '%' : '–'}</td><td class="n">${o.a ? fmtShort(o.a) : '–'}</td></tr>`).join('')}</tbody></table></div>`;
+    };
+    return ['channel', 'product', 'keyword', 'other'].map(d => tbl(d, { channel: '채널별 유입', product: '상품별 조회와 결제', keyword: '검색 키워드', other: '그 밖 통계' }[d], { channel: '채널', product: '상품', keyword: '키워드', other: '항목' }[d])).join('');
+  }
+  /** 구분별로 쓸 기간 하나 고르기 (예전 형식): 선택한 기간과 가장 많이 겹치는 것, 없으면 가장 최근 */
   function trafficSet(dim, P) {
     const rows = db.traffic.filter(t => t.dim === dim);
     if (!rows.length) return null;
@@ -847,56 +998,6 @@
     periods.sort((a, b) => b.ov - a.ov || (a.t < b.t ? 1 : -1));
     const pick = periods[0];
     return { from: pick.f, to: pick.t, rows: rows.filter(t => t.from === pick.f && t.to === pick.t) };
-  }
-  function trafficSummary(P) {
-    const daily = db.traffic.filter(t => t.dim === 'daily' && t.d >= P.from && t.d <= P.to);
-    if (daily.length) return { v: daily.reduce((m, t) => m + t.visits, 0), o: daily.reduce((m, t) => m + t.orders, 0), label: `일별 통계 ${daily.length}일` };
-    const ch = trafficSet('channel', P);
-    if (ch) return { v: ch.rows.reduce((m, t) => m + t.visits, 0), o: ch.rows.reduce((m, t) => m + t.orders, 0), label: `채널 통계 ${ch.from.slice(5).replace('-', '.')} ~ ${ch.to.slice(5).replace('-', '.')}` };
-    return null;
-  }
-  function trafficView(P) {
-    if (!db.traffic.length) return sec('gtraffic', '스마트스토어 트래픽', '', `<p class="none">루비개러지 스마트스토어센터 › 통계에서 받은 엑셀을 올리면 일별 유입, 채널별 유입·결제, 상품별 조회·결제, 검색 키워드를 보여 줍니다.</p>`);
-    const parts = [];
-    // 일별
-    let daily = db.traffic.filter(t => t.dim === 'daily' && t.d >= P.from && t.d <= P.to);
-    let dLabel = '선택한 기간';
-    if (!daily.length) { const all = db.traffic.filter(t => t.dim === 'daily' && t.d).sort((a, b) => a.d < b.d ? -1 : 1); if (all.length) { const last = all[all.length - 1].d, f = addDays(last, -29); daily = all.filter(t => t.d >= f); dLabel = '가장 최근 30일 (선택한 기간 자료 없음)'; } }
-    if (daily.length) {
-      const byD = new Map(); daily.forEach(t => { const o = byD.get(t.d) || { d: t.d, v: 0, o: 0, a: 0, w: 0 }; o.v += t.visits; o.o += t.orders; o.a += t.amount; o.w += t.views; byD.set(t.d, o); });
-      const ds = [...byD.values()].sort((a, b) => a.d < b.d ? -1 : 1);
-      const W = 760, H = 200, L = 44, R = 8, Tp = 14, B = 26, iw = W - L - R, ih = H - Tp - B;
-      const max = niceMax(Math.max(1, ...ds.map(o => o.v))), y = v => Tp + ih - v / max * ih, band = iw / ds.length, bw = Math.max(2, Math.min(16, band * 0.6));
-      let g = '';
-      for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="${i ? 'grid' : 'base'}"/><text x="${L - 8}" y="${yy + 4}" class="ax" text-anchor="end">${fmt(v)}</text>`; }
-      const every = Math.ceil(ds.length / 10);
-      ds.forEach((o, i) => {
-        const cx = L + band * i + band / 2, yy = y(o.v), h = Tp + ih - yy, r = Math.min(3, h);
-        if (h > 0.5) g += `<path d="M${cx - bw / 2},${Tp + ih} V${yy + r} Q${cx - bw / 2},${yy} ${cx - bw / 2 + r},${yy} H${cx + bw / 2 - r} Q${cx + bw / 2},${yy} ${cx + bw / 2},${yy + r} V${Tp + ih} Z" fill="${SLOTS[0]}"/>`;
-        g += `<rect x="${L + band * i}" y="${Tp}" width="${band}" height="${ih}" class="hit" data-tip="${esc(`<b>${o.d.replace(/-/g, '.')}</b><br>유입 ${fmt(o.v)}${o.w ? `<br>조회 ${fmt(o.w)}` : ''}<br>결제 ${fmt(o.o)}건${o.v ? ` (${(o.o / o.v * 100).toFixed(2)}%)` : ''}${o.a ? `<br>결제금액 ${fmt(o.a)}원` : ''}`)}"/>`;
-        if (i % every === 0) g += `<text x="${cx}" y="${H - 8}" class="ax" text-anchor="middle">${+o.d.slice(5, 7)}.${+o.d.slice(8)}</text>`;
-      });
-      const tv = ds.reduce((m, o) => m + o.v, 0), to = ds.reduce((m, o) => m + o.o, 0);
-      parts.push(`<h3>일별 유입 <small>${esc(dLabel)} · 합계 ${fmt(tv)} · 결제 ${fmt(to)}건 · 결제율 ${tv ? (to / tv * 100).toFixed(2) : '–'}%</small></h3><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 유입수">${g}</svg>`);
-    }
-    const tbl = (dim, title, keyL) => {
-      const set = trafficSet(dim, P); if (!set) return '';
-      const m = new Map(); set.rows.forEach(t => { const o = m.get(t.key) || { k: t.key, v: 0, w: 0, o: 0, a: 0 }; o.v += t.visits; o.w += t.views; o.o += t.orders; o.a += t.amount; m.set(t.key, o); });
-      const rows = [...m.values()].sort((a, b) => (b.v || b.w) - (a.v || a.w));
-      const tv = rows.reduce((s, o) => s + o.v, 0), to = rows.reduce((s, o) => s + o.o, 0), tw = rows.reduce((s, o) => s + o.w, 0);
-      const base = tv ? to / tv : (tw ? to / tw : 0);
-      const reach = o => o.v || o.w;
-      const medReach = (() => { const a = rows.map(reach).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; })();
-      const maxR = Math.max(1, ...rows.map(reach));
-      const weak = o => dim === 'product' && reach(o) >= medReach && reach(o) > 0 && base > 0 && o.o / reach(o) < base / 2;
-      const showV = rows.some(o => o.v), showW = rows.some(o => o.w), showA = rows.some(o => o.a);
-      return `<h3>${title} <small>${set.from.replace(/-/g, '.')} ~ ${set.to.replace(/-/g, '.')} · ${rows.length}개</small></h3><div class="scroll"><table class="promo"><thead><tr><th>${keyL}</th>${showV ? '<th class="n">유입수</th>' : ''}<th></th>${showW ? '<th class="n">조회수</th>' : ''}<th class="n">결제수</th><th class="n">결제율</th>${showA ? '<th class="n">결제금액</th>' : ''}</tr></thead><tbody>${rows.slice(0, 15).map(o => `<tr><td>${esc(o.k)}${weak(o) ? ` <span class="flag sm" style="--c:${STATUS.warn}"><span class="ic">!</span>조회 대비 결제 낮음</span>` : ''}</td>${showV ? `<td class="n">${fmt(o.v)}</td>` : ''}<td class="bar"><span class="rbar wide"><span style="width:${reach(o) / maxR * 100}%"></span></span></td>${showW ? `<td class="n">${fmt(o.w)}</td>` : ''}<td class="n">${fmt(o.o)}</td><td class="n">${reach(o) ? (o.o / reach(o) * 100).toFixed(2) + '%' : '–'}</td>${showA ? `<td class="n">${fmtShort(o.a)}</td>` : ''}</tr>`).join('')}</tbody></table></div>${rows.length > 15 ? `<p class="foot">그 밖 ${rows.length - 15}개</p>` : ''}`;
-    };
-    parts.push(tbl('channel', '채널별 유입', '채널'));
-    parts.push(tbl('product', '상품별 조회와 결제', '상품'));
-    parts.push(tbl('keyword', '검색 키워드', '키워드'));
-    parts.push(tbl('other', '그 밖 통계', '항목'));
-    return sec('gtraffic', '스마트스토어 트래픽', '루비개러지 스마트스토어센터 통계 엑셀 · 구분마다 선택한 기간과 가장 많이 겹치는 자료를 씀 · 상품별에서 조회는 많은데 결제율이 평균의 절반 미만이면 표시 (상세페이지·가격 점검 후보)', parts.filter(Boolean).join(''));
   }
 
   // ─── 회전 부진 재고 ───
@@ -977,6 +1078,8 @@
     if (t.hasAttribute('data-brand')) { ui.brand = ui.brand === t.dataset.brand ? '' : t.dataset.brand; ui.tableN = 40; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (t.dataset.plat) { ui.plat = ui.plat === t.dataset.plat ? '' : t.dataset.plat; render(); return; }
     if (t.dataset.sort) { if (ui.sort === t.dataset.sort) ui.dir = -ui.dir; else { ui.sort = t.dataset.sort; ui.dir = ['brand', 'model'].includes(ui.sort) ? 1 : -1; } render(); keepAt('#turnover'); return; }
+    if (t.dataset.rank) { ui.rankMore = ui.rankMore === t.dataset.rank ? '' : t.dataset.rank; render(); keepAt('#gtraffic'); return; }
+    if (t.dataset.tlevel) { ui.tlevel = +t.dataset.tlevel; render(); keepAt('#gtraffic'); return; }
     if (t.dataset.gsort) { if (ui.gsort === t.dataset.gsort) ui.gdir = -(ui.gdir || -1); else { ui.gsort = t.dataset.gsort; ui.gdir = ['name', 'cat'].includes(ui.gsort) ? 1 : -1; } render(); keepAt('#gslow'); return; }
     if (t.hasAttribute('data-genre')) { ui.genre = ui.genre === t.dataset.genre ? '' : t.dataset.genre; ui.tableN = 40; render(); return; }
     if (t.dataset.psort) { if (ui.psort === t.dataset.psort) ui.pdir = -(ui.pdir || -1); else { ui.psort = t.dataset.psort; ui.pdir = ['brand', 'model'].includes(ui.psort) ? 1 : -1; } render(); keepAt('#pmodels'); return; }
@@ -990,6 +1093,7 @@
     if (e.target.id === 'tq') { ui.q = e.target.value; ui.tableN = 40; const pos = e.target.selectionStart; render(); const f = $('#tq'); if (f) { f.focus(); f.setSelectionRange(pos, pos); } }
   });
   document.addEventListener('change', e => {
+    if (e.target.id === 'tset' || e.target.id === 'tmetric') { ui[e.target.id] = e.target.value; render(); keepAt('#gtraffic'); return; }
     if (e.target.id === 'cFrom' || e.target.id === 'cTo') { ui[e.target.id === 'cFrom' ? 'from' : 'to'] = e.target.value; saveUi(); render(); }
   });
   $('#btnUpload').onclick = () => openUpload();
@@ -1029,7 +1133,7 @@
     dlgBody.querySelectorAll('[data-pi]').forEach(el => el.onchange = () => {
       const p = pending[+el.dataset.pi], f = el.dataset.f;
       if (f === 'kind') { p.kind = el.value; p.map = autoMap(p.kind, p.head); }
-      else if (f === 'from' || f === 'to' || f === 'date') p[f] = el.value;
+      else if (f === 'from' || f === 'to' || f === 'date') { p[f] = el.value; if (f !== 'date') p.fromTouched = true; }
       else if (f === 'dim') { p.dim = el.value; p.dimTouched = true; }
       else if (f === 'scopeMode') { p.scopeMode = el.value; p.scopeTouched = true; }
       else if (f === 'skip') p.skip = el.checked;
@@ -1069,9 +1173,11 @@
     items: [['code', '품목코드', /품목\s*코드/, true], ['name', '품목명', /품목명/, true], ['cost', '입고단가', /입고\s*단가/], ['out', '출고단가', /출고\s*단가/], ['retail', '소비자가격', /소비자\s*가/], ['supply', '서플라이', /서플라이|딜러/], ['cat', '계층그룹명', /계층\s*그룹/], ['group', '품목그룹1명', /품목\s*그룹\s*1/]],
   };
   FIELDS.purchase = FIELDS.sales.map(f => f[0] === 'partner' ? ['partner', '거래처명(공급처)', /거래처\s*명|공급처|매입처|^거래처$/, false] : f);
-  FIELDS.traffic = [['date', '날짜', /^(날짜|일자|기간|일별|date)/i], ['key', '항목(채널·상품·키워드)', /채널\s*명|^채널$|유입\s*경로|채널\s*그룹|상품\s*명|키워드|검색어|^상품$/], ['visits', '유입수', /유입\s*수|방문\s*수|방문자\s*수|세션/], ['views', '조회수', /페이지\s*뷰|조회\s*수|상세\s*조회|pv/i], ['orders', '결제수', /결제\s*수|결제\s*건수|주문\s*수/], ['amount', '결제금액', /결제\s*금액|매출/]];
+  FIELDS.traffic = [['date', '날짜', /^(날짜|일자|기간|일별|date)/i], ['p1', '경로 1단계', /경로\s*\(?\s*1\s*단계/], ['p2', '경로 2단계', /경로\s*\(?\s*2\s*단계/], ['p3', '경로 3단계', /경로\s*\(?\s*3\s*단계/],
+    ['key', '항목(채널·상품·키워드)', /채널\s*명|^채널$|유입\s*경로|채널\s*그룹|상품\s*명|키워드|검색어|^상품$/], ['visits', '방문고객수·유입수', /방문\s*고객\s*수|유입\s*수|방문\s*수|방문자\s*수|세션/], ['views', '조회수', /페이지\s*뷰|조회\s*수|상세\s*조회|pv/i],
+    ['orders', '결제고객수·결제수', /결제\s*고객\s*수|결제\s*수|결제\s*건수|주문\s*수/], ['amount', '판매금액·결제금액', /판매\s*금액|결제\s*금액|매출/]];
   const KIND_L = { sales: '판매현황', purchase: '구매현황', stock: '재고현황', items: '품목등록', traffic: '스마트스토어 통계' };
-  const DIM_L = { daily: '일별', channel: '채널별', product: '상품별', keyword: '키워드별', other: '그 밖' };
+  const DIM_L = { path: '방문 분석(경로별)', daily: '일별', channel: '채널별', product: '상품별', keyword: '키워드별', other: '그 밖' };
   // 개러지 앱에서 올릴 수 있는 종류 (전체 권한이면 품목등록도)
   const kindsHere = () => MODE === 'garage' ? (db && db.full ? ['sales', 'stock', 'items', 'traffic'] : ['sales', 'stock', 'traffic']) : ['sales', 'purchase', 'stock', 'items'];
   const isLines = k => k === 'sales' || k === 'purchase';
@@ -1169,9 +1275,23 @@
     } else if (p.kind === 'traffic') {
       let min = '', max = '';
       if (m.visits < 0 && m.views < 0 && m.orders < 0) { p.err = '유입수·조회수·결제수 중 하나는 있어야 합니다. 아래에서 열을 골라 주세요'; return; }
+      const isPath = m.p1 >= 0 || m.p2 >= 0;
+      const ymd = (y, mo, d) => `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      p.totalRows = 0;
       p.data.forEach(r => {
-        const key = g(r, 'key'), dm = String(g(r, 'date')).match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
-        const d = dm ? `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}` : '';
+        const ds = String(g(r, 'date'));
+        // 날짜 칸이 '2026-10-13~2026-11-11' 같은 기간이면 그 기간이 이 파일의 기간 (줄 날짜는 비움)
+        const rg = ds.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\s*~\s*(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+        if (rg && !p.fromTouched) { p.from = p.from && p.rangeSet ? (p.from < ymd(rg[1], rg[2], rg[3]) ? p.from : ymd(rg[1], rg[2], rg[3])) : ymd(rg[1], rg[2], rg[3]); p.to = p.to && p.rangeSet ? (p.to > ymd(rg[4], rg[5], rg[6]) ? p.to : ymd(rg[4], rg[5], rg[6])) : ymd(rg[4], rg[5], rg[6]); p.rangeSet = true; }
+        const dm = rg ? null : ds.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+        const d = dm ? ymd(dm[1], dm[2], dm[3]) : '';
+        let key = g(r, 'key');
+        if (isPath) {
+          const lv = [g(r, 'p1'), g(r, 'p2'), g(r, 'p3')].map(x => String(x || '').trim()).filter(x => x && x !== '-');
+          // 첫 줄 '전체'(총계)는 경로가 아님: 요약 숫자용 '(전체)' 줄로만 저장하고 날짜는 쓰지 않음
+          if (lv.length && lv.every(x => x === '전체')) { const v = num(g(r, 'visits')), o = num(g(r, 'orders')), a = num(g(r, 'amount')); p.rows.push([d, PTOTAL, v, 0, o, a]); p.totalRows++; p.totalV = (p.totalV || 0) + v; p.totalO = (p.totalO || 0) + o; return; }
+          key = lv.join(PSEP);
+        }
         if (!key && !d) return;
         if (/^(합계|전체|총계|계)$/.test(key)) return;
         const v = num(g(r, 'visits')), w = num(g(r, 'views')), o = num(g(r, 'orders')), a = num(g(r, 'amount'));
@@ -1180,13 +1300,17 @@
         if (d) { if (!min || d < min) min = d; if (!max || d > max) max = d; }
       });
       if (!p.rows.length) { p.err = '통계 줄을 찾지 못했습니다. 유입수 열을 확인해 주세요'; return; }
+      if (isPath) { p.dim = 'path'; p.dimTouched = true; }
+      if (isPath && !p.totalRows) p.warn.push("첫 줄 '전체'(총계)가 없어 요약 숫자를 경로 합으로 셉니다. 방문고객수가 실제보다 크게 나옵니다");
+      if (!p.from && !p.fromTouched) { const fm = String(p.file || '').match(/(20\d{6})\D+(20\d{6})/); if (fm) { p.from = `${fm[1].slice(0, 4)}-${fm[1].slice(4, 6)}-${fm[1].slice(6)}`; p.to = `${fm[2].slice(0, 4)}-${fm[2].slice(4, 6)}-${fm[2].slice(6)}`; } }
       if (!p.dimTouched) {
         const hk = m.key >= 0 ? p.head[m.key] : '';
         p.dim = /상품/.test(hk) ? 'product' : /키워드|검색어/.test(hk) ? 'keyword' : /채널|유입\s*경로/.test(hk) ? 'channel' : m.date >= 0 && !p.rows.some(r => r[1]) ? 'daily' : m.date >= 0 ? 'daily' : 'other';
       }
       if (p.dim === 'daily' && p.rows.some(r => !r[0])) p.warn.push('날짜가 없는 줄은 일별 자료에서 빠집니다');
       if (!p.from) { if (min) { p.from = min; p.to = max; } else { p.warn.push('제목 줄에서 기간을 찾지 못했습니다. 통계를 받은 기간을 적어 주세요'); p.from = addDays(todayKST(), -30); p.to = addDays(todayKST(), -1); } }
-      p.vSum = p.rows.reduce((t, r) => t + r[2], 0); p.oSum = p.rows.reduce((t, r) => t + r[4], 0);
+      const body = p.rows.filter(r => r[1] !== PTOTAL);
+      p.vSum = p.totalRows ? p.totalV : body.reduce((t, r) => t + r[2], 0); p.oSum = p.totalRows ? p.totalO : body.reduce((t, r) => t + r[4], 0); p.pathN = body.length;
     } else {
       p.data.forEach(r => {
         const code = g(r, 'code'), name = g(r, 'name');
@@ -1209,7 +1333,7 @@
       if (isLines(p.kind)) sum = `${fmt(p.rows.filter(r => r[0] >= p.from && r[0] <= p.to).length)}줄 · 공급가액 ${fmt(p.amount)}원 · 거래처 ${p.partners.length}곳 · 날짜 ${p.min} ~ ${p.max}`;
       if (p.kind === 'stock') sum = `${fmt(p.rows.length)}개 품목(창고별) · 재고 ${fmt(p.qtySum)}개`;
       if (p.kind === 'items') sum = `${fmt(p.rows.length)}개 품목`;
-      if (p.kind === 'traffic') sum = `${DIM_L[p.dim] || ''} ${fmt(p.rows.length)}줄 · 유입수 ${fmt(p.vSum)} · 결제수 ${fmt(p.oSum)}`;
+      if (p.kind === 'traffic') sum = p.dim === 'path' ? `방문 분석 ${p.from.replace(/-/g, '.')} ~ ${p.to.replace(/-/g, '.')} · 경로 ${fmt(p.pathN)}개 · 방문고객 ${fmt(p.vSum)}명 · 결제고객 ${fmt(p.oSum)}명${p.totalRows ? ' · 첫 줄 총계는 경로에서 뺌' : ''}` : `${DIM_L[p.dim] || ''} ${fmt(p.pathN)}줄 · 유입수 ${fmt(p.vSum)} · 결제수 ${fmt(p.oSum)}`;
     }
     if (p.kind && !kindsHere().includes(p.kind) && !p.err) p.err = `${KIND_L[p.kind]}은 여기서 올릴 수 없습니다`;
     const extra = isLines(p.kind) ? `<div class="pf"><label><span>기간 시작</span><input type="date" data-pi="${i}" data-f="from" value="${esc(p.from)}"></label><label><span>기간 끝</span><input type="date" data-pi="${i}" data-f="to" value="${esc(p.to)}"></label>

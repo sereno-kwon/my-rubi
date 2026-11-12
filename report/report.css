@@ -251,3 +251,31 @@ td.bar { min-width: 120px; vertical-align: middle; }
 table.genre tr.on { background: var(--surface); }
 table.genre td { white-space: nowrap; }
 @media (max-width: 640px) { table.genre { min-width: 980px; } }
+
+/* 스마트스토어 방문 분석 */
+.kpi-row.k5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.ranks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.rank { display: flex; flex-direction: column; padding: 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.rank .l { margin: 0; font-size: 13px; line-height: 18px; color: var(--muted); }
+.rank .no { margin: 16px 0 0; font-size: 18px; line-height: 24px; }
+.rank .nm { margin: 2px 0 8px; font-size: 18px; line-height: 24px; letter-spacing: -.4px; word-break: keep-all; overflow-wrap: anywhere; }
+.rank .row { display: flex; justify-content: space-between; margin: 2px 0 0; font-size: 12px; line-height: 18px; color: var(--muted); }
+.rank .row span:last-child { color: var(--fg); font-variant-numeric: tabular-nums; }
+.rank ol { margin: 10px 0 0; padding: 0; list-style: none; counter-reset: r 1; border-top: 1px solid var(--line); }
+.rank ol li { counter-increment: r; display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 18px; }
+.rank ol li::before { content: counter(r) "위"; color: var(--muted); }
+.rank ol li span:first-child { word-break: keep-all; overflow-wrap: anywhere; }
+.rank ol li span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.rank .more-r { margin-top: auto; padding: 10px 0 0; border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.rank .more-r:hover { color: var(--fg); }
+.th3 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 32px; }
+.th3 h3 { margin-bottom: 8px; }
+.th3 select, .tsel select { height: 32px; border: 1px solid var(--line); padding: 0 8px; background: var(--bg); }
+.tsel { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.legend.lg-b { margin: 8px 0 0; justify-content: center; }
+#gtraffic h3 { margin-top: 32px; }
+td.up { color: var(--good-ink); }
+td.down { color: var(--bad-ink); }
+.legacy { margin-top: 8px; }
+@media (max-width: 1000px) { .ranks, .kpi-row.k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { table.paths { min-width: 760px; } .th3 { flex-direction: column; } }

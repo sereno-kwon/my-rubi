@@ -162,7 +162,7 @@ const STOCK_HEADERS = ['기준일', '품목코드', '품목명(규격)', '창고
 const ITEM_COLS = ['code', 'name', 'cost', 'out', 'retail', 'supply', 'cat', 'group', 'up'];
 const ITEM_HEADERS = ['품목코드', '품목명', '입고단가', '출고단가', '소비자가격', '서플라이(딜러가)', '계층그룹명', '품목그룹1명', '올린 기록 ID'];
 const TRAFFIC_COLS = ['from', 'to', 'dim', 'key', 'date', 'visits', 'views', 'orders', 'amount', 'up'];
-const TRAFFIC_HEADERS = ['기간 시작', '기간 끝', '구분(daily/channel/product/keyword)', '항목(채널·상품·키워드)', '날짜', '유입수', '조회수', '결제수', '결제금액', '올린 기록 ID'];
+const TRAFFIC_HEADERS = ['기간 시작', '기간 끝', '구분(path/daily/channel/product/keyword)', '항목(경로·채널·상품·키워드)', '날짜', '방문고객수·유입수', '조회수', '결제고객수·결제수', '판매금액', '올린 기록 ID'];
 const UPLOAD_COLS = ['id', 'kind', 'file', 'from', 'to', 'scope', 'rows', 'amount', 'by', 'at'];
 const UPLOAD_HEADERS = ['ID', '종류(sales/purchase/stock/items/traffic)', '파일 이름', '시작일', '끝일', '거래처 필터', '줄 수', '금액 합계(공급가액)', '올린 사람', '올린 일시'];
 
@@ -1783,6 +1783,7 @@ function garageData_(user) {
 /**
  * POST garage
  *  op 'traffic' : { up, file, from, to, dim, rows:[[date,key,visits,views,orders,amount]], first, last }
+ *                 dim 'path' = 스마트스토어센터 방문 분석(경로별, 30일 묶음). key 는 '1단계 › 2단계 › 3단계', 총계 줄은 key '(전체)'
  *                 같은 구분(dim)의 기간이 겹치는 예전 줄을 first 일 때 지움 (일별은 그 날짜들만)
  *  op 'stock'   : 재고현황 (보고서와 같음)
  *  op 'sales'   : 판매현황. 담당자는 개러지 거래처 줄만 올릴 수 있고, 그 거래처 줄만 바뀜
@@ -1815,7 +1816,7 @@ function saveTraffic_(b, user) {
   const up = rstr_(b.up, 40) || ('u' + Date.now().toString(36));
   const from = rdate_(b.from), to = rdate_(b.to);
   if (!from || !to || from > to) throw new Error('트래픽 자료의 기간을 알 수 없습니다');
-  const dim = ['daily', 'channel', 'product', 'keyword', 'other'].includes(b.dim) ? b.dim : 'other';
+  const dim = ['path', 'daily', 'channel', 'product', 'keyword', 'other'].includes(b.dim) ? b.dim : 'other';
   const sh = trafficSheet_(), n = TRAFFIC_COLS.length;
   const rows = (Array.isArray(b.rows) ? b.rows : []).map(r => [from, to, dim, rstr_(r[1], 200), rdate_(r[0]), rnum_(r[2]), rnum_(r[3]), rnum_(r[4]), rnum_(r[5]), up].map(String))
     .filter(r => r[3] || r[4]);
