@@ -12,7 +12,7 @@
 // tint : ruby slate green blue amber teal paper
 // mono : 아이콘 대신 글자 한두 개 (브랜드 사이트용)
 // group: 폴더 안에서 같은 이름끼리 묶어 소제목과 함께 보여줌
-// only : 이 계정에게만 보임 (이메일 아이디, 예: ['ohyun', 'oryun']). 화면에서 숨기는 것이고 데이터는 Apps Script 가 따로 막음
+// only : 이 계정에게만 보임 (이메일 아이디 또는 구글 계정 이름, 예: ['ohyun', 'oryun', '전요셉']). 화면에서 숨기는 것이고 데이터는 Apps Script 가 따로 막음
 
 window.MYRUBI_APPS = [
   // ESSENTIAL
@@ -27,6 +27,7 @@ window.MYRUBI_APPS = [
   { id: 'quote',        title: '견적',        icon: 'note',  tint: 'paper', kind: 'builtin', note: '자전거 견적 세팅, 이카운트 품목·판매단가, A4 견적서 인쇄·PDF' },
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
+  { id: 'garage',       title: '루비개러지',   icon: 'store', tint: 'amber', kind: 'frame', url: '/garage/', only: ['ohyun', 'oryun', '전요셉'], note: '개러지 매출, 스마트스토어 트래픽, 회사 재고 중 회전이 느린 품목(품목별·장르별). Code.gs 의 GARAGE_VIEWERS 와 맞출 것' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
@@ -122,7 +123,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
-  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'inbound', 'imweb-update'] },
+  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'garage', 'inbound', 'imweb-update'] },
   { label: 'Report',    ids: ['sales-report', 'purchase-report'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
@@ -133,10 +134,12 @@ window.MYRUBI_PINNED = ['checklist', 'ecount', 'channel', 'nas'];
 // only 가 있는 앱은 로그인한 계정이 맞을 때만 목록에 남김 (구역이 비면 구역도 안 보임)
 (() => {
   const key = e => { e = String(e || '').toLowerCase().trim(); const at = e.lastIndexOf('@'); return at < 0 ? e : e.slice(0, at); };
-  const can = (a, email) => !a.only || a.only.map(key).includes(key(email));
-  let email = '';
-  try { email = window.MR && MR.session() ? MR.user().email : ''; } catch (e) {}
+  const nk = s => String(s || '').toLowerCase().replace(/\s+/g, '');
+  // email: 로그인 이메일, name: 구글 계정 이름 (only 에 이름을 적은 경우)
+  const can = (a, email, name) => !a.only || a.only.some(x => key(x) === key(email) || (nk(x) && nk(x) === nk(name)));
+  let email = '', name = '';
+  try { if (window.MR && MR.session()) { email = MR.user().email; name = MR.user().name; } } catch (e) {}
   window.MYRUBI_CAN = can;
-  window.MYRUBI_APPS_HIDDEN = window.MYRUBI_APPS.filter(a => !can(a, email));
-  window.MYRUBI_APPS = window.MYRUBI_APPS.filter(a => can(a, email));
+  window.MYRUBI_APPS_HIDDEN = window.MYRUBI_APPS.filter(a => !can(a, email, name));
+  window.MYRUBI_APPS = window.MYRUBI_APPS.filter(a => can(a, email, name));
 })();

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>루비개러지 · My Rubi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
+<link rel="stylesheet" href="/report/report.css?v=20261112a">
+<!-- 루비개러지 앱: 개러지 매출, 스마트스토어 트래픽(통계 엑셀), 회사 전체 재고 중 회전 부진 품목(품목별·장르별)
+     화면 코드는 매출 보고서와 같은 /report/report.js (body data-mode="garage"), 데이터는 Apps Script GET/POST garage (원가·다른 채널 금액 없이) -->
+</head>
+<body data-mode="garage">
+<div class="rp" id="app">
+  <header class="rp-hd">
+    <div class="rp-title">
+      <p class="k">App</p>
+      <h1>루비개러지</h1>
+      <p class="rp-status" id="status">불러오는 중…</p>
+    </div>
+    <div class="rp-acts">
+      <button class="btn" id="btnPrint" type="button">인쇄</button>
+      <button class="btn pri" id="btnUpload" type="button">엑셀 올리기</button>
+    </div>
+  </header>
+
+  <nav class="rp-bar" id="bar" aria-label="기간과 기준"></nav>
+  <div class="rp-chips" id="chips"></div>
+
+  <main id="main">
+    <noscript><p>이 페이지는 자바스크립트가 필요합니다.</p></noscript>
+  </main>
+</div>
+
+<div class="rp-tip" id="tip" role="tooltip" hidden></div>
+
+<dialog class="rp-dlg" id="dlg" aria-labelledby="dlgT">
+  <form method="dialog" class="rp-dlg-in" id="dlgForm">
+    <header><h2 id="dlgT">이카운트 엑셀 올리기</h2><button class="x" value="cancel" aria-label="닫기">닫기</button></header>
+    <div id="dlgBody"></div>
+  </form>
+</dialog>
+
+<script src="/config.js?v=20261109a"></script>
+<script src="/lib.js?v=20261029h"></script>
+<script src="/report/report.js?v=20261112b"></script>
+</body>
+</html>

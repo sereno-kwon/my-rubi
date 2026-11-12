@@ -30,6 +30,9 @@
  *    올린 기록은 '보고서업로드' 탭에 남김 (GET report / POST report). 집계와 그래프는 보고서 페이지가 함
  *    판매현황·구매현황은 파일의 기간(과 거래처 필터)에 해당하는 예전 줄을 지우고 새로 넣으므로 같은 달을 다시 올려도 겹치지 않음
  *    매출·매입은 민감한 정보라서 CONFIG.REPORT_VIEWERS 에 적은 계정만 보고 올릴 수 있음 (비워두면 로그인한 직원 모두)
+ *  - 루비개러지 앱(/garage/): 개러지 담당자(CONFIG.GARAGE_VIEWERS)도 볼 수 있는 정제한 보고서 데이터 (GET/POST garage)
+ *    개러지 거래처 매출은 금액까지, 나머지 채널은 판매 수량만, 품목은 원가(입고단가·딜러가) 없이 돌려줌
+ *    스마트스토어 통계 엑셀(유입·조회·결제)은 '트래픽' 탭에 저장
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -82,6 +85,13 @@ const CONFIG = {
   // 매출·매입 보고서를 보고 올릴 수 있는 계정 (apps.js 의 보고서 앱 only 와 맞춰 둘 것) (이메일 아이디만 적으면 rubiworkshop.com, rubi.kr 어느 쪽이든 맞음)
   //  비워두면 로그인한 직원 모두. 예: ['ohyun', 'oryun', 'someone@rubiworkshop.com']
   REPORT_VIEWERS: ['ohyun', 'oryun'],
+
+  // 루비개러지 앱 담당자 (REPORT_VIEWERS 는 자동으로 포함). 이메일 아이디 또는 구글 계정 이름
+  //  이름은 바꿀 수 있으므로 이메일 아이디를 함께 적어 두는 것이 안전 (예: ['전요셉', 'yosep'])
+  //  apps.js 의 garage 앱 only 와 맞출 것
+  GARAGE_VIEWERS: ['전요셉'],
+  // 판매현황 거래처명 중 루비개러지로 볼 것 (정규식)
+  GARAGE_PARTNER: '개러지',
 };
 
 // 공지 탭 컬럼 (바탕화면 포스트잇)
@@ -151,8 +161,10 @@ const STOCK_COLS = ['date', 'code', 'name', 'wh', 'qty', 'up'];
 const STOCK_HEADERS = ['기준일', '품목코드', '품목명(규격)', '창고', '재고 수량', '올린 기록 ID'];
 const ITEM_COLS = ['code', 'name', 'cost', 'out', 'retail', 'supply', 'cat', 'group', 'up'];
 const ITEM_HEADERS = ['품목코드', '품목명', '입고단가', '출고단가', '소비자가격', '서플라이(딜러가)', '계층그룹명', '품목그룹1명', '올린 기록 ID'];
+const TRAFFIC_COLS = ['from', 'to', 'dim', 'key', 'date', 'visits', 'views', 'orders', 'amount', 'up'];
+const TRAFFIC_HEADERS = ['기간 시작', '기간 끝', '구분(daily/channel/product/keyword)', '항목(채널·상품·키워드)', '날짜', '유입수', '조회수', '결제수', '결제금액', '올린 기록 ID'];
 const UPLOAD_COLS = ['id', 'kind', 'file', 'from', 'to', 'scope', 'rows', 'amount', 'by', 'at'];
-const UPLOAD_HEADERS = ['ID', '종류(sales/purchase/stock/items)', '파일 이름', '시작일', '끝일', '거래처 필터', '줄 수', '금액 합계(공급가액)', '올린 사람', '올린 일시'];
+const UPLOAD_HEADERS = ['ID', '종류(sales/purchase/stock/items/traffic)', '파일 이름', '시작일', '끝일', '거래처 필터', '줄 수', '금액 합계(공급가액)', '올린 사람', '올린 일시'];
 
 const QUOTE_SNAP_HEADERS = ['ID', '견적 ID', '견적 번호', '기록 이름', '그 시점 견적(JSON)', '최종 견적 금액(원)', '남긴 사람', '남긴 일시'];
 
@@ -174,6 +186,7 @@ function doGet(e) {
       case 'quotes':   return json_({ ok: true, ...quoteData_() });
       case 'quotesnap': return json_({ ok: true, snap: quoteSnap_(p.id) });
       case 'report':   return json_({ ok: true, ...reportData_(user) });
+      case 'garage':   return json_({ ok: true, ...garageData_(user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -199,6 +212,7 @@ function doPost(e) {
       case 'point':    { const saved = savePoint_(body, user) || ''; return json_({ ok: true, saved, ...crmData_() }); }
       case 'quote':    { const saved = saveQuote_(body, user) || ''; return json_({ ok: true, saved, ...quoteData_() }); }
       case 'report':   return json_({ ok: true, ...saveReport_(body, user) });
+      case 'garage':   return json_({ ok: true, ...saveGarage_(body, user) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -1611,6 +1625,7 @@ const saleSheet_ = () => reportSheet_('매출', SALE_HEADERS, SALE_COLS.length);
 const purSheet_ = () => reportSheet_('매입', PUR_HEADERS, SALE_COLS.length);   // 열 순서는 매출과 같음
 const stockSheet_ = () => reportSheet_('재고', STOCK_HEADERS, STOCK_COLS.length);
 const itemSheet_ = () => reportSheet_('품목', ITEM_HEADERS, ITEM_COLS.length);
+const trafficSheet_ = () => reportSheet_('트래픽', TRAFFIC_HEADERS, TRAFFIC_COLS.length);
 const uploadSheet_ = () => reportSheet_('보고서업로드', UPLOAD_HEADERS, UPLOAD_COLS.length);
 
 /** 탭 전체를 배열로 (머리글 제외) */
@@ -1662,6 +1677,9 @@ function reportData_(user) {
  */
 function saveReport_(b, user) {
   needReport_(user);
+  return reportWrite_(b, user);
+}
+function reportWrite_(b, user) {
   const who = user.name || user.email;
   const up = rstr_(b.up, 40) || ('u' + Date.now().toString(36));
   const rows = Array.isArray(b.rows) ? b.rows : [];
@@ -1699,7 +1717,7 @@ function saveReport_(b, user) {
   }
   if (b.op === 'del') {
     const id = rstr_(b.id, 40); if (!id) throw new Error('지울 기록이 없습니다');
-    [[saleSheet_(), SALE_COLS], [purSheet_(), SALE_COLS], [stockSheet_(), STOCK_COLS], [itemSheet_(), ITEM_COLS]].forEach(([sh, cols]) => {
+    [[saleSheet_(), SALE_COLS], [purSheet_(), SALE_COLS], [stockSheet_(), STOCK_COLS], [trafficSheet_(), TRAFFIC_COLS], [itemSheet_(), ITEM_COLS]].forEach(([sh, cols]) => {
       const all = reportValues_(sh, cols.length), keep = all.filter(r => r[cols.length - 1] !== id);
       if (keep.length !== all.length) reportRewrite_(sh, cols.length, keep);
     });
@@ -1720,4 +1738,95 @@ function reportLog_(b, up, kind, who) {
 /** 편집기에서 직접 실행용: 보고서 탭 줄 수 확인 */
 function test_report() {
   Logger.log('매출 ' + reportValues_(saleSheet_(), SALE_COLS.length).length + '줄 · 매입 ' + reportValues_(purSheet_(), SALE_COLS.length).length + '줄 · 재고 ' + reportValues_(stockSheet_(), STOCK_COLS.length).length + '줄 · 품목 ' + reportValues_(itemSheet_(), ITEM_COLS.length).length + '줄');
+}
+
+// ───────────────────────────── 루비개러지 앱 (GET/POST garage) ─────────────────────────────
+// 담당자에게는 개러지 매출 금액과 전사 재고·판매 수량만 줌. 다른 채널 금액·거래처, 입고단가·딜러가는 응답에서 뺌
+// REPORT_VIEWERS 는 같은 화면을 보되 품목등록·판매현황 전체를 올릴 수 있음 (full)
+
+const nameKey_ = s => String(s || '').toLowerCase().replace(/\s+/g, '');
+function canGarage_(user) {
+  if (canReport_(user)) return true;
+  const list = CONFIG.GARAGE_VIEWERS || [];
+  return list.some(x => emailKey_(x) === emailKey_(user.email) || (nameKey_(x) && nameKey_(x) === nameKey_(user.name)));
+}
+function needGarage_(user) {
+  if (!canGarage_(user)) throw new Error('루비개러지 앱을 볼 수 있는 계정이 아닙니다. 관리자에게 요청해 주세요');
+}
+const garageRe_ = () => new RegExp(CONFIG.GARAGE_PARTNER || '개러지');
+
+function garageData_(user) {
+  needGarage_(user);
+  const full = canReport_(user), re = garageRe_();
+  const iP = SALE_COLS.indexOf('partner');
+  const sales = reportValues_(saleSheet_(), SALE_COLS.length).filter(r => r[0]).map(r => {
+    if (re.test(r[iP])) return r;
+    // 다른 채널: 날짜·품목·수량만 (금액·거래처 빈칸)
+    return SALE_COLS.map((k, i) => ['date', 'code', 'name', 'qty'].includes(k) ? r[i] : '');
+  });
+  const items = reportValues_(itemSheet_(), ITEM_COLS.length).filter(r => r[0] || r[1])
+    .map(r => ITEM_COLS.map((k, i) => ['cost', 'out', 'supply'].includes(k) ? '' : r[i]));
+  const ups = reportValues_(uploadSheet_(), UPLOAD_COLS.length).map(r => { const o = {}; UPLOAD_COLS.forEach((k, i) => o[k] = r[i]); return o; })
+    .filter(o => o.id && (o.kind === 'traffic' || o.kind === 'stock' || (o.kind === 'sales' && o.scope && re.test(o.scope))))
+    .map(o => (o.kind === 'stock' || o.kind === 'traffic') ? o : Object.assign(o, { amount: '' }));
+  return {
+    full,
+    cols: { sales: SALE_COLS, stock: STOCK_COLS, items: ITEM_COLS, traffic: TRAFFIC_COLS },
+    sales,
+    stock: reportValues_(stockSheet_(), STOCK_COLS.length).filter(r => r[0]),
+    items,
+    traffic: reportValues_(trafficSheet_(), TRAFFIC_COLS.length).filter(r => r[2]),
+    uploads: ups.reverse(),
+  };
+}
+
+/**
+ * POST garage
+ *  op 'traffic' : { up, file, from, to, dim, rows:[[date,key,visits,views,orders,amount]], first, last }
+ *                 같은 구분(dim)의 기간이 겹치는 예전 줄을 first 일 때 지움 (일별은 그 날짜들만)
+ *  op 'stock'   : 재고현황 (보고서와 같음)
+ *  op 'sales'   : 판매현황. 담당자는 개러지 거래처 줄만 올릴 수 있고, 그 거래처 줄만 바뀜
+ *  op 'del'     : 담당자는 트래픽 기록만 지울 수 있음
+ *  REPORT_VIEWERS 는 보고서와 같은 모든 동작 + traffic
+ */
+function saveGarage_(b, user) {
+  needGarage_(user);
+  const full = canReport_(user), re = garageRe_();
+  if (b.op === 'traffic') return saveTraffic_(b, user);
+  if (full) return reportWrite_(b, user);
+  if (b.op === 'stock') return reportWrite_(b, user);
+  if (b.op === 'sales') {
+    const rows = Array.isArray(b.rows) ? b.rows : [];
+    if (rows.some(r => !re.test(String(r[9] || '')))) throw new Error('개러지 거래처가 아닌 줄이 있습니다. 판매현황을 루비개러지 거래처로 걸러서 받아 주세요');
+    const scope = [...new Set(rows.map(r => String(r[9] || '').trim()).filter(Boolean))];
+    if (b.first && !scope.length) throw new Error('개러지 거래처 줄이 없습니다');
+    return reportWrite_(Object.assign({}, b, { scope: b.first ? scope : (b.scope || scope) }), user);
+  }
+  if (b.op === 'del') {
+    const u = reportValues_(uploadSheet_(), UPLOAD_COLS.length).find(r => r[0] === rstr_(b.id, 40));
+    if (!u || u[1] !== 'traffic') throw new Error('담당자는 트래픽 기록만 지울 수 있습니다');
+    return reportWrite_(b, user);
+  }
+  throw new Error('이 계정으로는 할 수 없는 동작입니다');
+}
+
+function saveTraffic_(b, user) {
+  const who = user.name || user.email;
+  const up = rstr_(b.up, 40) || ('u' + Date.now().toString(36));
+  const from = rdate_(b.from), to = rdate_(b.to);
+  if (!from || !to || from > to) throw new Error('트래픽 자료의 기간을 알 수 없습니다');
+  const dim = ['daily', 'channel', 'product', 'keyword', 'other'].includes(b.dim) ? b.dim : 'other';
+  const sh = trafficSheet_(), n = TRAFFIC_COLS.length;
+  const rows = (Array.isArray(b.rows) ? b.rows : []).map(r => [from, to, dim, rstr_(r[1], 200), rdate_(r[0]), rnum_(r[2]), rnum_(r[3]), rnum_(r[4]), rnum_(r[5]), up].map(String))
+    .filter(r => r[3] || r[4]);
+  if (b.first) {
+    const keep = reportValues_(sh, n).filter(r => {
+      if (r[2] !== dim) return true;
+      if (dim === 'daily') return !(r[4] >= from && r[4] <= to);
+      return !(r[0] <= to && r[1] >= from);   // 기간이 겹치는 같은 구분은 바꿈
+    });
+    reportRewrite_(sh, n, keep.concat(rows));
+  } else reportAppend_(sh, n, rows);
+  if (b.last) reportLog_(Object.assign({}, b, { from, to, scope: dim }), up, 'traffic', who);
+  return { saved: up, count: rows.length };
 }
