@@ -7,7 +7,8 @@
 //      검은점·흰점은 거의 그대로 맞추고, 중간 밝기는 절반쯤만 맞춰서 장면 자체가 어두운 사진이 억지로 밝아지지 않게 함
 //   2. 색 기운: 밝기 구간(그림자 → 하이라이트 5구간)마다 회색에 가까운 픽셀의 평균 색을 재서
 //      원본의 회색이 기준의 회색과 같은 기운(화이트밸런스, 그림자·하이라이트 색)이 되도록 옮김
-//   3. 채도: 진한 색 쪽(상위 10%) 채도를 기준에 맞추되, 사진 내용 차이를 생각해 70%만, 0.85–1.3배 안에서
+//   3. 채도: 색이 있는 픽셀(채도 10 이상)의 75% 지점 채도를 기준에 맞추되 70%만, 0.85–1.3배 안에서.
+//      회색 벽이 대부분인 사진도 색이 있는 부분만 보기 때문에 장면 내용에 덜 휘둘림
 (function (root) {
   'use strict';
 
@@ -88,12 +89,14 @@
     });
     const L = Array.from(Ls.subarray(0, m)).sort((x, y) => x - y);
     const C = Array.from(Cs.subarray(0, m)).sort((x, y) => x - y);
+    const colored = C.filter(c => c >= 10);
     return {
       v: VERSION,
       n: m,
       lq: P.map(p => +quantile(L, p).toFixed(2)),
       c90: +quantile(C, 90).toFixed(2),
       c50: +quantile(C, 50).toFixed(2),
+      cc: colored.length >= m * 0.01 ? +quantile(colored, 75).toFixed(2) : null,   // 색이 있는 픽셀의 채도 (너무 적으면 null)
       tint,   // 구간별 [a, b, 비중]. 비중은 전체 픽셀 대비 (너무 작으면 그 구간은 믿지 않음)
     };
   }
@@ -110,6 +113,7 @@
       lq: P.map((_, i) => +avg(x => x.lq[i]).toFixed(2)),
       c90: +avg(x => x.c90).toFixed(2),
       c50: +avg(x => x.c50).toFixed(2),
+      cc: (() => { const v = list.map(x => x.cc).filter(x => x != null); return v.length ? +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : null; })(),
       tint: ZONES.map((_, z) => {
         const w = list.reduce((s, x) => s + x.tint[z][2], 0);
         if (!w) return [0, 0, 0];
@@ -190,7 +194,10 @@
 
     // 3. 채도
     let sat = 1;
-    if (src && ref && src.c90 > 1) sat = Math.pow(clamp(Math.pow(ref.c90 / src.c90, 0.7), 0.85, 1.3), clamp(k, 0, 1.5));
+    // 예전 프로필(cc 없음)은 c90으로 비교
+    const useCC = src && ref && src.cc != null && ref.cc != null;
+    const sv = src ? (useCC ? src.cc : src.c90) : 0, rv = ref ? (useCC ? ref.cc : ref.c90) : 0;
+    if (src && ref && sv > 1 && (useCC || ref.cc == null)) sat = Math.pow(clamp(Math.pow(rv / sv, 0.7), 0.85, 1.3), clamp(k, 0, 1.5));
     sat *= 1 + satAdj * 0.45;
 
     const data = new Float32Array(S * S * S * 3);
