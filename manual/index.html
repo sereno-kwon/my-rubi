@@ -133,6 +133,15 @@ article+article{margin-top:120px;padding-top:56px;border-top:1px solid var(--fg)
       <li><a href="#g-keys">단축키</a></li>
     </ol>
   </div>
+  <div class="doc" data-doc="tone">
+    <a class="dt" href="#tone">톤 매칭</a>
+    <ol>
+      <li><a href="#t-what">톤 매칭은</a></li>
+      <li><a href="#t-use">쓰는 순서</a></li>
+      <li><a href="#t-ref">기준 톤 만들기</a></li>
+      <li><a href="#t-faq">자주 묻는 것</a></li>
+    </ol>
+  </div>
 </nav>
 
 <main>
@@ -671,7 +680,53 @@ article+article{margin-top:120px;padding-top:56px;border-top:1px solid var(--fg)
   </section>
 </article>
 
-  <p class="foot">My Rubi 메뉴얼 · 고객관리 · 견적 · 지오메트리 · 예시의 이름과 금액은 모두 가상입니다. 앱이 바뀌면 이 문서도 함께 고칩니다 (my-rubi/manual/index.html).</p>
+<article id="tone">
+  <header class="hd">
+    <p class="k">메뉴얼 · App</p>
+    <h1>톤 매칭</h1>
+    <p>사진을 루비 톤, 또는 직접 고른 기준 사진의 톤과 같은 색감으로 맞추는 앱입니다. 쇼룸, 출고, 이벤트 사진처럼 찍은 날과 빛이 다른 사진들을 인스타그램·상세페이지에 올리기 전에 한 톤으로 모을 때 씁니다.</p>
+    <p class="meta">my.rubiworkshop.com 첫 화면 App의 <span class="ui">톤 매칭</span>을 눌러 엽니다 · 2026년 11월 기준</p>
+  </header>
+
+  <section id="t-what">
+    <h2><span class="n">01</span>톤 매칭은</h2>
+    <ul>
+      <li>사진마다 밝기 분포, 회색의 색 기운(화이트밸런스, 그림자·하이라이트 색), 채도를 재서 기준 톤에 맞춥니다. 그래서 어둡게 찍힌 사진과 노랗게 찍힌 사진이 같은 결과 쪽으로 모입니다.</li>
+      <li>장면을 바꾸지는 않습니다. 잡티 제거, 하늘 교체, 크롭 같은 편집은 하지 않습니다.</li>
+      <li>사진은 서버로 올라가지 않고 이 브라우저 안에서만 처리됩니다.</li>
+    </ul>
+  </section>
+
+  <section id="t-use">
+    <h2><span class="n">02</span>쓰는 순서</h2>
+    <ol>
+      <li><b>사진 추가</b>를 누르거나 사진을 화면에 끌어다 놓습니다. 여러 장을 한 번에 올려도 됩니다.</li>
+      <li>오른쪽 <b>기준 톤</b>에서 톤을 고릅니다. 처음 값은 <b>루비 톤</b>입니다.</li>
+      <li>사진을 누르고 있으면 원본이 보입니다(컴퓨터는 스페이스바). 아래 썸네일이나 ←→로 사진을 넘깁니다.</li>
+      <li>필요하면 <b>강도 · 밝기 · 색온도 · 채도</b>를 조정합니다. 조정은 올린 사진 모두에 똑같이 들어갑니다.</li>
+      <li><b>전체 저장</b> 또는 <b>이 사진 저장</b>. 컴퓨터는 JPG(여러 장이면 ZIP), 휴대폰은 공유 창이 열리니 '이미지 저장'을 고릅니다. 공유 창이 바로 안 열리면 버튼이 <b>공유 창 열기</b>로 바뀌니 한 번 더 누릅니다.</li>
+    </ol>
+  </section>
+
+  <section id="t-ref">
+    <h2><span class="n">03</span>기준 톤 만들기</h2>
+    <ul>
+      <li>위쪽 <b>기준 톤 만들기</b>에서 맞추고 싶은 톤의 사진을 1–10장 고르고 이름을 붙입니다. 분위기가 비슷한 사진 3–5장이 가장 안정적입니다.</li>
+      <li>만든 기준 톤은 그 브라우저에만 저장됩니다. 모든 직원이 함께 쓰려면 <b>프리셋 코드 복사</b>로 나온 줄을 대표에게 전달해 <code>tone/presets.js</code> 에 넣습니다.</li>
+    </ul>
+  </section>
+
+  <section id="t-faq">
+    <h2><span class="n">04</span>자주 묻는 것</h2>
+    <ul>
+      <li><b>너무 세게 바뀌어요</b>: 강도를 60–80%로 낮춥니다. 원래 색이 아주 다른 장면(밤, 실내 조명)은 강도를 낮추는 편이 자연스럽습니다.</li>
+      <li><b>원본 화질 그대로인가요</b>: 원본 크기로 저장합니다. 1,600만 화소가 넘는 사진만 그 크기로 줄여 저장합니다.</li>
+      <li><b>HEIC 사진이 안 열려요</b>: HEIC는 사파리에서만 열립니다. 크롬에서는 JPG로 바꿔 올립니다.</li>
+    </ul>
+  </section>
+</article>
+
+  <p class="foot">My Rubi 메뉴얼 · 고객관리 · 견적 · 지오메트리 · 톤 매칭 · 예시의 이름과 금액은 모두 가상입니다. 앱이 바뀌면 이 문서도 함께 고칩니다 (my-rubi/manual/index.html).</p>
 </main>
 </div>
 <script>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>톤 매칭 · My Rubi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
+<link rel="stylesheet" href="/tone/tone.css?v=20261114a">
+<!-- 톤 매칭 앱: 사진을 기준 톤(루비 톤 프리셋 또는 직접 고른 기준 사진)에 맞춰 같은 색감으로 보정하고 저장
+     사진은 서버로 보내지 않고 이 브라우저 안에서만 처리함. 엔진은 /tone/engine.js, 프리셋은 /tone/presets.js -->
+</head>
+<body>
+<div class="tm" id="app">
+  <header class="tm-hd">
+    <div>
+      <p class="k">App</p>
+      <h1>톤 매칭</h1>
+      <p class="tm-status" id="status">사진을 올리면 고른 기준 톤으로 맞춰 보여줍니다</p>
+    </div>
+    <div class="tm-acts">
+      <button class="btn" id="btnRef" type="button">기준 톤 만들기</button>
+      <button class="btn pri" id="btnAdd" type="button">사진 추가</button>
+    </div>
+  </header>
+
+  <div class="tm-body">
+    <section class="tm-stage" id="stage" aria-label="미리보기">
+      <label class="tm-drop" id="drop" for="fileIn">
+        <span class="t">사진을 끌어다 놓거나 눌러서 고르세요</span>
+        <span class="s">여러 장을 한 번에 올리면 모두 같은 톤으로 맞춥니다. 사진은 이 브라우저 안에서만 처리되고 어디에도 올라가지 않습니다.</span>
+      </label>
+      <div class="tm-view" id="view" hidden>
+        <canvas id="cv" aria-label="보정된 사진"></canvas>
+        <span class="tm-badge" id="badge" hidden>원본</span>
+      </div>
+      <div class="tm-bar" id="viewBar" hidden>
+        <button class="btn sm" id="btnHold" type="button" title="누르고 있는 동안 원본을 보여줍니다 (스페이스바)">누르고 있으면 원본</button>
+        <span class="tm-name" id="curName"></span>
+        <span class="sp"></span>
+        <button class="btn sm ghost" id="btnRemove" type="button">빼기</button>
+        <button class="btn sm" id="btnSaveOne" type="button">이 사진 저장</button>
+      </div>
+      <ol class="tm-strip" id="strip" aria-label="올린 사진"></ol>
+    </section>
+
+    <aside class="tm-side">
+      <section class="tm-sec">
+        <h2>기준 톤</h2>
+        <ul class="tm-presets" id="presets"></ul>
+      </section>
+
+      <section class="tm-sec">
+        <h2>조정 <button class="lnk" id="btnReset" type="button">처음 값으로</button></h2>
+        <div class="tm-sl" id="sliders"></div>
+        <p class="tm-note">조정은 올린 사진 모두에 똑같이 들어갑니다. 사진마다 밝기·색 차이는 자동으로 맞춥니다.</p>
+      </section>
+
+      <section class="tm-sec">
+        <h2>저장</h2>
+        <button class="btn pri wide" id="btnSaveAll" type="button" disabled>전체 저장</button>
+        <p class="tm-note" id="saveNote">원본은 그대로 두고 새 JPG(품질 92%)로 저장합니다. 컴퓨터에서는 여러 장이면 ZIP 하나로, 휴대폰에서는 공유 창에서 '이미지 저장'을 고르면 사진 앱에 들어갑니다.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept="image/*" multiple hidden>
+<input type="file" id="refIn" accept="image/*" multiple hidden>
+
+<dialog class="tm-dlg" id="refDlg" aria-labelledby="refT">
+  <form method="dialog" class="tm-dlg-in" id="refForm">
+    <header><h2 id="refT">기준 톤 만들기</h2><button class="x" value="cancel" type="submit" aria-label="닫기">닫기</button></header>
+    <p class="tm-note">맞추고 싶은 톤의 사진을 1–10장 고르세요. 비슷한 분위기의 사진 3–5장이면 가장 안정적입니다. 만든 기준 톤은 이 브라우저에 저장됩니다.</p>
+    <div class="tm-refpick">
+      <button class="btn" id="btnRefPick" type="button">기준 사진 고르기</button>
+      <span id="refCount" class="tm-note"></span>
+    </div>
+    <div class="tm-refthumbs" id="refThumbs"></div>
+    <label class="tm-field">이름 <input id="refName" type="text" maxlength="30" placeholder="예: 쇼룸 자연광"></label>
+    <footer>
+      <button class="btn" value="cancel" type="submit">취소</button>
+      <button class="btn pri" id="btnRefMake" type="button" disabled>만들기</button>
+    </footer>
+  </form>
+</dialog>
+
+<div class="tm-toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/config.js?v=20261109a"></script>
+<script src="/lib.js?v=20261029h"></script>
+<script src="/tone/engine.js?v=20261114a"></script>
+<script src="/tone/presets.js?v=20261114a"></script>
+<script src="/tone/tone.js?v=20261114a"></script>
+</body>
+</html>
