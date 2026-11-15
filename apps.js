@@ -26,7 +26,7 @@ window.MYRUBI_APPS = [
   { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'builtin', note: '고객 CRM, 고객문의·구매진행중·구매완료 현황과 주간 보고' },
   { id: 'quote',        title: '견적',        icon: 'note',  tint: 'paper', kind: 'builtin', note: '자전거 견적 세팅, 이카운트 품목·판매단가, A4 견적서 인쇄·PDF' },
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
-  { id: 'tone',         title: '톤 매칭',     icon: 'camera', tint: 'paper', kind: 'frame', url: '/tone/', note: '사진을 스튜디오·르포르타주·스트리트 톤(또는 직접 고른 기준 사진의 톤)으로 맞춰 보정·저장, 사진은 브라우저 안에서만 처리' },
+  { id: 'tone',         title: '톤 매칭',     icon: 'camera', tint: 'paper', kind: 'frame', url: '/tone/', note: '사진을 루비 톤(또는 직접 고른 기준 사진의 톤)으로 맞춰 보정·저장, 사진은 브라우저 안에서만 처리' },
   { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'garage',       title: '루비개러지',   icon: 'store', tint: 'amber', kind: 'frame', url: '/garage/', only: ['ohyun', 'oryun', '전요셉'], note: '개러지 매출, 스마트스토어 트래픽, 회사 재고 중 회전이 느린 품목(품목별·장르별). Code.gs 의 GARAGE_VIEWERS 와 맞출 것' },
   { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
