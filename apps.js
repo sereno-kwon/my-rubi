@@ -27,9 +27,7 @@ window.MYRUBI_APPS = [
   { id: 'quote',        title: '견적',        icon: 'note',  tint: 'paper', kind: 'builtin', note: '자전거 견적 세팅, 이카운트 품목·판매단가, A4 견적서 인쇄·PDF' },
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
   { id: 'tone',         title: '톤 매칭',     icon: 'camera', tint: 'paper', kind: 'frame', url: '/tone/', note: '사진을 루비 톤(또는 직접 고른 기준 사진의 톤)으로 맞춰 보정·저장, 사진은 브라우저 안에서만 처리' },
-  { id: 'imweb-update', title: '아임웹업데이트', icon: 'globe', tint: 'green', kind: 'soon', note: '아임웹 상품·재고 업데이트, 준비 중입니다.' },
   { id: 'garage',       title: '루비개러지',   icon: 'store', tint: 'amber', kind: 'frame', url: '/garage/', only: ['ohyun', 'oryun', '전요셉'], note: '개러지 매출, 스마트스토어 트래픽, 회사 재고 중 회전이 느린 품목(품목별·장르별). Code.gs 의 GARAGE_VIEWERS 와 맞출 것' },
-  { id: 'inbound',      title: '입고프로세스',  icon: 'box',   tint: 'amber', kind: 'soon', note: '수입 입고 처리 과정, 준비 중입니다.' },
 
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
   { id: 'sales-report',    title: '매출 보고서', icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', only: ['ohyun', 'oryun'], note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
@@ -124,7 +122,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
-  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone', 'garage', 'inbound', 'imweb-update'] },
+  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone', 'garage'] },
   { label: 'Report',    ids: ['sales-report', 'purchase-report'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
