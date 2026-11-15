@@ -328,8 +328,16 @@
   });
 
   // ---- 저장 ----
-  const suffix = () => { const p = preset(); return p && BUILTIN.includes(p) ? '_' + p.id : '_tone'; };
-  const baseName = n => n.replace(/\.[^.]+$/, '') || 'photo';
+  // 파일 이름: rubi-photo-{입력값}-{번호}.jpg. 번호는 올린 순서(썸네일 순서), 자릿수는 장수에 맞춰 0으로 채움(최소 2자리)
+  const K_NAME = 'myrubi.tone.name';
+  const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`; };
+  const cleanName = v => String(v || '').trim().replace(/[\\/:*?"<>|#%&{}$!'`@+=]+/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  const nameInput = () => cleanName($('fileName').value) || today();
+  const photoName = it => {
+    const ready = items.filter(x => x.state === 'ready');
+    const n = ready.indexOf(it) + 1, w = Math.max(2, String(ready.length).length);
+    return `rubi-photo-${nameInput()}-${String(n).padStart(w, '0')}.jpg`;
+  };
 
   // 원본 → 4:3 자르기 → 2000×1500. 원본에서 바로 그리되 한 단계에 2배 넘게 줄이지 않아(계단식) 디테일·모아레를 지킴
   async function render(it) {
@@ -355,7 +363,7 @@
     x.putImageData(im, 0, 0);
     const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', JPEG_Q));
     free(c);
-    return { file: new File([blob], baseName(it.name) + suffix() + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }), enlarged: r.sw < OUT_W - 0.5 };
+    return { file: new File([blob], photoName(it), { type: 'image/jpeg', lastModified: Date.now() }), enlarged: r.sw < OUT_W - 0.5 };
   }
 
   let busy = false;
@@ -387,16 +395,16 @@
       return;
     }
     if (files.length === 1) download(files[0]);
-    else download(new File([await makeZip(files)], `rubi-tone-${stamp()}.zip`, { type: 'application/zip' }));
+    else download(new File([await makeZip(files)], `rubi-photo-${nameInput()}.zip`, { type: 'application/zip' }));
     updateUI();
   }
-  const keyOf = list => optKey() + '#' + list.map(it => it.id).join(',');
+  const keyOf = list => optKey() + '#' + nameInput() + '#' + list.map(it => it.id + ':' + it.cx + ',' + it.cy).join(',');
   const canShare = files => { try { return !!(navigator.canShare && navigator.canShare({ files })); } catch (e) { return false; } };
   async function share(files) {
     try { await navigator.share({ files }); prepared = null; updateUI(); }
     catch (e) {
       if (e.name === 'AbortError') return;
-      if (files.length === 1) download(files[0]); else download(new File([await makeZip(files)], `rubi-tone-${stamp()}.zip`, { type: 'application/zip' }));
+      if (files.length === 1) download(files[0]); else download(new File([await makeZip(files)], `rubi-photo-${nameInput()}.zip`, { type: 'application/zip' }));
       prepared = null; updateUI();
     }
   }
@@ -406,7 +414,6 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   }
-  const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };
 
   // 압축 없는(store) ZIP. JPG는 이미 압축되어 있어서 그대로 담음. 파일 이름은 UTF-8
   const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -444,6 +451,17 @@
 
   $('btnSaveOne').addEventListener('click', () => cur && save([cur]));
   $('btnSaveAll').addEventListener('click', () => save(items));
+
+  // 파일 이름 입력: 브라우저에 기억, 바뀌면 미리 만든 파일은 버리고 예시를 갱신
+  const fn = $('fileName');
+  fn.value = lsGet(K_NAME, '');
+  fn.placeholder = today();
+  const showName = () => {
+    const ready = items.filter(x => x.state === 'ready'), w = Math.max(2, String(Math.max(1, ready.length)).length);
+    $('namePrev').textContent = `rubi-photo-${nameInput()}-${String(1).padStart(w, '0')}.jpg`;
+  };
+  fn.addEventListener('input', () => { lsSet(K_NAME, fn.value); prepared = null; showName(); updateUI(); });
+  fn.addEventListener('blur', () => { const c = cleanName(fn.value); if (c !== fn.value) { fn.value = c; lsSet(K_NAME, c); showName(); } });
 
   // ---- 기준 톤 만들기 ----
   const dlg = $('refDlg');
@@ -511,7 +529,8 @@
     const ready = items.filter(it => it.state === 'ready');
     const has = items.length > 0;
     $('drop').hidden = has; $('view').hidden = !has; $('viewBar').hidden = !has; $('hint').hidden = !has;
-    $('curName').textContent = cur ? `${cur.name} · 원본 ${cur.w}×${cur.h} → ${OUT_W}×${OUT_H}` : '';
+    $('curName').textContent = cur ? `${cur.name} → ${photoName(cur)} · 원본 ${cur.w}×${cur.h} → ${OUT_W}×${OUT_H}` : '';
+    showName();
     const sa = $('btnSaveAll');
     sa.disabled = busy || !ready.length;
     const pAll = prepared && prepared.key === keyOf(ready);

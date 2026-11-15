@@ -91,6 +91,13 @@ h1, h2, b { font-weight: 400; }
 .tm-field { display: grid; gap: 6px; margin-top: 16px; font-size: 13px; color: var(--muted); }
 .tm-field input { height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 0; font-size: 15px; color: var(--fg); background: var(--bg); }
 .tm-field input:focus { outline: none; border-color: var(--fg); }
+.tm-fname { margin: 0 0 0; }
+.tm-fname .row { display: flex; align-items: center; height: 36px; border: 1px solid var(--line); }
+.tm-fname .row:focus-within { border-color: var(--fg); }
+.tm-fname .pre { padding: 0 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tm-fname .pre:first-child { padding-right: 0; }
+.tm-fname .row input { flex: 1; min-width: 0; height: 34px; padding: 0 2px; border: 0; }
+.tm-fname + .tm-note { margin: 6px 0 12px; word-break: break-all; }
 .tm-dlg footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
 .tm-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); padding: 10px 16px; background: var(--fg); color: var(--on-dark); font-size: 14px; line-height: 20px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px); }

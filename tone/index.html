@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
-<link rel="stylesheet" href="/tone/tone.css?v=20261114c">
+<link rel="stylesheet" href="/tone/tone.css?v=20261115b">
 <!-- 톤 매칭 앱: 사진을 기준 톤(루비 톤 프리셋 또는 직접 고른 기준 사진)에 맞춰 같은 색감으로 보정하고 저장
      사진은 서버로 보내지 않고 이 브라우저 안에서만 처리함. 엔진은 /tone/engine.js, 프리셋은 /tone/presets.js -->
 </head>
@@ -60,6 +60,10 @@
 
       <section class="tm-sec">
         <h2>저장</h2>
+        <label class="tm-field tm-fname">파일 이름
+          <span class="row"><span class="pre">rubi-photo-</span><input id="fileName" type="text" maxlength="60" autocomplete="off" spellcheck="false" aria-describedby="namePrev"><span class="pre">-번호</span></span>
+        </label>
+        <p class="tm-note">예: <span id="namePrev"></span> · 비워 두면 오늘 날짜, 번호는 썸네일 순서</p>
         <button class="btn pri wide" id="btnSaveAll" type="button" disabled>전체 저장</button>
         <p class="tm-note" id="saveNote">원본 파일은 그대로 두고, 원본에서 바로 4:3으로 잘라 2000×1500 JPG(최고 품질)로 한 번만 저장합니다. 컴퓨터에서는 여러 장이면 ZIP 하나로, 휴대폰에서는 공유 창에서 '이미지 저장'을 고르면 사진 앱에 들어갑니다.</p>
       </section>
@@ -93,6 +97,6 @@
 <script src="/lib.js?v=20261029h"></script>
 <script src="/tone/engine.js?v=20261114b"></script>
 <script src="/tone/presets.js?v=20261115a"></script>
-<script src="/tone/tone.js?v=20261115a"></script>
+<script src="/tone/tone.js?v=20261115b"></script>
 </body>
 </html>
