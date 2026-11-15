@@ -31,6 +31,7 @@
     { k: 'bright',   label: '밝기',   min: -100, max: 100, def: 0,   fmt: v => (v > 0 ? '+' : '') + v },
     { k: 'temp',     label: '색온도', min: -100, max: 100, def: 0,   fmt: v => (v > 0 ? '+' : '') + v },
     { k: 'sat',      label: '채도',   min: -100, max: 100, def: 0,   fmt: v => (v > 0 ? '+' : '') + v },
+    { k: 'sharp',    label: '선명도', min: 0,    max: 100, def: 0,   fmt: v => String(v) },
   ];
   const val = {}; SLIDERS.forEach(s => { val[s.k] = s.def; });
   let items = [];        // { id, file, name, url, w, h, stats, cx, cy(자르는 위치), tsrc(썸네일 원본 캔버스), tcv(화면 썸네일), lut, lutKey, state }
@@ -44,6 +45,8 @@
   const presets = () => BUILTIN.concat(custom);
   const preset = () => presets().find(p => p.id === selId) || presets()[0];
   const opts = () => ({ strength: val.strength / 100, bright: val.bright / 100, temp: val.temp / 100, sat: val.sat / 100 });
+  // 선명도: 슬라이더 100 = 강도 1.5. 미리보기는 결과보다 작아서 반경을 그만큼 줄임
+  const sharpAmt = () => val.sharp / 100 * 1.5;
   const optKey = () => (preset() ? preset().id : '') + '|' + SLIDERS.map(s => val[s.k]).join(',');
 
   function lutFor(it) {
@@ -166,6 +169,7 @@
       if (!showOrig) {
         const im = cx2d.getImageData(0, 0, PREV_W, PREV_H);
         E.applyLUT(im.data, im.data, lutFor(cur));
+        E.sharpen(im.data, PREV_W, PREV_H, sharpAmt(), PREV_W / OUT_W);
         cx2d.putImageData(im, 0, 0);
       }
       $('badge').hidden = !showOrig;
@@ -360,6 +364,7 @@
     const x = c.getContext('2d', { willReadFrequently: true });
     const im = x.getImageData(0, 0, OUT_W, OUT_H);
     E.applyLUT(im.data, im.data, lutFor(it));
+    E.sharpen(im.data, OUT_W, OUT_H, sharpAmt(), 1);
     x.putImageData(im, 0, 0);
     const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', JPEG_Q));
     free(c);

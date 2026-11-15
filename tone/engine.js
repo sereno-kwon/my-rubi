@@ -253,7 +253,42 @@
     return dst;
   }
 
-  const api = { analyze, merge, buildLUT, applyLUT, VERSION, _curve: monoCurve };
+  /**
+   * 선명도 (언샤프 마스크, 밝기에만). 색에는 손대지 않아 색 번짐(헤일로 색)이 생기지 않음.
+   * amount: 0–1.5 정도, radius: 흐림 반경 배율(결과 2000px 기준 1). 아주 작은 차이(노이즈)는 덜 키움
+   */
+  function sharpen(data, w, h, amount, radius) {
+    if (!(amount > 0)) return data;
+    const n = w * h, Y = new Float32Array(n), T = new Float32Array(n), B = new Float32Array(n);
+    for (let i = 0, o = 0; i < n; i++, o += 4) Y[i] = 0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2];
+    // 가우시안 근사 커널 (반경 배율에 따라 3탭 또는 5탭), 가로 → 세로
+    const k = (radius || 1) >= 0.9 ? [1, 4, 6, 4, 1] : [1, 2, 1], r = k.length >> 1, ks = k.reduce((a, b) => a + b, 0);
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        let acc = 0;
+        for (let j = -r; j <= r; j++) { let xx = x + j; if (xx < 0) xx = 0; else if (xx >= w) xx = w - 1; acc += k[j + r] * Y[row + xx]; }
+        T[row + x] = acc / ks;
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let acc = 0;
+        for (let j = -r; j <= r; j++) { let yy = y + j; if (yy < 0) yy = 0; else if (yy >= h) yy = h - 1; acc += k[j + r] * T[yy * w + x]; }
+        B[y * w + x] = acc / ks;
+      }
+    }
+    for (let i = 0, o = 0; i < n; i++, o += 4) {
+      let d = Y[i] - B[i];
+      const ad = d < 0 ? -d : d;
+      if (ad < 3) d *= ad / 3;                 // 노이즈 수준의 작은 차이는 부드럽게 덜 키움
+      const add = d * amount;
+      data[o] = data[o] + add; data[o + 1] = data[o + 1] + add; data[o + 2] = data[o + 2] + add;
+    }
+    return data;
+  }
+
+  const api = { analyze, merge, buildLUT, applyLUT, sharpen, VERSION, _curve: monoCurve };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.ToneEngine = api;
 })(typeof self !== 'undefined' ? self : this);
