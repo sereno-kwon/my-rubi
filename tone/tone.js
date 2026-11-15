@@ -328,7 +328,7 @@
   });
 
   // ---- 저장 ----
-  const suffix = () => (preset() && preset().id === 'rubi' ? '_rubi' : '_tone');
+  const suffix = () => { const p = preset(); return p && BUILTIN.includes(p) ? '_' + p.id : '_tone'; };
   const baseName = n => n.replace(/\.[^.]+$/, '') || 'photo';
 
   // 원본 → 4:3 자르기 → 2000×1500. 원본에서 바로 그리되 한 단계에 2배 넘게 줄이지 않아(계단식) 디테일·모아레를 지킴
