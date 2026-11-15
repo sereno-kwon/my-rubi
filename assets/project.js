@@ -37,6 +37,14 @@ let editPick = [];         // 항목 고치기의 담당
 let editLeads = [];        // 프로젝트 고치기의 책임자 (여러 명)
 let draft = '';            // 항목 추가 칸에 적던 글 (다시 그려도 남게)
 let localMsg = '';
+// 이미지 (구글 드라이브, Apps Script 를 거쳐서만 읽음)
+const thumbs = new Map();  // 이미지 ID → 미리보기 data URL ('' 이면 못 불러옴)
+const thumbWait = new Set();
+let imgBusy = '';          // 올리는 중 안내 글
+let imgMsg = '';
+let viewer = null;         // { id, name, url } 크게 보기
+let repTarget = '';        // 바꾸기 대상 이미지 ID
+const IMG_MAX = 20 * 1024 * 1024;
 const ui = Object.assign({ filter: {}, pick: {} }, (() => { try { return JSON.parse(ls.get(K_UI)) || {}; } catch (e) { return {}; } })());
 const saveUi = () => ls.set(K_UI, JSON.stringify(ui));
 
@@ -166,7 +174,7 @@ function detailHtml(p) {
   const rows = shown.map(it => itemHtml(it)).join('');
   const finished = s.total && !s.left && !closed
     ? `<p class="pj-alldone">모든 항목을 끝냈습니다.<button class="pj-btn" data-complete>완료로 옮기기</button></p>` : '';
-  return `${head}${form}${tabs}
+  return `${head}${form}${imagesHtml(p)}${tabs}
     <section class="ck-group">
       <h2 class="sec-h ko"><span>세부 항목<small>담당 멤버의 체크리스트에도 보입니다${closed ? '. 완료된 프로젝트라 체크리스트에서는 빠져 있습니다' : ''}</small></span><span class="n">${shown.length ? `${shown.filter(done).length}/${shown.length}` : ''}</span></h2>
       <ol class="ck-rows">${rows}</ol>
@@ -177,6 +185,114 @@ function detailHtml(p) {
         ${pickHtml(pick, 'data-pick')}
       </form>
     </section>${finished}`;
+}
+
+// ─────────── 이미지 ───────────
+function imagesHtml(p) {
+  const list = p.images || [];
+  if (!D().shared) return '';
+  loadThumbs(p);
+  const cells = list.map((im, i) => {
+    const t = thumbs.get(im.id);
+    const pic = t ? `<img src="${esc(t)}" alt="${esc(im.name)}" loading="lazy">` : `<span class="ph">${t === '' ? '미리보기 없음' : '불러오는 중'}</span>`;
+    return `<li class="pj-img" data-fid="${esc(im.id)}">
+      <button class="th" data-iview="${esc(im.id)}" title="크게 보기">${pic}</button>
+      <span class="nm" title="${esc(im.name)}">${esc(im.name)}</span>
+      <span class="by">${esc([im.by, fmtDay(im.at)].filter(Boolean).join(' · '))}</span>
+      <span class="ac">
+        <button data-irep="${esc(im.id)}"${imgBusy ? ' disabled' : ''}>바꾸기</button>
+        <button data-imove="${esc(im.id)}" data-dir="-1"${i === 0 || imgBusy ? ' disabled' : ''} aria-label="앞으로">←</button>
+        <button data-imove="${esc(im.id)}" data-dir="1"${i === list.length - 1 || imgBusy ? ' disabled' : ''} aria-label="뒤로">→</button>
+        <button data-idel="${esc(im.id)}" class="danger"${imgBusy ? ' disabled' : ''}>지우기</button>
+      </span>
+    </li>`;
+  }).join('');
+  const box = viewer ? `<div class="pj-viewer" data-vclose>
+      <figure><img src="${esc(viewer.url)}" alt="${esc(viewer.name)}">
+      <figcaption><span>${esc(viewer.name)}</span><a class="pj-btn" href="${esc(viewer.url)}" download="${esc(viewer.name)}">내려받기</a><button class="pj-btn" data-vclose>닫기</button></figcaption></figure>
+    </div>` : '';
+  return `<section class="ck-group pj-imgs" data-idrop>
+    <h2 class="sec-h ko"><span>이미지<small>배너, 상품 사진 등. 여기로 끌어다 놓아도 올라갑니다</small></span><span class="n">${list.length || ''}</span></h2>
+    ${list.length ? `<ul class="pj-igrid">${cells}</ul>` : '<p class="ck-none">아직 올린 이미지가 없습니다.</p>'}
+    <div class="pj-iup">
+      <label class="pj-btn${imgBusy ? ' off' : ''}">이미지 올리기<input type="file" name="iup" accept="image/*" multiple hidden${imgBusy ? ' disabled' : ''}></label>
+      <input type="file" name="irep" accept="image/*" hidden>
+      ${imgBusy ? `<span class="st">${esc(imgBusy)}</span>` : imgMsg ? `<span class="st err">${esc(imgMsg)}</span>` : ''}
+    </div>
+    ${box}
+  </section>`;
+}
+
+function loadThumbs(p) {
+  const need = (p.images || []).map(im => im.id).filter(id => !thumbs.has(id) && !thumbWait.has(id));
+  if (!need.length) return;
+  need.forEach(id => thumbWait.add(id));
+  window.MR.get({ action: 'projimg', op: 'thumbs', project: p.id, ids: need.join(',') })
+    .then(j => { need.forEach(id => thumbs.set(id, (j.thumbs || {})[id] || '')); })
+    .catch(e => { need.forEach(id => thumbs.set(id, '')); imgMsg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 이미지를 쓸 수 있습니다' : '미리보기를 불러오지 못했습니다. ' + e.message; })
+    .finally(() => { need.forEach(id => thumbWait.delete(id)); if (!editItem && !editProj) render(); });
+}
+
+const readUrl = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(new Error('파일을 읽지 못했습니다')); r.readAsDataURL(f); });
+/** 가로 640px 미리보기 JPEG. 브라우저가 못 여는 형식(HEIC 등)이면 빈 값 */
+function makeThumb(url) {
+  return new Promise(ok => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const k = Math.min(1, 640 / (im.naturalWidth || 640));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+        ok({ thumb: c.toDataURL('image/jpeg', 0.82), w: im.naturalWidth, h: im.naturalHeight });
+      } catch (e) { ok({ thumb: '', w: 0, h: 0 }); }
+    };
+    im.onerror = () => ok({ thumb: '', w: 0, h: 0 });
+    im.src = url;
+  });
+}
+
+async function upload(files, replaceId) {
+  const p = projOf(pid); if (!p || imgBusy) return;
+  const list = Array.from(files || []).filter(f => /^image\//.test(f.type));
+  if (!list.length) { imgMsg = '이미지 파일만 올릴 수 있습니다'; render(); return; }
+  imgMsg = '';
+  let done = 0;
+  for (const f of replaceId ? list.slice(0, 1) : list) {
+    if (f.size > IMG_MAX) { imgMsg = `${f.name}: 한 장은 20MB까지 올릴 수 있습니다`; continue; }
+    imgBusy = replaceId ? `${f.name} 바꾸는 중` : `올리는 중 ${done + 1}/${list.length} · ${f.name}`; render();
+    try {
+      const data = await readUrl(f);
+      const t = await makeThumb(data);
+      const j = await window.MR.post({ action: 'projimg', op: replaceId ? 'replace' : 'add', project: p.id, fid: replaceId || '', name: f.name, mime: f.type, data, thumb: t.thumb, w: t.w, h: t.h });
+      if (j.saved) thumbs.set(j.saved, t.thumb || '');
+      C().apply(j);
+      done++;
+    } catch (e) {
+      imgMsg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 이미지를 올릴 수 있습니다' : `${f.name}: 올리지 못했습니다. ${e.message}`;
+      break;
+    }
+  }
+  imgBusy = ''; render();
+}
+
+async function imgOp(op, fid, extra) {
+  const p = projOf(pid); if (!p || imgBusy) return;
+  imgBusy = op === 'delete' ? '지우는 중' : '순서 바꾸는 중'; imgMsg = ''; render();
+  try { C().apply(await window.MR.post(Object.assign({ action: 'projimg', op, project: p.id, fid }, extra || {}))); if (op === 'delete') thumbs.delete(fid); }
+  catch (e) { imgMsg = '저장하지 못했습니다. ' + e.message; }
+  imgBusy = ''; render();
+}
+
+async function view(fid) {
+  const p = projOf(pid); if (!p) return;
+  const im = (p.images || []).find(x => x.id === fid); if (!im) return;
+  // 미리보기를 먼저 크게 띄우고, 원본이 오면 바꿔 끼움
+  viewer = { id: fid, name: im.name, url: thumbs.get(fid) || '' }; render();
+  try {
+    const j = await window.MR.get({ action: 'projimg', op: 'full', project: p.id, fid });
+    if (viewer && viewer.id === fid) { viewer.url = j.image.url; render(); }
+  } catch (e) { imgMsg = '원본을 불러오지 못했습니다. ' + e.message; render(); }
 }
 
 function itemHtml(it) {
@@ -226,12 +342,26 @@ function bind() {
   document.addEventListener('input', e => { if (host && host.contains(e.target) && e.target.closest('.pj-addf') && e.target.name === 'text') draft = e.target.value; });
   document.addEventListener('keydown', e => { if (host && host.contains(e.target)) onKey(e); }, true);
   document.addEventListener('contextmenu', e => { if (host && host.contains(e.target)) onContext(e); });
+  // 이미지 칸에 파일을 끌어다 놓기
+  document.addEventListener('dragover', e => { const z = host && host.contains(e.target) && e.target.closest('[data-idrop]'); if (z && e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) { e.preventDefault(); z.classList.add('over'); } });
+  document.addEventListener('dragleave', e => { const z = host && host.contains(e.target) && e.target.closest('[data-idrop]'); if (z && !z.contains(e.relatedTarget)) z.classList.remove('over'); });
+  document.addEventListener('drop', e => { const z = host && host.contains(e.target) && e.target.closest('[data-idrop]'); if (!z) return; e.preventDefault(); z.classList.remove('over'); upload(e.dataTransfer.files); });
 }
-function go(id) { pid = id || null; editItem = null; editProj = false; draft = ''; localMsg = ''; render(); if (host) host.querySelector('.ck-body').scrollTop = 0; }
+function go(id) { pid = id || null; editItem = null; editProj = false; draft = ''; localMsg = ''; viewer = null; imgMsg = ''; render(); if (host) host.querySelector('.ck-body').scrollTop = 0; }
 
 function onClick(e) {
   const t = e.target;
   const open = t.closest('[data-open]'); if (open) { go(open.dataset.open); return; }
+  if (t.closest('[data-vclose]') && !t.closest('figure img') && !t.closest('a')) { viewer = null; render(); return; }
+  const iv = t.closest('[data-iview]'); if (iv) { view(iv.dataset.iview); return; }
+  const ir = t.closest('[data-irep]'); if (ir) { repTarget = ir.dataset.irep; const inp = host.querySelector('input[name=irep]'); if (inp) inp.click(); return; }
+  const im = t.closest('[data-imove]'); if (im) { imgOp('move', im.dataset.imove, { dir: +im.dataset.dir }); return; }
+  const idl = t.closest('[data-idel]');
+  if (idl) {
+    const p = projOf(pid), x = p && (p.images || []).find(z => z.id === idl.dataset.idel);
+    if (x && confirm(`“${x.name}” 이미지를 지울까요? 드라이브 휴지통으로 옮겨집니다.`)) imgOp('delete', x.id);
+    return;
+  }
   if (t.closest('[data-back]')) { go(null); return; }
   if (t.closest('[data-pedit]')) { const p0 = projOf(pid); editLeads = p0 ? (p0.leads || []).slice() : []; editProj = true; render(); const f = host.querySelector('.pj-form input[name=name]'); if (f) f.focus(); return; }
   if (t.closest('[data-pcancel]')) { editProj = false; render(); return; }
@@ -285,6 +415,8 @@ function onClick(e) {
 }
 
 function onChange(e) {
+  if (e.target.name === 'iup') { upload(e.target.files); return; }
+  if (e.target.name === 'irep') { const id = repTarget; repTarget = ''; if (id && e.target.files.length) upload(e.target.files, id); return; }
   const cb = e.target.closest('[data-toggle]');
   if (!cb || busy()) return;
   run('toggle', { id: cb.dataset.toggle, done: cb.checked });
@@ -329,6 +461,7 @@ function onSubmit(e) {
 
 function onKey(e) {
   if (e.key !== 'Escape') return;
+  if (viewer) { e.stopPropagation(); viewer = null; render(); return; }
   // 고치는 중이면 취소, 프로젝트 안이면 목록으로. 목록에서는 패널 닫기(shell.js)
   if (editItem) { e.stopPropagation(); editItem = null; render(); return; }
   if (editProj) { e.stopPropagation(); editProj = false; render(); return; }

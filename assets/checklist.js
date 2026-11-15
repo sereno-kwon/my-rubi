@@ -91,7 +91,8 @@ const fix = list => (list || []).map(it => {
   const owners = splitOwners(it.owner);
   return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '' });
 });
-const fixP = list => (list || []).map(p => { const leads = splitOwners(p.lead); return Object.assign({}, p, { leads, lead: leads.join(', '), desc: p.desc || '', status: p.status || 'active', order: +p.order || 0 }); });
+const imgList = v => { if (Array.isArray(v)) return v; try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.filter(x => x && x.id) : []; } catch (e) { return []; } };
+const fixP = list => (list || []).map(p => { const leads = splitOwners(p.lead); return Object.assign({}, p, { leads, lead: leads.join(', '), desc: p.desc || '', images: imgList(p.images), status: p.status || 'active', order: +p.order || 0 }); });
 const projOf = id => projects.find(p => p.id === id);
 /** 멤버 탭·요약에 보일 항목인지: 개인 항목, 또는 완료로 옮기지 않은 프로젝트의 항목 */
 const live = it => !it.project || (projOf(it.project) && projOf(it.project).status !== 'done');
@@ -522,6 +523,8 @@ window.MYRUBI_CHECK = {
   isDone,
   fmtDone,
   data() { return { items, projects, hide, busy, msg, shared: shared(), started }; },
+  /** 다른 화면(프로젝트 이미지)이 서버에서 받은 목록을 그대로 반영 */
+  apply(j) { if (!j || !j.checks) return; items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || hide; saveCache(); if (!editing) render(); },
   run,
   nextProjectOrder,
   /** 목록이 바뀌거나 저장 중 상태가 바뀔 때마다 fn 호출 */

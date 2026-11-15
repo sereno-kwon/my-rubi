@@ -104,9 +104,13 @@ const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order'
 const CHECK_HEADERS = ['ID', '담당(여러 명은 쉼표)', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시', '프로젝트 ID', '마감일'];
 const CHECK_REPEATS = ['daily', 'weekly', 'once'];
 
-// 프로젝트 탭 컬럼. 책임자는 여러 명(쉼표). desc(설명)는 2026-11-15 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
-const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'desc'];
-const PROJ_HEADERS = ['ID', '프로젝트', '책임자(여러 명은 쉼표)', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시', '설명'];
+// 프로젝트 탭 컬럼. 책임자는 여러 명(쉼표). desc(설명)·images(이미지)는 2026-11-15 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
+// images: 구글 드라이브 '프로젝트 이미지' 폴더에 올린 파일 목록 JSON [{ id 원본, tid 미리보기, name, by, at }]
+const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'desc', 'images'];
+const PROJ_HEADERS = ['ID', '프로젝트', '책임자(여러 명은 쉼표)', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시', '설명', '이미지(JSON)'];
+const PROJ_IMG_FOLDER = '프로젝트 이미지';   // Index 스프레드시트와 같은 폴더 안에 자동으로 만듦
+const PROJ_IMG_MAX = 40;                      // 프로젝트 하나에 올릴 수 있는 이미지 수
+const PROJ_IMG_BYTES = 20 * 1024 * 1024;      // 원본 한 장 최대 크기
 const PROJ_STATUS = ['active', 'hold', 'done'];
 
 // 고객 탭 컬럼 (고객관리). 한 줄 = 고객 한 명의 구매 건 하나 (한 사람이 두 건이면 두 줄)
@@ -187,6 +191,7 @@ function doGet(e) {
       case 'quotesnap': return json_({ ok: true, snap: quoteSnap_(p.id) });
       case 'report':   return json_({ ok: true, ...reportData_(user) });
       case 'garage':   return json_({ ok: true, ...garageData_(user) });
+      case 'projimg':  return json_({ ok: true, ...readProjImg_(p) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -213,6 +218,7 @@ function doPost(e) {
       case 'quote':    { const saved = saveQuote_(body, user) || ''; return json_({ ok: true, saved, ...quoteData_() }); }
       case 'report':   return json_({ ok: true, ...saveReport_(body, user) });
       case 'garage':   return json_({ ok: true, ...saveGarage_(body, user) });
+      case 'projimg':  { const saved = saveProjImg_(body, user) || ''; return json_({ ok: true, saved, ...checkData_(user) }); }
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -603,7 +609,12 @@ function saveProject_(b, user) {
 
   if (op === 'delete') {
     const row = findRow(b.id);
-    if (row > 0) sh.deleteRow(row);
+    if (row > 0) {
+      // 올린 이미지는 드라이브 휴지통으로 (30일 안에는 되살릴 수 있음)
+      const ii = PROJ_COLS.indexOf('images');
+      projImgList_(sh.getRange(row, ii + 1).getValue()).forEach(projImgTrash_);
+      sh.deleteRow(row);
+    }
     // 그 프로젝트의 항목 줄을 아래에서부터 지움
     const csh = checkSheet_();
     const last = csh.getLastRow();
@@ -625,7 +636,7 @@ function saveProject_(b, user) {
   if (!name) throw new Error('프로젝트 이름을 적어 주세요');
 
   if (op === 'add') {
-    const o = { id: 'p' + Utilities.getUuid().slice(0, 7), name, lead, due, status, memo, desc, order,
+    const o = { id: 'p' + Utilities.getUuid().slice(0, 7), name, lead, due, status, memo, desc, images: '', order,
       author: who, email: user.email, createdAt: now_(), updatedAt: '' };
     writeRow(sh.getLastRow() + 1, o);
     return o.id;
@@ -640,6 +651,110 @@ function saveProject_(b, user) {
     return o.id;
   }
   throw new Error('unknown op');
+}
+
+// ───────────────────────────── 프로젝트 이미지 (구글 드라이브) ─────────────────────────────
+// 원본과 미리보기(브라우저가 줄여 보낸 가로 640px JPEG)를 '프로젝트 이미지/프로젝트 이름 (ID)' 폴더에 저장
+// 파일은 공유하지 않음. 포털이 이 웹앱을 거쳐서만 읽음 (로그인한 직원만)
+
+function projImgList_(v) {
+  try { const a = JSON.parse(String(v || '[]')); return Array.isArray(a) ? a.filter(x => x && x.id) : []; } catch (e) { return []; }
+}
+function projImgTrash_(im) {
+  [im.id, im.tid].forEach(id => { if (!id) return; try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {} });
+}
+function projImgRoot_() {
+  const props = PropertiesService.getScriptProperties();
+  const saved = props.getProperty('PROJ_IMG_FOLDER_ID');
+  if (saved) { try { const f = DriveApp.getFolderById(saved); if (!f.isTrashed()) return f; } catch (e) {} }
+  const parents = DriveApp.getFileById(indexSs_().getId()).getParents();
+  const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  const it = parent.getFoldersByName(PROJ_IMG_FOLDER);
+  const f = it.hasNext() ? it.next() : parent.createFolder(PROJ_IMG_FOLDER);
+  props.setProperty('PROJ_IMG_FOLDER_ID', f.getId());
+  return f;
+}
+function projImgFolder_(p) {
+  const root = projImgRoot_();
+  const name = `${p.name} (${p.id})`.replace(/[\\/]/g, ' ');
+  const it = root.getFolders();
+  while (it.hasNext()) { const f = it.next(); if (f.getName().indexOf(`(${p.id})`) >= 0) { if (f.getName() !== name) f.setName(name); return f; } }
+  return root.createFolder(name);
+}
+function projImgBlob_(b64, mime, name) {
+  const bytes = Utilities.base64Decode(String(b64 || '').replace(/^data:[^,]*,/, ''));
+  if (!bytes.length) throw new Error('이미지가 비어 있습니다');
+  if (bytes.length > PROJ_IMG_BYTES) throw new Error('이미지 한 장은 20MB까지 올릴 수 있습니다');
+  return Utilities.newBlob(bytes, mime, name);
+}
+
+/** op: add / replace / delete / move. add 는 새 이미지 ID를 돌려줌 */
+function saveProjImg_(b, user) {
+  const sh = projectSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) throw new Error('프로젝트를 찾지 못했습니다');
+  const ids = sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+  const i = ids.indexOf(String(b.project || ''));
+  if (i < 0) throw new Error('프로젝트를 찾지 못했습니다. 새로 고침해 주세요');
+  const row = i + 2;
+  const cur = sh.getRange(row, 1, 1, PROJ_COLS.length).getValues()[0];
+  const p = {}; PROJ_COLS.forEach((k, j) => p[k] = noteCell_(cur[j], k));
+  const list = projImgList_(p.images);
+  const who = user.name || user.email;
+  const op = String(b.op || '');
+  const at = list.findIndex(x => x.id === String(b.fid || ''));
+  let saved = '';
+
+  if (op === 'add' || op === 'replace') {
+    const mime = String(b.mime || '');
+    if (!/^image\/(jpeg|png|gif|webp|heic|heif|avif|svg\+xml)$/.test(mime)) throw new Error('이미지 파일만 올릴 수 있습니다');
+    if (op === 'add' && list.length >= PROJ_IMG_MAX) throw new Error(`이미지는 프로젝트마다 ${PROJ_IMG_MAX}장까지입니다`);
+    if (op === 'replace' && at < 0) throw new Error('바꿀 이미지를 찾지 못했습니다. 새로 고침해 주세요');
+    const name = String(b.name || 'image').replace(/[\\/]/g, ' ').slice(0, 120);
+    const folder = projImgFolder_(p);
+    const file = folder.createFile(projImgBlob_(b.data, mime, name));
+    let tid = '';
+    if (b.thumb) tid = folder.createFile(projImgBlob_(b.thumb, 'image/jpeg', '.thumb_' + name.replace(/\.[^.]+$/, '') + '.jpg')).getId();
+    const im = { id: file.getId(), tid, name, w: +b.w || 0, h: +b.h || 0, by: who, at: now_() };
+    if (op === 'add') list.push(im);
+    else { projImgTrash_(list[at]); list[at] = im; }
+    saved = im.id;
+  } else if (op === 'delete') {
+    if (at >= 0) { projImgTrash_(list[at]); list.splice(at, 1); }
+  } else if (op === 'move') {
+    const j = at + (Number(b.dir) < 0 ? -1 : 1);
+    if (at >= 0 && j >= 0 && j < list.length) { const t = list[at]; list[at] = list[j]; list[j] = t; }
+  } else throw new Error('unknown op');
+
+  const ii = PROJ_COLS.indexOf('images'), ui = PROJ_COLS.indexOf('updatedAt');
+  sh.getRange(row, ii + 1).setNumberFormat('@').setValue(list.length ? JSON.stringify(list) : '');
+  sh.getRange(row, ui + 1).setNumberFormat('@').setValue(now_());
+  return saved;
+}
+
+/** GET action=projimg. op=thumbs&project=ID → 미리보기 data URL 묶음 / op=full&project=ID&fid=ID → 원본 */
+function readProjImg_(q) {
+  const p = projectRows_().find(x => x.id === String(q.project || ''));
+  if (!p) throw new Error('프로젝트를 찾지 못했습니다');
+  const list = projImgList_(p.images);
+  const url = (id, fallbackMime) => { const bl = DriveApp.getFileById(id).getBlob(); return `data:${bl.getContentType() || fallbackMime};base64,` + Utilities.base64Encode(bl.getBytes()); };
+  if (q.op === 'full') {
+    const im = list.find(x => x.id === String(q.fid || ''));
+    if (!im) throw new Error('이미지를 찾지 못했습니다');
+    return { image: { id: im.id, name: im.name, url: url(im.id, 'image/jpeg') } };
+  }
+  const want = String(q.ids || '').split(',').filter(Boolean);
+  const thumbs = {};
+  list.filter(im => !want.length || want.indexOf(im.id) >= 0).forEach(im => {
+    try { thumbs[im.id] = url(im.tid || im.id, 'image/jpeg'); } catch (e) { thumbs[im.id] = ''; }
+  });
+  return { thumbs };
+}
+
+/** 편집기에서 한 번 실행해 드라이브 권한을 승인하고 폴더를 만들어 둠 */
+function test_projimg() {
+  const f = projImgRoot_();
+  Logger.log('프로젝트 이미지 폴더: ' + f.getName() + ' ' + f.getUrl());
 }
 
 // ───────────────────────────── 고객관리 (고객·고객로그 탭) ─────────────────────────────
