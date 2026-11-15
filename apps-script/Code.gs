@@ -26,7 +26,7 @@
  *    2026-11-09 판: 품목의 고객 지참(own, 금액에서 뺌)·원가(cost)·재고상태(stock), 결제별 증빙 상태(rc)와 결제 취소·환불(음수),
  *    증빙(receipt: 현금영수증·세금계산서 번호), 탈거품(removed), 견적 종류(kind '업그레이드')와 원래 견적(parent) 열이 늘어남
  *    입금 계좌는 스크립트 속성 QUOTE_BANK 에 적음 (리포지토리가 공개라서 코드에 두지 않음). 로그인한 직원에게만 돌려줌
- *  - 매출·매입 보고서(/report/, /report/purchase/): 이카운트 판매현황·구매현황·재고현황·품목등록 엑셀을 '매출'·'매입'·'재고'·'품목' 탭에 저장하고
+ *  - 매출·매입보고서(/report/, /report/purchase/): 이카운트 판매현황·구매현황·재고현황·품목등록 엑셀을 '매출'·'매입'·'재고'·'품목' 탭에 저장하고
  *    올린 기록은 '보고서업로드' 탭에 남김 (GET report / POST report). 집계와 그래프는 보고서 페이지가 함
  *    판매현황·구매현황은 파일의 기간(과 거래처 필터)에 해당하는 예전 줄을 지우고 새로 넣으므로 같은 달을 다시 올려도 겹치지 않음
  *    매출·매입은 민감한 정보라서 CONFIG.REPORT_VIEWERS 에 적은 계정만 보고 올릴 수 있음 (비워두면 로그인한 직원 모두)
@@ -82,7 +82,7 @@ const CONFIG = {
   // 같은 달을 다시 물을 때 이 시간(초) 동안은 캘린더를 다시 읽지 않고 받아 둔 결과를 돌려줌
   CALENDAR_CACHE_SEC: 120,
 
-  // 매출·매입 보고서를 보고 올릴 수 있는 계정 (apps.js 의 보고서 앱 only 와 맞춰 둘 것) (이메일 아이디만 적으면 rubiworkshop.com, rubi.kr 어느 쪽이든 맞음)
+  // 매출·매입보고서를 보고 올릴 수 있는 계정 (apps.js 의 보고서 앱 only 와 맞춰 둘 것) (이메일 아이디만 적으면 rubiworkshop.com, rubi.kr 어느 쪽이든 맞음)
   //  비워두면 로그인한 직원 모두. 예: ['ohyun', 'oryun', 'someone@rubiworkshop.com']
   REPORT_VIEWERS: ['ohyun', 'oryun'],
 
@@ -153,7 +153,7 @@ const PORTAL_HEADERS = ['키', '견적 ID', '고객 건 ID', '고객명', '공�
 const CODE_COLS = ['code', 'ckey', 'name', 'issuedAt', 'by', 'active', 'logins', 'lastLogin'];
 const CODE_HEADERS = ['고객코드', '고객 키', '고객명', '발급 일시', '발급한 사람', '사용 중', '로그인 횟수', '마지막 로그인'];
 const CODE_ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-// 매출 보고서 탭 (이카운트 엑셀에서 읽은 값)
+// 매출보고서 탭 (이카운트 엑셀에서 읽은 값)
 const SALE_COLS = ['date', 'no', 'code', 'name', 'qty', 'price', 'supply', 'vat', 'total', 'partner', 'wh', 'up'];
 const SALE_HEADERS = ['일자', '전표 번호', '품목코드', '품목명(규격)', '수량', '단가', '공급가액', '부가세', '합계', '거래처명', '창고', '올린 기록 ID'];
 const PUR_HEADERS = ['일자', '전표 번호', '품목코드', '품목명(규격)', '수량', '단가', '공급가액', '부가세', '합계', '거래처명(공급처)', '창고', '올린 기록 ID'];
@@ -1596,7 +1596,7 @@ function test_calendar() {
   r.events.slice(0, 10).forEach(e => Logger.log(e.date + ' ' + (e.allDay ? '종일' : e.start + '-' + e.end) + '  ' + e.title));
 }
 
-// ───────────────────────────── 매출 보고서 (매출·재고·품목·보고서업로드 탭) ─────────────────────────────
+// ───────────────────────────── 매출보고서 (매출·재고·품목·보고서업로드 탭) ─────────────────────────────
 // 보고서 페이지가 이카운트 엑셀을 읽어 줄 단위로 보내면 여기서 탭에 씀. 집계는 페이지가 함
 // 판매현황: 파일 기간(from~to) 안의 예전 줄을 지우고 넣음. 파일이 거래처로 걸러진 것이면(scope) 그 거래처 줄만 지움
 // 재고현황: 기준일(date)별 스냅샷. 같은 기준일을 다시 올리면 그날 스냅샷을 바꿈
@@ -1607,7 +1607,7 @@ function canReport_(user) {
   return !list.length || list.includes(emailKey_(user.email));
 }
 function needReport_(user) {
-  if (!canReport_(user)) throw new Error('매출 보고서를 볼 수 있는 계정이 아닙니다. 관리자에게 요청해 주세요');
+  if (!canReport_(user)) throw new Error('매출보고서를 볼 수 있는 계정이 아닙니다. 관리자에게 요청해 주세요');
 }
 
 function reportSheet_(name, headers, ncol) {

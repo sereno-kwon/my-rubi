@@ -1,4 +1,4 @@
-/* My Rubi 매출 보고서 (/report/)
+/* My Rubi 매출보고서 (/report/)
  *
  * 흐름
  *  1. 직원이 이카운트에서 판매현황·재고현황·품목등록을 엑셀로 내려받아 '이카운트 엑셀 올리기'에 놓음
@@ -20,7 +20,7 @@
 (function () {
   'use strict';
   const CFG = window.MYRUBI_CONFIG || {};
-  const MODE = (document.body && document.body.dataset.mode) || 'sales';   // 'sales' 매출 보고서, 'purchase' 매입 보고서 (/report/purchase/), 'garage' 루비개러지 앱 (/garage/)
+  const MODE = (document.body && document.body.dataset.mode) || 'sales';   // 'sales' 매출보고서, 'purchase' 매입보고서 (/report/purchase/), 'garage' 루비개러지 앱 (/garage/)
   const API = MODE === 'garage' ? 'garage' : 'report';
   const RC = Object.assign({
     RATE_DAYS: 90,      // 하루 평균 판매를 계산하는 기간
@@ -369,11 +369,11 @@
       <li><b>판매현황 (루비개러지)</b>: 이카운트 영업관리 › 판매현황에서 거래처를 <b>루비개러지 스마트스토어</b>로 걸러 조회한 뒤 엑셀로 받습니다. 그 거래처의 그 기간 줄만 바뀝니다.</li>
       <li><b>재고현황</b>: 재고 › 재고현황(전 창고). 오늘 날짜로 조회해 엑셀로 받습니다. 회전 부진 분석에 씁니다.</li>
       <li><b>스마트스토어 방문 분석</b>: 루비개러지 스마트스토어센터 › 통계 › 방문 분석(경로 전체)을 30일 기간으로 엑셀 다운로드합니다(visit_시작일-끝일.xlsx). 30일치만 받을 수 있으니 <b>매달 한 번</b> 올리면 앞 달과 비교됩니다. 첫 줄 '전체'(총계)는 경로에서 빼고 요약 숫자에만 씁니다. 같은 기간을 다시 올리면 바뀝니다.</li>
-      <li>회사 전체 판매현황과 품목등록은 대표님·권오륜 님이 매출 보고서에서 올립니다. 이 화면은 그 자료를 함께 씁니다.</li>
+      <li>회사 전체 판매현황과 품목등록은 대표님·권오륜 님이 매출보고서에서 올립니다. 이 화면은 그 자료를 함께 씁니다.</li>
     </ol>`;
     return `<ol class="rp-guide">
       <li><b>판매현황</b>: 영업관리 › 판매현황. 기간을 정하고 거래처 조건은 비운 채 조회해 엑셀로 받습니다. 표시 항목에 <b>품목코드</b>와 <b>거래처명</b>을 넣어 두면 재고와 정확히 이어집니다.</li>
-      <li><b>구매현황</b>: 구매관리 › 구매현황. 판매현황과 같은 방법으로 기간을 정해 엑셀로 받습니다. 매입 보고서에 씁니다.</li>
+      <li><b>구매현황</b>: 구매관리 › 구매현황. 판매현황과 같은 방법으로 기간을 정해 엑셀로 받습니다. 매입보고서에 씁니다.</li>
       <li><b>재고현황</b>: 재고 › 재고현황(전 창고). 오늘 날짜로 조회해 엑셀로 받습니다. 품목코드, 품목명, 재고 수량 열이 있으면 됩니다.</li>
       <li><b>품목등록</b>: 기초등록 › 품목등록 목록을 엑셀로 받습니다. 입고단가로 재고 금액을, 계층그룹으로 분류를 계산합니다. 품목이 바뀔 때만 다시 올리면 됩니다.</li>
     </ol>`;
@@ -575,8 +575,8 @@
       <details class="rp-tbl"><summary>이카운트에서 받는 법</summary>${guideList()}</details></section>`;
   }
 
-  // ─────────── 매입 보고서 ───────────
-  // 매입 = 구매현황 줄. 회전율·재고일수는 매출 보고서와 같은 계산(turnover)을 씀
+  // ─────────── 매입보고서 ───────────
+  // 매입 = 구매현황 줄. 회전율·재고일수는 매출보고서와 같은 계산(turnover)을 씀
   const pIn = (f, t) => db.purchases.filter(x => x.d >= f && x.d <= t && (!ui.brand || x.brand === ui.brand));
   const sIn = (f, t) => db.sales.filter(x => x.d >= f && x.d <= t && (!ui.brand || x.brand === ui.brand));
   const monthsOf = P => P.from.slice(8) === '01' && P.to === monthEnd(P.to)

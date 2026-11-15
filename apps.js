@@ -31,8 +31,8 @@ window.MYRUBI_APPS = [
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
   // 루비개러지는 REPORT 구역에 있지만 보이는 사람은 아래 only 목록(전요셉 포함)을 따름
   { id: 'garage',       title: '루비개러지',   icon: 'store', tint: 'amber', kind: 'frame', url: '/garage/', only: ['ohyun', 'oryun', '전요셉'], note: '개러지 매출, 스마트스토어 트래픽, 회사 재고 중 회전이 느린 품목(품목별·장르별). Code.gs 의 GARAGE_VIEWERS 와 맞출 것' },
-  { id: 'sales-report',    title: '매출 보고서', icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', only: ['ohyun', 'oryun'], note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
-  { id: 'purchase-report', title: '매입 보고서', icon: 'box',   tint: 'teal',  kind: 'frame', url: '/report/purchase/', only: ['ohyun', 'oryun'], note: '이카운트 구매현황으로 월 평균 매입, 최근 매입 브랜드, 브랜드·공급처별 매입, 모델별 매입 후 소진율과 회전율' },
+  { id: 'sales-report',    title: '매출보고서', icon: 'sheet', tint: 'green', kind: 'frame', url: '/report/', only: ['ohyun', 'oryun'], note: '이카운트 판매현황·재고현황으로 재고 수준, 브랜드·플랫폼별 매출, 모델별 회전율, 프로모션 필요 항목' },
+  { id: 'purchase-report', title: '매입보고서', icon: 'box',   tint: 'teal',  kind: 'frame', url: '/report/purchase/', only: ['ohyun', 'oryun'], note: '이카운트 구매현황으로 월 평균 매입, 최근 매입 브랜드, 브랜드·공급처별 매입, 모델별 매입 후 소진율과 회전율' },
 
   // BOOKMARK (바로가기)
   { id: 'ecount',    title: 'Ecount',       icon: 'box',    tint: 'blue',  kind: 'link', url: 'https://login.ecount.com/', note: '이카운트 ERP' },
