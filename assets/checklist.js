@@ -91,7 +91,8 @@ const fix = list => (list || []).map(it => {
   const owners = splitOwners(it.owner);
   return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '' });
 });
-const imgList = v => { if (Array.isArray(v)) return v; try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.filter(x => x && x.id) : []; } catch (e) { return []; } };
+/** 프로젝트 이미지 목록 JSON. 올린 사람은 구글 이름이라 멤버 이름으로 맞춤 */
+const imgList = v => { let a = v; if (!Array.isArray(a)) { try { a = JSON.parse(v || '[]'); } catch (e) { a = []; } } return Array.isArray(a) ? a.filter(x => x && x.id).map(x => Object.assign({}, x, { by: alias(x.by || '') })) : []; };
 const fixP = list => (list || []).map(p => { const leads = splitOwners(p.lead); return Object.assign({}, p, { leads, lead: leads.join(', '), desc: p.desc || '', images: imgList(p.images), status: p.status || 'active', order: +p.order || 0 }); });
 const projOf = id => projects.find(p => p.id === id);
 /** 멤버 탭·요약에 보일 항목인지: 개인 항목, 또는 완료로 옮기지 않은 프로젝트의 항목 */
