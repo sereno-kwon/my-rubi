@@ -104,9 +104,9 @@ const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order'
 const CHECK_HEADERS = ['ID', '담당(여러 명은 쉼표)', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시', '프로젝트 ID', '마감일'];
 const CHECK_REPEATS = ['daily', 'weekly', 'once'];
 
-// 프로젝트 탭 컬럼
-const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'author', 'email', 'createdAt', 'updatedAt'];
-const PROJ_HEADERS = ['ID', '프로젝트', '책임자', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시'];
+// 프로젝트 탭 컬럼. 책임자는 여러 명(쉼표). desc(설명)는 2026-11-15 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
+const PROJ_COLS = ['id', 'name', 'lead', 'due', 'status', 'memo', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'desc'];
+const PROJ_HEADERS = ['ID', '프로젝트', '책임자(여러 명은 쉼표)', '마감일', '상태(active/hold/done)', '메모', '순서', '작성자', '이메일', '작성일시', '수정일시', '설명'];
 const PROJ_STATUS = ['active', 'hold', 'done'];
 
 // 고객 탭 컬럼 (고객관리). 한 줄 = 고객 한 명의 구매 건 하나 (한 사람이 두 건이면 두 줄)
@@ -439,6 +439,11 @@ function projectSheet_() {
     sh.getRange(1, 1, 1, PROJ_HEADERS.length).setValues([PROJ_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange(1, 1, sh.getMaxRows(), PROJ_COLS.length).setNumberFormat('@');
+  } else if (sh.getLastColumn() < PROJ_COLS.length) {
+    // 예전 시트: 뒤에 새 열(설명) 머리글을 채우고 글자 형식으로
+    if (sh.getMaxColumns() < PROJ_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), PROJ_COLS.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, PROJ_HEADERS.length).setValues([PROJ_HEADERS]).setFontWeight('bold');
+    sh.getRange(1, 1, sh.getMaxRows(), PROJ_COLS.length).setNumberFormat('@');
   }
   return sh;
 }
@@ -464,7 +469,7 @@ function projectRows_() {
   const last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, PROJ_COLS.length).getValues()
-    .map(r => { const o = {}; PROJ_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.lead = checkOwner_(o.lead); return o; })
+    .map(r => { const o = {}; PROJ_COLS.forEach((k, i) => o[k] = noteCell_(r[i], k)); o.order = Number(o.order) || 0; o.lead = ownerList_(o.lead).join(', '); return o; })
     .filter(o => o.id && o.name);
 }
 
@@ -611,15 +616,16 @@ function saveProject_(b, user) {
   }
 
   const name = String(b.name || '').trim().slice(0, 60);
-  const lead = checkOwner_(String(b.lead || '').slice(0, 40));
+  const lead = ownerList_(b.leads != null ? b.leads : b.lead).join(', ').slice(0, 200);
   const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) ? String(b.due) : '';
   const status = PROJ_STATUS.indexOf(b.status) >= 0 ? b.status : 'active';
   const memo = String(b.memo || '').replace(/\r/g, '').trim().slice(0, 1000);
+  const desc = String(b.desc || '').replace(/\r/g, '').trim().slice(0, 2000);
   const order = Number(b.order) || 0;
   if (!name) throw new Error('프로젝트 이름을 적어 주세요');
 
   if (op === 'add') {
-    const o = { id: 'p' + Utilities.getUuid().slice(0, 7), name, lead, due, status, memo, order,
+    const o = { id: 'p' + Utilities.getUuid().slice(0, 7), name, lead, due, status, memo, desc, order,
       author: who, email: user.email, createdAt: now_(), updatedAt: '' };
     writeRow(sh.getLastRow() + 1, o);
     return o.id;
@@ -629,7 +635,7 @@ function saveProject_(b, user) {
     if (row < 0) throw new Error('이미 지워진 프로젝트입니다. 새로 고침해 주세요');
     const cur = sh.getRange(row, 1, 1, PROJ_COLS.length).getValues()[0];
     const o = {}; PROJ_COLS.forEach((k, i) => o[k] = noteCell_(cur[i], k));
-    Object.assign(o, { name, lead, due, status, memo, order, updatedAt: now_() });
+    Object.assign(o, { name, lead, due, status, memo, desc, order, updatedAt: now_() });
     writeRow(row, o);
     return o.id;
   }

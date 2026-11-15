@@ -34,6 +34,7 @@ let pid = null;            // 열려 있는 프로젝트 (없으면 목록)
 let editItem = null;       // 고치는 중인 항목 id
 let editProj = false;      // 프로젝트 정보 고치는 중
 let editPick = [];         // 항목 고치기의 담당
+let editLeads = [];        // 프로젝트 고치기의 책임자 (여러 명)
 let draft = '';            // 항목 추가 칸에 적던 글 (다시 그려도 남게)
 let localMsg = '';
 const ui = Object.assign({ filter: {}, pick: {} }, (() => { try { return JSON.parse(ls.get(K_UI)) || {}; } catch (e) { return {}; } })());
@@ -93,7 +94,7 @@ function listHtml() {
       const s = stat(p.id), du = dueLabel(p.due, st === 'done');
       return `<li><button class="pj-row" data-open="${esc(p.id)}">
         <span class="nm">${esc(p.name)}</span>
-        <span class="ld">${esc(p.lead)}</span>
+        <span class="ld">${esc((p.leads || []).join(' · '))}</span>
         <span class="du${du.late ? ' late' : ''}">${esc(du.t)}</span>
         <span class="ct">${s.total ? `${s.done}/${s.total}` : '항목 없음'}</span>
         <span class="ck-bar" aria-hidden="true"><i style="width:${s.pct}%"></i></span>
@@ -134,22 +135,24 @@ function detailHtml(p) {
   const filter = inProj.includes(ui.filter[p.id]) ? ui.filter[p.id] : ALL;
   const shown = (filter === ALL ? all : all.filter(it => it.owners.includes(filter)))
     .sort((a, b) => (done(a) !== done(b)) ? (done(a) ? 1 : -1) : byOrder(a, b));
-  const meta = [STATUS[p.status], p.lead ? '책임 ' + p.lead : '', du.t ? `<span class="${du.late ? 'late' : ''}">마감 ${esc(du.t)}</span>` : '', s.total ? `${s.done}/${s.total} 끝냄` : '']
+  const meta = [STATUS[p.status], (p.leads || []).length ? '책임 ' + (p.leads || []).join(' · ') : '', du.t ? `<span class="${du.late ? 'late' : ''}">마감 ${esc(du.t)}</span>` : '', s.total ? `${s.done}/${s.total} 끝냄` : '']
     .filter(Boolean).map(x => x.startsWith('<') ? x : esc(x)).join('<i class="dot">·</i>');
 
   const head = `<div class="pj-head">
     <button class="pj-back" data-back><span aria-hidden="true">←</span> 프로젝트 목록</button>
     <div class="pj-ttl"><h2>${esc(p.name)}</h2>${editProj ? '' : '<button class="pj-btn" data-pedit>고치기</button>'}</div>
     <p class="pj-meta">${meta}</p>
-    ${p.memo && !editProj ? `<p class="pj-memo">${esc(p.memo)}</p>` : ''}
+    ${p.desc && !editProj ? `<p class="pj-desc">${esc(p.desc)}</p>` : ''}
+    ${p.memo && !editProj ? `<p class="pj-memo"><span class="lb">메모</span>${esc(p.memo)}</p>` : ''}
     <span class="ck-bar pj-bar" aria-hidden="true"><i style="width:${s.pct}%"></i></span>
   </div>`;
 
   const form = editProj ? `<form class="pj-form" autocomplete="off">
     <label><span>이름</span><input name="name" value="${esc(p.name)}" maxlength="60" required></label>
-    <label><span>책임자</span><select name="lead"><option value="">없음</option>${members().map(m => `<option${p.lead === m ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
+    <div class="wide pj-lead"><span>책임자 <small>여러 명 고를 수 있음</small></span>${pickHtml(editLeads, 'data-lpick')}</div>
     <label><span>마감일</span><input type="date" name="due" value="${esc(p.due)}"></label>
     <label><span>상태</span><select name="status">${STATUS_ORDER.map(k => `<option value="${k}"${p.status === k ? ' selected' : ''}>${STATUS[k]}</option>`).join('')}</select></label>
+    <label class="wide"><span>설명</span><textarea name="desc" rows="5" maxlength="2000" placeholder="이 프로젝트가 무엇이고 왜 하는지">${esc(p.desc)}</textarea></label>
     <label class="wide"><span>메모</span><textarea name="memo" rows="3" maxlength="1000">${esc(p.memo)}</textarea></label>
     <div class="pj-fbtn"><button type="submit" class="pri">저장</button><button type="button" data-pcancel>취소</button><button type="button" class="danger" data-pdel>프로젝트 지우기</button></div>
   </form>` : '';
@@ -230,7 +233,7 @@ function onClick(e) {
   const t = e.target;
   const open = t.closest('[data-open]'); if (open) { go(open.dataset.open); return; }
   if (t.closest('[data-back]')) { go(null); return; }
-  if (t.closest('[data-pedit]')) { editProj = true; render(); const f = host.querySelector('.pj-form input[name=name]'); if (f) f.focus(); return; }
+  if (t.closest('[data-pedit]')) { const p0 = projOf(pid); editLeads = p0 ? (p0.leads || []).slice() : []; editProj = true; render(); const f = host.querySelector('.pj-form input[name=name]'); if (f) f.focus(); return; }
   if (t.closest('[data-pcancel]')) { editProj = false; render(); return; }
   if (t.closest('[data-pdel]')) {
     const p = projOf(pid); if (!p) return;
@@ -265,6 +268,18 @@ function onClick(e) {
     const inp = host.querySelector('.pj-iedit input[name=text]'); if (inp) inp.value = txt;
     return;
   }
+  const lp = t.closest('[data-lpick]');
+  if (lp) {
+    // 고르는 중 다시 그려도 적던 칸이 남게
+    const f3 = host.querySelector('.pj-form');
+    const keep = f3 ? ['name', 'due', 'status', 'desc', 'memo'].reduce((o, k) => (o[k] = f3.elements[k].value, o), {}) : null;
+    const m = lp.dataset.lpick;
+    editLeads = editLeads.includes(m) ? editLeads.filter(x => x !== m) : editLeads.concat(m);
+    render();
+    const f4 = host.querySelector('.pj-form');
+    if (f4 && keep) Object.keys(keep).forEach(k => { f4.elements[k].value = keep[k]; });
+    return;
+  }
   if (t.closest('[data-icancel]')) { editItem = null; render(); return; }
   const more = t.closest('[data-more]'); if (more) { const r = more.getBoundingClientRect(); itemMenu(more.dataset.more, r.left, r.bottom + 4); }
 }
@@ -282,7 +297,7 @@ function onSubmit(e) {
   if (f.classList.contains('pj-newp')) {
     const name = f.elements.name.value.trim(); if (!name) return;
     f.elements.name.value = '';
-    run('add', { name, status: 'active', lead: members().includes(C().me()) ? C().me() : '' }, 'project').then(id => { if (id && id !== true) go(id); });
+    run('add', { name, status: 'active', leads: members().includes(C().me()) ? [C().me()] : [] }, 'project').then(id => { if (id && id !== true) go(id); });
     return;
   }
   if (f.classList.contains('pj-addf')) {
@@ -308,7 +323,7 @@ function onSubmit(e) {
     const p = projOf(pid); if (!p) return;
     const name = f.elements.name.value.trim(); if (!name) return;
     editProj = false;
-    run('update', Object.assign({}, p, { name, lead: f.elements.lead.value, due: f.elements.due.value, status: f.elements.status.value, memo: f.elements.memo.value }), 'project');
+    run('update', Object.assign({}, p, { name, leads: editLeads.slice(), due: f.elements.due.value, status: f.elements.status.value, desc: f.elements.desc.value, memo: f.elements.memo.value }), 'project');
   }
 }
 

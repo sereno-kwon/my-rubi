@@ -46,7 +46,7 @@ function me() {
 const shared = () => !!(MR && MR.loginEnabled() && MR.session());
 
 let items = [];        // { id, owner, owners[], text, repeat, doneAt, doneBy, order, author, createdAt, updatedAt, project, due }
-let projects = [];     // { id, name, lead, due, status, memo, order, author, createdAt, updatedAt }
+let projects = [];     // { id, name, lead, leads[], due, status, desc, memo, order, author, createdAt, updatedAt } — 책임자는 쉼표로 여러 명
 let hide = [];         // 이 계정에 숨길 멤버 (개인 목록, 서버가 알려줌)
 const subs = [];       // 목록이 바뀔 때 다시 그릴 화면 (project.js)
 let msg = '', busy = false, started = false, editing = null;
@@ -91,7 +91,7 @@ const fix = list => (list || []).map(it => {
   const owners = splitOwners(it.owner);
   return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '' });
 });
-const fixP = list => (list || []).map(p => Object.assign({}, p, { lead: alias(p.lead || ''), status: p.status || 'active', order: +p.order || 0 }));
+const fixP = list => (list || []).map(p => { const leads = splitOwners(p.lead); return Object.assign({}, p, { leads, lead: leads.join(', '), desc: p.desc || '', status: p.status || 'active', order: +p.order || 0 }); });
 const projOf = id => projects.find(p => p.id === id);
 /** 멤버 탭·요약에 보일 항목인지: 개인 항목, 또는 완료로 옮기지 않은 프로젝트의 항목 */
 const live = it => !it.project || (projOf(it.project) && projOf(it.project).status !== 'done');
@@ -295,11 +295,15 @@ async function persist(op, d) {
 }
 /** 프로젝트 op: add / update / delete. 지우면 그 프로젝트 항목도 지움. add 는 새 프로젝트 ID를 돌려줌 */
 async function persistProject(op, d) {
-  const fields = { id: d.id, name: d.name, lead: d.lead || '', due: d.due || '', status: d.status || 'active', memo: d.memo || '', order: d.order || 0 };
+  const leads = d.leads ? d.leads.slice() : splitOwners(d.lead);
+  const fields = { id: d.id, name: d.name, lead: leads.join(', '), leads, due: d.due || '', status: d.status || 'active', desc: d.desc || '', memo: d.memo || '', order: d.order || 0 };
   if (shared()) {
     const j = await MR.post(Object.assign({ action: 'project', op }, fields));
     items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || [];
     saveCache();
+    // 예전 Apps Script 는 설명 열을 모름: 저장은 됐지만 설명만 빠짐
+    const sp = (j.projects || []).find(p => p.id === (j.saved || d.id));
+    if (fields.desc && sp && !('desc' in sp)) throw new Error('설명은 Apps Script를 새 버전으로 배포해야 저장됩니다 (나머지는 저장됨)');
     return j.saved || d.id;
   }
   let id = d.id;

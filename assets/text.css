@@ -336,7 +336,13 @@ body.panel-open{overflow:hidden}
 .pj-btn:hover{border-color:var(--fg)}
 .pj-meta{margin:12px 0 0;font-size:14px;line-height:20px;color:var(--muted)}
 .pj-meta .dot{font-style:normal;color:var(--faint);margin:0 8px}
-.pj-memo{margin:12px 0 0;font-size:14px;line-height:22px;white-space:pre-wrap;max-width:720px}
+.pj-desc{margin:16px 0 0;font-size:15px;line-height:24px;white-space:pre-wrap;max-width:720px;word-break:keep-all}
+.pj-memo{margin:12px 0 0;font-size:14px;line-height:22px;white-space:pre-wrap;max-width:720px;color:var(--muted)}
+.pj-memo .lb{display:inline-block;margin-right:8px;font-size:12px;color:var(--faint)}
+.pj-lead{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:16px;color:var(--muted)}
+.pj-lead small{font-size:12px;color:var(--faint);margin-left:4px}
+.pj-form .pj-lead{grid-column:1/-1}
+.pj-lead .pj-pick{grid-column:auto;margin:0;padding:0}
 .pj-bar{margin-top:20px}
 .pj-filter{padding-top:8px}
 .pj-item .tx .ow{display:block;margin-top:2px;font-size:12px;line-height:16px;letter-spacing:0;color:var(--muted)}
