@@ -15,7 +15,7 @@
  *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
  *    GET portal&k=키 는 로그인 없이 그 사본만 돌려줌 (줄별 가격·할인율·내부 메모·이카운트 코드는 사본에 아예 없음)
  *    고객 키(ckey)로 열면 그 고객의 공개 중인 견적 전체를 목록으로 돌려줌 (포털 첫 화면 '내 자전거'). 고객은 이름(띄어쓰기 무시)으로 묶음
- *    고객 로그인: 직원이 견적 앱에서 발급한 고객코드(RUBI-가입연도-임의 8자, 예: RUBI-2026-7K3M9QXP)로 GET portal&c=코드 → 그 고객의 목록과 세션(고객 키)
+ *    고객 로그인: 직원이 견적 앱에서 발급한 고객코드(RUBI-가입연도-임의 8자, 예: RUBI-2026-7K3M9QXP)로 GET portal&code=코드 → 그 고객의 목록과 세션(고객 키)
  *    코드는 '고객코드' 탭. 다시 발급하면 예전 코드와 고객 키가 함께 바뀌어 이미 로그인한 기기와 예전 링크도 끊김
  *    틀린 코드가 10분에 30번을 넘으면 잠시 모든 코드 로그인을 막음 (임의 8자는 40비트, 이 제한 아래에서는 추측으로 맞힐 수 없음)
  *    진행 단계와 단계별 날짜는 고객관리에서 그때그때 읽어 붙임 (가격과 무관해서 다시 공개하지 않아도 바로 반영)
@@ -180,7 +180,9 @@ function doGet(e) {
   try {
     const p = e.parameter || {};
     if (p.action === 'ping') return json_({ ok: true });   // 연결 확인은 로그인 없이
-    if (p.action === 'portal') return json_(p.c ? portalLogin_(p.c) : portalView_(p.k));   // 고객 포털: 고객코드 로그인 또는 키(세션)로 정제 사본만
+    // 고객 포털: 고객코드 로그인(code=) 또는 키(세션)로 정제 사본만
+    //  주의: 'c' 와 'sid' 는 Apps Script 웹앱이 따로 쓰는 예약 이름이라 c= 로 보내면 스크립트에 닿기 전에 막힘 → code= 를 씀
+    if (p.action === 'portal') return json_(p.code ? portalLogin_(p.code) : portalView_(p.k));
     const user = auth_(p.s);
 
     switch (p.action) {
@@ -1191,7 +1193,7 @@ function portalCode_(qid, renew, user) {
   return codeFmt_(code);
 }
 
-/** GET portal&c=코드: 맞으면 그 고객의 목록 + session(고객 키). 틀리면 같은 답, 너무 많이 틀리면 잠시 막음 */
+/** GET portal&code=코드: 맞으면 그 고객의 목록 + session(고객 키). 틀리면 같은 답, 너무 많이 틀리면 잠시 막음 */
 function portalLogin_(input) {
   const cache = CacheService.getScriptCache();
   const fails = +(cache.get('portalFail') || 0);
