@@ -1,6 +1,6 @@
 // 톤 매칭 앱 (/tone/)
 // 흐름: 사진 추가 → 사진마다 톤 요약(engine.analyze, 긴 변 512px) → 기준 톤과 조정값으로 LUT를 만들어 미리보기·썸네일에 입힘
-//       → 저장할 때 원본을 다시 읽어 4:3으로 자르고, 원본에서 바로 2000×1500으로 줄인 뒤(한 번에 2배 넘게 줄이지 않음) LUT를 입혀 JPG 최고 품질로 한 번만 인코딩
+//       → 저장할 때 원본을 다시 읽어 고른 비율(기본 4:3)로 자르고, 원본에서 바로 2000×1500으로 줄인 뒤(한 번에 2배 넘게 줄이지 않음) LUT를 입혀 JPG 최고 품질로 한 번만 인코딩
 // 자르는 위치는 사진마다 미리보기에서 끌어서 정함(cx, cy: 0–1, 기본 가운데)
 // 메모리를 아끼려고 큰 미리보기는 지금 보고 있는 사진 한 장만 들고 있고, 나머지는 작은 썸네일과 요약 숫자만 들고 있음
 (() => {
@@ -10,12 +10,16 @@
   const E = window.ToneEngine;
   const BUILTIN = window.TONE_PRESETS || [];
   const K_PRESETS = 'myrubi.tone.presets', K_SEL = 'myrubi.tone.sel';
-  const OUT_W = 2000, OUT_H = 1500;          // 결과 크기 (4:3)
+  // 결과 크기: 비율과 가로 px 을 고름 (기본 4:3, 2000px → 2000×1500). '원본'은 사진마다 원래 비율 그대로(자르지 않음)
+  const RATIOS = [{ k: '4:3', r: 4 / 3 }, { k: '3:2', r: 3 / 2 }, { k: '1:1', r: 1 }, { k: '4:5', r: 4 / 5 }, { k: '16:9', r: 16 / 9 }, { k: '원본', r: 0 }];
+  const WIDTHS = [1080, 1600, 2000, 2560];
+  const SIZE_DEF = { ratio: '4:3', w: 2000 }, W_MIN = 320, W_MAX = 6000;
+  const MAX_AREA = 16000000;                 // iOS 사파리 캔버스 한계(약 1,670만 화소) 안쪽
   const JPEG_Q = 1;                          // JPG 품질 최고 (원본 → 결과 인코딩은 한 번뿐)
   const STEP_MAX = 4000;                     // 줄이는 중간 캔버스 가로 한계 (iOS 캔버스 한계 안쪽)
   const COARSE = matchMedia('(pointer: coarse)').matches;
-  const PREV_W = COARSE ? 1200 : 1600, PREV_H = PREV_W * 3 / 4;   // 미리보기 (결과와 같은 4:3)
-  const TH_W = 192, TH_H = 144;              // 썸네일
+  const PREV_EDGE = COARSE ? 1200 : 1600;    // 미리보기 긴 변 (결과와 같은 비율)
+  const TH_EDGE = 192;                       // 썸네일 긴 변
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -82,15 +86,33 @@
   const pixels = c => c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
   const free = c => { if (c) { c.width = 0; c.height = 0; } };
 
-  // 4:3 자르기 영역 (W×H 좌표계). 가장 크게 잡고, cx·cy 로 남는 쪽 안에서 위치를 옮김
+  // ---- 결과 크기 ----
+  let size = (() => {
+    const v = lsGet('myrubi.tone.size', SIZE_DEF) || SIZE_DEF;
+    return { ratio: RATIOS.some(x => x.k === v.ratio) ? v.ratio : SIZE_DEF.ratio, w: Math.min(W_MAX, Math.max(W_MIN, Math.round(+v.w) || SIZE_DEF.w)) };
+  })();
+  // 가로/세로 비율. '원본'이면 사진마다 원래 비율 (사진이 없으면 4:3 으로 표시)
+  const ratioOf = it => { const r = RATIOS.find(x => x.k === size.ratio).r; return r || (it && it.w ? it.w / it.h : 4 / 3); };
+  // 결과 픽셀 크기. 넓이가 캔버스 한계를 넘으면 비율을 지키며 줄임
+  function outSize(it) {
+    const R = ratioOf(it);
+    let w = size.w, h = Math.round(w / R);
+    if (w * h > MAX_AREA) { const k = Math.sqrt(MAX_AREA / (w * h)); w = Math.floor(w * k); h = Math.round(w / R); }
+    return [w, Math.max(1, h)];
+  }
+  // 긴 변이 edge 인, 결과와 같은 비율의 크기 (미리보기·썸네일)
+  const boxSize = (it, edge) => { const R = ratioOf(it); return R >= 1 ? [edge, Math.max(1, Math.round(edge / R))] : [Math.max(1, Math.round(edge * R)), edge]; };
+
+  // 자르기 영역 (W×H 좌표계). 결과 비율로 가장 크게 잡고, cx·cy 로 남는 쪽 안에서 위치를 옮김
   function crop(it, W, H) {
-    let sw = W, sh = W * 3 / 4;
-    if (sh > H) { sh = H; sw = H * 4 / 3; }
+    const R = ratioOf(it);
+    let sw = W, sh = W / R;
+    if (sh > H) { sh = H; sw = H * R; }
     return { sx: (W - sw) * (it.cx == null ? 0.5 : it.cx), sy: (H - sh) * (it.cy == null ? 0.5 : it.cy), sw, sh, fx: W - sw, fy: H - sh };
   }
-  // 원본 W×H 를, 자른 영역 가로가 target 이 되게 줄인 크기 (키우지는 않음)
+  // 원본 W×H 를, 자른 영역의 긴 변이 target 이 되게 줄인 크기 (키우지는 않음)
   function srcSize(it, target) {
-    const r = crop(it, it.w, it.h), s = Math.min(1, target / r.sw);
+    const r = crop(it, it.w, it.h), s = Math.min(1, target / Math.max(r.sw, r.sh));
     return [Math.max(1, Math.round(it.w * s)), Math.max(1, Math.round(it.h * s))];
   }
 
@@ -115,7 +137,7 @@
         it.stats = E.analyze(pixels(ac).data);
         free(ac);
         it.cx = 0.5; it.cy = 0.5;
-        const [tw, th] = srcSize(it, TH_W * 2);
+        const [tw, th] = srcSize(it, TH_EDGE * 3);
         it.tsrc = draw(img, tw, th);
         it.state = 'ready';
         if (!cur) select(it, img);
@@ -147,7 +169,7 @@
       try {
         img = img || await loadImg(it.url);
         if (cur !== it) return;
-        const [w, h] = srcSize(it, PREV_W);
+        const [w, h] = srcSize(it, PREV_EDGE);
         curSrc = draw(img, w, h); curFor = it;
       } catch (e) { toast('사진을 다시 읽지 못했습니다'); return; }
     }
@@ -155,7 +177,6 @@
   }
 
   const cv = $('cv');
-  cv.width = PREV_W; cv.height = PREV_H;
   const cx2d = cv.getContext('2d', { willReadFrequently: true });
   let raf = 0;
   function paint() {
@@ -164,12 +185,14 @@
       raf = 0;
       if (!cur || !curSrc || curFor !== cur) return;
       const r = crop(cur, curSrc.width, curSrc.height);
+      const [pw, ph] = boxSize(cur, PREV_EDGE), ow = outSize(cur)[0];
+      if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
       cx2d.imageSmoothingEnabled = true; cx2d.imageSmoothingQuality = 'high';
-      cx2d.drawImage(curSrc, r.sx, r.sy, r.sw, r.sh, 0, 0, PREV_W, PREV_H);
+      cx2d.drawImage(curSrc, r.sx, r.sy, r.sw, r.sh, 0, 0, pw, ph);
       if (!showOrig) {
-        const im = cx2d.getImageData(0, 0, PREV_W, PREV_H);
+        const im = cx2d.getImageData(0, 0, pw, ph);
         E.applyLUT(im.data, im.data, lutFor(cur));
-        E.sharpen(im.data, PREV_W, PREV_H, sharpAmt(), PREV_W / OUT_W);
+        E.sharpen(im.data, pw, ph, sharpAmt(), pw / ow);
         cx2d.putImageData(im, 0, 0);
       }
       $('badge').hidden = !showOrig;
@@ -192,7 +215,8 @@
     if (!li) return;
     li.querySelector('.busy').textContent = it.state === 'loading' ? '읽는 중' : it.state === 'bad' ? '열 수 없음' : '';
     if (it.state !== 'ready' || !it.tcv || !it.tsrc) return;
-    const c = it.tcv; if (c.width !== TH_W) { c.width = TH_W; c.height = TH_H; }
+    const [TH_W, TH_H] = boxSize(it, TH_EDGE);
+    const c = it.tcv; if (c.width !== TH_W || c.height !== TH_H) { c.width = TH_W; c.height = TH_H; }
     const x = c.getContext('2d', { willReadFrequently: true });
     const r = crop(it, it.tsrc.width, it.tsrc.height);
     x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
@@ -283,7 +307,7 @@
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => hb.addEventListener(t, () => hold(false)));
   hb.addEventListener('contextmenu', e => e.preventDefault());
 
-  // 미리보기를 끌어서 4:3으로 자를 위치 옮기기, 두 번 누르면 가운데로
+  // 미리보기를 끌어서 자를 위치 옮기기, 두 번 누르면 가운데로
   const view = $('view');
   let drag = null;
   view.addEventListener('pointerdown', e => {
@@ -343,17 +367,18 @@
     return `rubi-photo-${nameInput()}-${String(n).padStart(w, '0')}.jpg`;
   };
 
-  // 원본 → 4:3 자르기 → 2000×1500. 원본에서 바로 그리되 한 단계에 2배 넘게 줄이지 않아(계단식) 디테일·모아레를 지킴
+  // 원본 → 고른 비율로 자르기 → 고른 크기(기본 2000×1500). 원본에서 바로 그리되 한 단계에 2배 넘게 줄이지 않아(계단식) 디테일·모아레를 지킴
   async function render(it) {
     const img = await loadImg(it.url);
     const r = crop(it, it.w, it.h);
+    const [OW, OH] = outSize(it), R = OW / OH, stepMax = Math.max(STEP_MAX, OW);
     const sizes = [];
-    for (let w = r.sw; w > OUT_W * 2;) { w = w / 2; sizes.push(Math.round(w)); }
-    sizes.push(OUT_W);
-    let i = sizes.findIndex(w => w <= STEP_MAX); if (i < 0) i = sizes.length - 1;
+    for (let w = r.sw; w > OW * 2;) { w = w / 2; sizes.push(Math.round(w)); }
+    sizes.push(OW);
+    let i = sizes.findIndex(w => w <= stepMax); if (i < 0) i = sizes.length - 1;
     let c = null;
     for (const w of sizes.slice(i)) {
-      const n = document.createElement('canvas'); n.width = w; n.height = Math.round(w * 3 / 4);
+      const n = document.createElement('canvas'); n.width = w; n.height = w === OW ? OH : Math.max(1, Math.round(w / R));
       const x = n.getContext('2d', { willReadFrequently: true });
       x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
       if (c) x.drawImage(c, 0, 0, c.width, c.height, 0, 0, n.width, n.height);
@@ -362,13 +387,13 @@
       await tick();
     }
     const x = c.getContext('2d', { willReadFrequently: true });
-    const im = x.getImageData(0, 0, OUT_W, OUT_H);
+    const im = x.getImageData(0, 0, OW, OH);
     E.applyLUT(im.data, im.data, lutFor(it));
-    E.sharpen(im.data, OUT_W, OUT_H, sharpAmt(), 1);
+    E.sharpen(im.data, OW, OH, sharpAmt(), 1);
     x.putImageData(im, 0, 0);
     const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', JPEG_Q));
     free(c);
-    return { file: new File([blob], photoName(it), { type: 'image/jpeg', lastModified: Date.now() }), enlarged: r.sw < OUT_W - 0.5 };
+    return { file: new File([blob], photoName(it), { type: 'image/jpeg', lastModified: Date.now() }), enlarged: r.sw < OW - 0.5 };
   }
 
   let busy = false;
@@ -390,7 +415,7 @@
       toast('저장하지 못했습니다. 사진 수를 줄여 다시 해 보세요'); busy = false; updateUI(); return;
     }
     busy = false;
-    if (enlarged) toast(`4:3으로 자른 가로가 2000px보다 작은 사진 ${enlarged}장은 키워서 저장했습니다`, 4000);
+    if (enlarged) toast(`자른 가로가 ${size.w}px보다 작은 사진 ${enlarged}장은 키워서 저장했습니다`, 4000);
     if (COARSE && canShare(files)) {
       prepared = { key: keyOf(list), files };
       updateUI();
@@ -403,7 +428,7 @@
     else download(new File([await makeZip(files)], `rubi-photo-${nameInput()}.zip`, { type: 'application/zip' }));
     updateUI();
   }
-  const keyOf = list => optKey() + '#' + nameInput() + '#' + list.map(it => it.id + ':' + it.cx + ',' + it.cy).join(',');
+  const keyOf = list => optKey() + '#' + nameInput() + '#' + size.ratio + 'x' + size.w + '#' + list.map(it => it.id + ':' + it.cx + ',' + it.cy).join(',');
   const canShare = files => { try { return !!(navigator.canShare && navigator.canShare({ files })); } catch (e) { return false; } };
   async function share(files) {
     try { await navigator.share({ files }); prepared = null; updateUI(); }
@@ -467,6 +492,38 @@
   };
   fn.addEventListener('input', () => { lsSet(K_NAME, fn.value); prepared = null; showName(); updateUI(); });
   fn.addEventListener('blur', () => { const c = cleanName(fn.value); if (c !== fn.value) { fn.value = c; lsSet(K_NAME, c); showName(); } });
+
+  // ---- 크기 (비율·가로) ----
+  const ratioSeg = $('ratioSeg'), wSeg = $('wSeg'), wIn = $('outW');
+  ratioSeg.innerHTML = RATIOS.map(x => `<button type="button" data-r="${x.k}">${x.k}</button>`).join('');
+  wSeg.innerHTML = WIDTHS.map(w => `<button type="button" data-w="${w}">${w}</button>`).join('');
+  function showSize() {
+    ratioSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === size.ratio ? 'true' : 'false'));
+    wSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.w === size.w ? 'true' : 'false'));
+    if (document.activeElement !== wIn) wIn.value = size.w;
+    const orig = size.ratio === '원본';
+    const ex = outSize(cur || null);
+    const txt = orig ? `원본 비율, 가로 ${size.w}px` : `${size.ratio}, 가로 ${size.w}px`;
+    document.querySelectorAll('[data-size-text]').forEach(el => { el.textContent = txt; });
+    $('sizeNote').textContent = orig
+      ? `결과 가로 ${size.w}px, 세로는 사진마다 원래 비율대로${cur ? ` (이 사진 ${ex[0]}×${ex[1]})` : ''}. 자르지 않습니다.`
+      : `결과 ${ex[0]}×${ex[1]}${ex[0] !== size.w ? ' (캔버스 한계로 줄임)' : ''}. 미리보기 화면이 저장될 영역입니다.`;
+  }
+  function setSize(next) {
+    const n = { ratio: next.ratio || size.ratio, w: Math.min(W_MAX, Math.max(W_MIN, Math.round(+next.w || size.w))) };
+    if (n.ratio === size.ratio && n.w === size.w) { showSize(); return; }
+    const ratioChanged = n.ratio !== size.ratio;
+    size = n; lsSet('myrubi.tone.size', size); prepared = null;
+    // 비율이 바뀌면 자르는 영역 크기가 달라져서 미리보기 원본을 그 비율에 맞게 다시 읽음
+    if (ratioChanged && cur) { const c = cur; curFor = null; select(c); } else paint();
+    refreshThumbs(); updateUI();
+  }
+  ratioSeg.addEventListener('click', e => { const b = e.target.closest('button[data-r]'); if (b) setSize({ ratio: b.dataset.r }); });
+  wSeg.addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (b) setSize({ w: +b.dataset.w }); });
+  wIn.addEventListener('change', () => setSize({ w: +wIn.value }));
+  wIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); setSize({ w: +wIn.value }); wIn.blur(); } });
+  wIn.addEventListener('blur', () => { wIn.value = size.w; });
+  $('btnSizeReset').addEventListener('click', () => setSize(SIZE_DEF));
 
   // ---- 기준 톤 만들기 ----
   const dlg = $('refDlg');
@@ -534,7 +591,8 @@
     const ready = items.filter(it => it.state === 'ready');
     const has = items.length > 0;
     $('drop').hidden = has; $('view').hidden = !has; $('viewBar').hidden = !has; $('hint').hidden = !has;
-    $('curName').textContent = cur ? `${cur.name} → ${photoName(cur)} · 원본 ${cur.w}×${cur.h} → ${OUT_W}×${OUT_H}` : '';
+    $('curName').textContent = cur ? `${cur.name} → ${photoName(cur)} · 원본 ${cur.w}×${cur.h} → ${outSize(cur).join('×')}` : '';
+    showSize();
     showName();
     const sa = $('btnSaveAll');
     sa.disabled = busy || !ready.length;
