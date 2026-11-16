@@ -182,7 +182,7 @@ window.MYRUBI_APPS = [
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
   { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone'] },
-  { label: 'Report',    ids: ['sales-report', 'purchase-report', 'strategy', 'garage'] },
+  { label: 'Report',    ids: ['strategy', 'sales-report', 'purchase-report', 'garage'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
