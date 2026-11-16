@@ -1,0 +1,87 @@
+/* 브랜드전략 페이지 공용 모양 (/strategy/브랜드/). 본문은 Apps Script(GET strategy)에서 받아 넣음 */
+:root{--w:800px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:24px;letter-spacing:var(--ls);word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{display:grid;grid-template-columns:200px minmax(0,var(--w));gap:64px;max-width:1140px;margin:0 auto;padding:48px 40px 96px}
+.toc{position:sticky;top:32px;align-self:start}
+.toc .k{font-size:12px;line-height:16px;color:var(--muted)}
+.toc ol{list-style:none;margin:10px 0 0;padding:12px 0 0;border-top:1px solid var(--line);counter-reset:t}
+.toc li{counter-increment:t}
+.toc li a{display:grid;grid-template-columns:28px 1fr;padding:5px 0;font-size:13px;line-height:18px;color:var(--muted);text-decoration:none}
+.toc li a::before{content:counter(t,decimal-leading-zero);color:var(--faint);font-variant-numeric:tabular-nums}
+.toc li a:hover,.toc li a.on{color:var(--fg)}
+.hd .k{font-size:13px;line-height:18px;color:var(--muted)}
+.hd h1{margin:12px 0 0;font-weight:400;font-size:28px;line-height:36px;letter-spacing:var(--ls-title)}
+.hd p{margin:16px 0 0;color:#3a3b3f}
+.hd .meta{margin-top:12px;font-size:12px;line-height:16px;color:var(--faint)}
+section{padding-top:56px}
+h2{display:flex;gap:12px;align-items:baseline;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--fg);font-weight:400;font-size:24px;line-height:28px;letter-spacing:-.6px}
+h2 .n{font-size:13px;letter-spacing:0;color:var(--faint);font-variant-numeric:tabular-nums}
+h3{margin:28px 0 8px;font-weight:400;font-size:18px;line-height:24px;letter-spacing:-.4px}
+p{margin:10px 0 0}
+.num{font-variant-numeric:tabular-nums}
+/* 요약 숫자 */
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 24px;margin-top:0}
+.fact{padding-top:8px}
+.fact .k{font-size:12px;line-height:16px;color:var(--muted)}
+.fact .v{margin-top:6px;font-size:28px;line-height:36px;letter-spacing:var(--ls-title)}
+.fact .s{margin-top:4px;font-size:13px;line-height:18px;color:var(--muted)}
+/* 아젠다 */
+.ag{margin-top:24px}
+.ag:first-of-type{margin-top:8px}
+.ag .gt{display:flex;justify-content:space-between;gap:12px;font-size:13px;line-height:18px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--line)}
+.ag ol{list-style:none;margin:0;padding:0}
+.ag li{display:grid;grid-template-columns:32px minmax(0,1fr) 150px 112px;gap:0 12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.ag li .i{font-size:13px;color:var(--faint);font-variant-numeric:tabular-nums}
+.ag li .t{font-size:15px;line-height:22px}
+.ag li .d{display:block;margin-top:4px;font-size:13px;line-height:18px;color:var(--muted)}
+.ag li .w{font-size:13px;line-height:18px;color:var(--muted)}
+.ag li .st{justify-self:end;font-size:12px;line-height:16px;padding:2px 8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.ag li .st.go{border-color:var(--fg);color:var(--fg)}
+.ag li .st.new{border-color:var(--accent);color:#8a6a35}
+/* 표 */
+table{width:100%;margin-top:8px;border-collapse:collapse;font-size:14px;line-height:22px}
+th,td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-weight:400}
+thead th{border-bottom:1px solid var(--fg);font-size:12px;line-height:16px;color:var(--muted)}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tr.up td{background:var(--surface)}
+.note{margin-top:12px;font-size:13px;line-height:20px;color:var(--muted)}
+/* 이유 3개 */
+.why{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 24px;margin-top:24px}
+.why div{border-top:1px solid var(--line);padding-top:14px}
+.why h3{margin:0;font-size:15px;line-height:22px}
+.why p{margin-top:6px;font-size:14px;line-height:22px;color:#3a3b3f}
+/* 큰 숫자 한 줄 */
+.big{display:grid;grid-template-columns:auto 1fr;gap:0 32px;align-items:end;padding:24px 0;border-bottom:1px solid var(--line)}
+.big .v{font-size:28px;line-height:36px;letter-spacing:var(--ls-title);font-variant-numeric:tabular-nums}
+.big p{margin:0;color:#3a3b3f}
+/* 조건 */
+.terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;margin-top:8px}
+.terms div{padding:14px 0;border-bottom:1px solid var(--line)}
+.terms .k{font-size:12px;line-height:16px;color:var(--muted)}
+.terms .v{margin-top:4px;font-size:18px;line-height:24px;letter-spacing:-.4px}
+.terms .s{margin-top:2px;font-size:13px;line-height:18px;color:var(--muted)}
+/* 분기 */
+.qs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 20px;margin-top:0}
+.qs div{padding-top:4px}
+.qs .k{font-size:13px;line-height:18px;color:var(--muted)}
+.qs ul{margin:8px 0 0;padding-left:16px;font-size:14px;line-height:22px}
+.qs li{margin:4px 0}
+.ft{margin-top:72px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;line-height:16px;color:var(--faint)}
+@media (max-width:900px){
+  .wrap{display:block;padding:32px 20px 72px}
+  .toc{display:none}
+  .facts,.why{grid-template-columns:1fr;gap:16px}
+  .fact+.fact{border-top:1px solid var(--line);padding-top:16px}
+  .terms{grid-template-columns:1fr}
+  .qs{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+  .ag li{grid-template-columns:28px minmax(0,1fr) auto}
+  .ag li .w{grid-column:2;margin-top:4px}
+  .ag li .st{grid-column:3;grid-row:1}
+}
+@media print{.toc{display:none}.wrap{display:block;padding:0}section{break-inside:avoid-page}}
+.state{padding:48px 0;color:var(--muted)}
+.state h2{border:0;padding:0;margin:0 0 8px;font-size:18px;line-height:24px}
+

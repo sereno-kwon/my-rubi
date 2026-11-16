@@ -33,6 +33,8 @@
  *  - 루비개러지 앱(/garage/): 개러지 담당자(CONFIG.GARAGE_VIEWERS)도 볼 수 있는 정제한 보고서 데이터 (GET/POST garage)
  *    개러지 거래처 매출은 금액까지, 나머지 채널은 판매 수량만, 품목은 원가(입고단가·딜러가) 없이 돌려줌
  *    스마트스토어 통계 엑셀(유입·조회·결제)은 '트래픽' 탭에 저장
+ *  - 브랜드전략(/strategy/브랜드/): 'Index 스프레드시트 브랜드전략' 탭(brand | title | html | updatedAt | by)의 본문 조각을 돌려줌 (GET strategy, b=브랜드)
+ *    공급율·마진 같은 내부 숫자가 들어 있어서 리포지토리에 두지 않고, 보고서와 같은 REPORT_VIEWERS 에게만 내려줌
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -191,6 +193,7 @@ function doGet(e) {
       case 'quotesnap': return json_({ ok: true, snap: quoteSnap_(p.id) });
       case 'report':   return json_({ ok: true, ...reportData_(user) });
       case 'garage':   return json_({ ok: true, ...garageData_(user) });
+      case 'strategy': return json_({ ok: true, ...strategyData_(user, p.b) });
       case 'projimg':  return json_({ ok: true, ...readProjImg_(p) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
@@ -1859,6 +1862,25 @@ function reportLog_(b, up, kind, who) {
 /** 편집기에서 직접 실행용: 보고서 탭 줄 수 확인 */
 function test_report() {
   Logger.log('매출 ' + reportValues_(saleSheet_(), SALE_COLS.length).length + '줄 · 매입 ' + reportValues_(purSheet_(), SALE_COLS.length).length + '줄 · 재고 ' + reportValues_(stockSheet_(), STOCK_COLS.length).length + '줄 · 품목 ' + reportValues_(itemSheet_(), ITEM_COLS.length).length + '줄');
+}
+
+// ───────────────────────────── 브랜드전략 (GET strategy) ─────────────────────────────
+// 브랜드별 전략 페이지(/strategy/브랜드/)의 본문. 리포지토리가 공개라서 페이지에는 틀만 두고, 본문은 Index 스프레드시트 '브랜드전략' 탭에 둠
+// 탭: brand | title | html | updatedAt | by  (한 브랜드 한 줄, brand 는 페이지 주소의 브랜드 이름, html 은 페이지 본문 조각)
+// 보는 사람은 매출·매입보고서와 같은 REPORT_VIEWERS
+
+function strategyData_(user, brand) {
+  if (!canReport_(user)) throw new Error('브랜드전략을 볼 수 있는 계정이 아닙니다. 관리자에게 요청해 주세요');
+  const key = String(brand || '').trim().toLowerCase();
+  if (!key) throw new Error('브랜드가 없습니다');
+  const sh = indexSs_().getSheetByName('브랜드전략');
+  if (!sh) throw new Error('Index 스프레드시트에 브랜드전략 탭이 없습니다');
+  const rows = sh.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() !== key) continue;
+    return { brand: key, title: String(rows[i][1] || ''), html: String(rows[i][2] || ''), updatedAt: String(rows[i][3] || '') };
+  }
+  throw new Error('이 브랜드의 전략 내용이 아직 없습니다');
 }
 
 // ───────────────────────────── 루비개러지 앱 (GET/POST garage) ─────────────────────────────
