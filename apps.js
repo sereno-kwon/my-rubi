@@ -75,7 +75,7 @@ window.MYRUBI_APPS = [
   // 브랜드 목록은 위 BRAND 폴더(수입·유통 브랜드)와 맞출 것. 전략 페이지를 만들면 kind 를 frame 으로 바꾸고 url 을 넣음
   // 순서는 2026년 매출(이카운트 판매현황 공급가액, 1/1~11/10, 품목명 [브랜드] 기준) 높은 순. 공개 리포지토리라서 금액은 적지 않음. 2026 매출 없음: 츠바사·디워드 디자인
   { id: 's-moulton', folder: 'strategy', group: '2026 매출순', title: '몰튼', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '몰튼 브랜드전략' },
-  { id: 's-quoc', folder: 'strategy', group: '2026 매출순', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'QUOC 브랜드전략' },
+  { id: 's-quoc', folder: 'strategy', group: '2026 매출순', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/quoc/', only: ['ohyun', 'oryun'], note: 'QUOC 2027 플랜: 아젠다, 소비자가, 프리오더, 분기별 일정' },
   { id: 's-yohemite', folder: 'strategy', group: '2026 매출순', title: '요헤미티', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '요헤미티 브랜드전략' },
   { id: 's-thm', folder: 'strategy', group: '2026 매출순', title: 'THM', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'THM 브랜드전략' },
   { id: 's-mks', folder: 'strategy', group: '2026 매출순', title: 'MKS', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'MKS 브랜드전략' },
