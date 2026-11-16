@@ -44,6 +44,7 @@ window.MYRUBI_APPS = [
   { id: 'brands',    title: 'Brand',         kind: 'folder' },
   { id: 'management', title: 'Management',  kind: 'folder' },
   { id: 'logistics',  title: 'Logistics',   kind: 'folder' },
+  { id: 'strategy',   title: '브랜드전략',    kind: 'folder', only: ['ohyun', 'oryun'], note: '수입 브랜드별 전략' },
 
   // 내장
   { id: 'settings',  title: '바탕화면 설정', icon: 'gear', tint: 'slate', kind: 'builtin' },
@@ -69,6 +70,45 @@ window.MYRUBI_APPS = [
 
   // LOGISTICS
   { id: 'l-package',     folder: 'logistics', title: '패키지 데이터베이스',          icon: 'box',   tint: 'amber',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1u-jDQnshR2zXRjpcBt77eXSWQ885G-JjJkdfyWK_xLo/edit?gid=1261343604#gid=1261343604' },
+
+  // BRAND STRATEGY (브랜드전략 폴더, Report 구역. 보는 사람은 매출·매입보고서와 같음)
+  // 브랜드 목록은 위 BRAND 폴더(수입·유통 브랜드)와 맞출 것. 전략 페이지를 만들면 kind 를 frame 으로 바꾸고 url 을 넣음
+  { id: 's-moulton', folder: 'strategy', group: '자전거 브랜드', title: '몰튼', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '몰튼 브랜드전략' },
+  { id: 's-bastion', folder: 'strategy', group: '자전거 브랜드', title: '바스티온', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '바스티온 브랜드전략' },
+  { id: 's-tsubasa', folder: 'strategy', group: '자전거 브랜드', title: '츠바사', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '츠바사 브랜드전략' },
+  { id: 's-crust', folder: 'strategy', group: '자전거 브랜드', title: '크러스트', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '크러스트 브랜드전략' },
+  { id: 's-parlee', folder: 'strategy', group: '자전거 브랜드', title: '팔리', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '팔리 브랜드전략' },
+  { id: 's-surly', folder: 'strategy', group: '자전거 브랜드', title: '설리', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '설리 브랜드전략' },
+  { id: 's-pashley', folder: 'strategy', group: '자전거 브랜드', title: '파슐리', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '파슐리 브랜드전략' },
+  { id: 's-velo', folder: 'strategy', group: '자전거 브랜드', title: '벨로오렌지', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '벨로오렌지 브랜드전략' },
+  { id: 's-quoc', folder: 'strategy', group: '부품·액세서리 브랜드', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'QUOC 브랜드전략' },
+  { id: 's-gokiso', folder: 'strategy', group: '부품·액세서리 브랜드', title: '고키소', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '고키소 브랜드전략' },
+  { id: 's-yohemite', folder: 'strategy', group: '부품·액세서리 브랜드', title: '요헤미티', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '요헤미티 브랜드전략' },
+  { id: 's-paul', folder: 'strategy', group: '부품·액세서리 브랜드', title: '폴 컴포넌트', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '폴 컴포넌트 브랜드전략' },
+  { id: 's-wolftooth', folder: 'strategy', group: '부품·액세서리 브랜드', title: '울프투스', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '울프투스 브랜드전략' },
+  { id: 's-white', folder: 'strategy', group: '부품·액세서리 브랜드', title: '화이트 인더스트리', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '화이트 인더스트리 브랜드전략' },
+  { id: 's-mks', folder: 'strategy', group: '부품·액세서리 브랜드', title: 'MKS', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'MKS 브랜드전략' },
+  { id: 's-carbonti', folder: 'strategy', group: '부품·액세서리 브랜드', title: '카본티', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '카본티 브랜드전략' },
+  { id: 's-chrisking', folder: 'strategy', group: '부품·액세서리 브랜드', title: '크리스킹', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '크리스킹 브랜드전략' },
+  { id: 's-spurcycle', folder: 'strategy', group: '부품·액세서리 브랜드', title: '스퍼사이클', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '스퍼사이클 브랜드전략' },
+  { id: 's-growtac', folder: 'strategy', group: '부품·액세서리 브랜드', title: '그로우택', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '그로우택 브랜드전략' },
+  { id: 's-thm', folder: 'strategy', group: '부품·액세서리 브랜드', title: 'THM', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'THM 브랜드전략' },
+  { id: 's-schmolke', folder: 'strategy', group: '부품·액세서리 브랜드', title: '쉬몰케', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '쉬몰케 브랜드전략' },
+  { id: 's-extralite', folder: 'strategy', group: '부품·액세서리 브랜드', title: '엑스트라라이트', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '엑스트라라이트 브랜드전략' },
+  { id: 's-adm', folder: 'strategy', group: '부품·액세서리 브랜드', title: '아르떼 디마노', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '아르떼 디마노 브랜드전략' },
+  { id: 's-berthoud', folder: 'strategy', group: '부품·액세서리 브랜드', title: '베르투 사이클', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '베르투 사이클 브랜드전략' },
+  { id: 's-velocity', folder: 'strategy', group: '부품·액세서리 브랜드', title: '벨로시티', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '벨로시티 브랜드전략' },
+  { id: 's-nissen', folder: 'strategy', group: '부품·액세서리 브랜드', title: '니센', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '니센 브랜드전략' },
+  { id: 's-crane', folder: 'strategy', group: '부품·액세서리 브랜드', title: '크레인벨', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '크레인벨 브랜드전략' },
+  { id: 's-ultra', folder: 'strategy', group: '부품·액세서리 브랜드', title: '울트라다이나미코', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '울트라다이나미코 브랜드전략' },
+  { id: 's-kingcage', folder: 'strategy', group: '부품·액세서리 브랜드', title: '킹케이지', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '킹케이지 브랜드전략' },
+  { id: 's-hulsroy', folder: 'strategy', group: '부품·액세서리 브랜드', title: '훌스로이', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '훌스로이 브랜드전략' },
+  { id: 's-nokon', folder: 'strategy', group: '부품·액세서리 브랜드', title: '노콘 케이블', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '노콘 케이블 브랜드전략' },
+  { id: 's-honjo', folder: 'strategy', group: '부품·액세서리 브랜드', title: '혼조', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '혼조 브랜드전략' },
+  { id: 's-dward', folder: 'strategy', group: '부품·액세서리 브랜드', title: '디워드 디자인', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '디워드 디자인 브랜드전략' },
+  { id: 's-stone', folder: 'strategy', group: '부품·액세서리 브랜드', title: '스톤 체인링', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '스톤 체인링 브랜드전략' },
+  { id: 's-evt', folder: 'strategy', group: '부품·액세서리 브랜드', title: 'EVT', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: 'EVT 브랜드전략' },
+  { id: 's-atelier', folder: 'strategy', group: '부품·액세서리 브랜드', title: '아뜰리에 미디엄', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '아뜰리에 미디엄 브랜드전략' },
 
   // BRAND (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비 운영 한국 사이트
@@ -124,7 +164,7 @@ window.MYRUBI_APPS = [
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
   { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone'] },
-  { label: 'Report',    ids: ['sales-report', 'purchase-report', 'garage'] },
+  { label: 'Report',    ids: ['sales-report', 'purchase-report', 'strategy', 'garage'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
 
