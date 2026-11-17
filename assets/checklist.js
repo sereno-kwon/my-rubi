@@ -89,7 +89,7 @@ const splitOwners = v => { const out = []; String(v || '').split(/\s*,\s*/).forE
 /** 예전에 구글 계정 이름으로 들어간 항목도 멤버 이름으로 보이게. 담당은 쉼표로 여러 명 */
 const fix = list => (list || []).map(it => {
   const owners = splitOwners(it.owner);
-  return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '' });
+  return Object.assign({}, it, { owners, owner: owners.join(', '), doneBy: alias(it.doneBy), repeat: 'once', project: it.project || '', due: it.due || '', link: it.link || '' });
 });
 /** 프로젝트 이미지 목록 JSON. 올린 사람은 구글 이름이라 멤버 이름으로 맞춤 */
 const imgList = v => { let a = v; if (!Array.isArray(a)) { try { a = JSON.parse(v || '[]'); } catch (e) { a = []; } } return Array.isArray(a) ? a.filter(x => x && x.id).map(x => Object.assign({}, x, { by: alias(x.by || '') })) : []; };
@@ -234,7 +234,7 @@ function itemHtml(it, ctx) {
     : (it.project && others.length ? '함께 ' + others.join(', ') : '');
   return `<li class="ck-row${done ? ' done' : ''}" data-id="${esc(it.id)}">
     <label class="ck-chk"><input type="checkbox" data-toggle="${esc(it.id)}"${done ? ' checked' : ''}${busy ? ' disabled' : ''} aria-label="${esc(it.text)}"><span class="box" aria-hidden="true"></span></label>
-    <span class="tx">${esc(it.text)}</span>
+    <span class="tx">${it.link ? `<a class="pj-lnk" href="${esc(it.link)}" target="_blank" rel="noopener noreferrer" title="${esc(it.link)}">${esc(it.text)}<svg class="i" aria-hidden="true"><use href="#i-ext"/></svg><span class="sr">(새 창에서 열림)</span></a>` : esc(it.text)}</span>
     <span class="mt">${esc(by)}</span>
     <button class="ck-more" data-more="${esc(it.id)}" aria-label="더 보기" title="${it.project ? '끝냄 표시, 프로젝트 열기' : '고치기, 옮기기, 지우기'}">···</button>
   </li>`;
@@ -281,7 +281,8 @@ async function load() {
 /** 체크리스트 항목 op: add / update / delete / toggle */
 async function persist(op, d) {
   const owners = d.owners ? d.owners.slice() : splitOwners(d.owner);
-  const fields = { id: d.id, owner: owners.join(', '), owners, text: d.text, repeat: d.repeat || 'once', order: d.order, project: d.project || '', due: d.due || '' };
+  // link 는 넘긴 경우에만 보냄 (안 보내면 서버가 예전 링크를 그대로 둠)
+  const fields = { id: d.id, owner: owners.join(', '), owners, text: d.text, repeat: d.repeat || 'once', order: d.order, project: d.project || '', due: d.due || '', link: d.link };
   if (shared()) {
     const j = await MR.post(Object.assign({ action: 'check', op }, fields, op === 'toggle' ? { done: !!d.done } : {}));
     items = fix(j.checks); projects = fixP(j.projects); hide = j.hide || [];

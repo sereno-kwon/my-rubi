@@ -295,19 +295,23 @@ async function view(fid) {
   } catch (e) { imgMsg = '원본을 불러오지 못했습니다. ' + e.message; render(); }
 }
 
+/** 주소만 붙여 넣었을 때 제목으로 쓸 이름: 사이트 이름 (예: docs.google.com) */
+function linkName(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u.slice(0, 60); } }
+
 function itemHtml(it) {
   const d = done(it);
   if (editItem === it.id) {
     return `<li class="ck-row edit"><form class="ck-edit pj-iedit" data-id="${esc(it.id)}" autocomplete="off">
       <input name="text" value="${esc(it.text)}" aria-label="내용" maxlength="200">
       <button type="submit" class="pri">저장</button><button type="button" data-icancel>취소</button>
+      <input name="link" class="pj-link-in" value="${esc(it.link || '')}" placeholder="링크 (https://…) · 넣으면 제목을 눌러 바로 엽니다" aria-label="링크" maxlength="500" inputmode="url" spellcheck="false">
       ${pickHtml(editPick, 'data-epick')}
     </form></li>`;
   }
   const meta = d ? [C().fmtDone(it.doneAt), it.doneBy].filter(Boolean).join(' · ') : '';
   return `<li class="ck-row pj-item${d ? ' done' : ''}" data-id="${esc(it.id)}">
     <label class="ck-chk"><input type="checkbox" data-toggle="${esc(it.id)}"${d ? ' checked' : ''}${busy() ? ' disabled' : ''} aria-label="${esc(it.text)}"><span class="box" aria-hidden="true"></span></label>
-    <span class="tx">${esc(it.text)}<span class="ow">${esc(it.owners.join(' · '))}</span></span>
+    <span class="tx">${it.link ? `<a class="pj-lnk" href="${esc(it.link)}" target="_blank" rel="noopener noreferrer" title="${esc(it.link)}">${esc(it.text)}<svg class="i" aria-hidden="true"><use href="#i-ext"/></svg><span class="sr">(새 창에서 열림)</span></a>` : esc(it.text)}<span class="ow">${esc(it.owners.join(' · '))}</span></span>
     <span class="mt">${esc(meta)}</span>
     <button class="ck-more" data-more="${esc(it.id)}" aria-label="더 보기" title="고치기, 순서, 지우기">···</button>
   </li>`;
@@ -392,10 +396,10 @@ function onClick(e) {
   const ep = t.closest('[data-epick]');
   if (ep) {
     const m = ep.dataset.epick;
-    const f2 = host.querySelector('.pj-iedit'); const txt = f2 ? f2.elements.text.value : '';
+    const f2 = host.querySelector('.pj-iedit'); const txt = f2 ? f2.elements.text.value : '', lnk = f2 ? f2.elements.link.value : '';
     editPick = editPick.includes(m) ? editPick.filter(x => x !== m) : editPick.concat(m);
     render();
-    const inp = host.querySelector('.pj-iedit input[name=text]'); if (inp) inp.value = txt;
+    const f5 = host.querySelector('.pj-iedit'); if (f5) { f5.elements.text.value = txt; f5.elements.link.value = lnk; }
     return;
   }
   const lp = t.closest('[data-lpick]');
@@ -433,12 +437,16 @@ function onSubmit(e) {
     return;
   }
   if (f.classList.contains('pj-addf')) {
-    const text = f.elements.text.value.trim(); if (!text) return;
+    let text = f.elements.text.value.trim(); if (!text) return;
     const owners = addPick();
     if (!owners.length) { localMsg = '담당을 한 명 이상 골라 주세요'; render(); return; }
+    // 할 일에 주소를 같이 붙여 넣으면 링크로 떼어 냄 (예: '견적서 확인 https://docs.google.com/…')
+    let link = '';
+    const um = text.match(/https?:\/\/\S+/i);
+    if (um) { link = um[0]; text = (text.slice(0, um.index) + text.slice(um.index + link.length)).replace(/\s{2,}/g, ' ').trim() || linkName(link); }
     localMsg = ''; draft = '';
     f.elements.text.value = '';
-    run('add', { owners, text, project: pid, order: C().nextProjectOrder(pid) }).then(() => {
+    run('add', { owners, text, link, project: pid, order: C().nextProjectOrder(pid) }).then(() => {
       const inp = host && host.querySelector('.pj-addf input[name=text]'); if (inp) inp.focus();
     });
     return;
@@ -447,8 +455,11 @@ function onSubmit(e) {
     const it = D().items.find(x => x.id === f.dataset.id); if (!it) return;
     const text = f.elements.text.value.trim(); if (!text) return;
     if (!editPick.length) { localMsg = '담당을 한 명 이상 골라 주세요'; render(); return; }
+    let link = f.elements.link.value.trim();
+    if (link && !/^[a-z][a-z0-9+.-]*:/i.test(link)) link = 'https://' + link.replace(/^\/+/, '');
+    if (link && !/^https?:\/\/\S+$/i.test(link)) { localMsg = '링크는 https://로 시작하는 주소로 넣어 주세요'; render(); return; }
     localMsg = ''; editItem = null;
-    run('update', Object.assign({}, it, { text, owners: editPick.slice() }));
+    run('update', Object.assign({}, it, { text, owners: editPick.slice(), link }));
     return;
   }
   if (f.classList.contains('pj-form')) {
@@ -492,7 +503,8 @@ function itemMenu(id, x, y) {
   };
   M.menu(x, y, [
     { label: d ? '다시 해야 함으로' : '끝냄으로 표시', bold: true, act: () => run('toggle', { id, done: !d }) },
-    { label: '고치기 (내용, 담당)', act: () => { editItem = id; editPick = it.owners.slice(); render(); const f = host.querySelector('.pj-iedit input[name=text]'); if (f) { f.focus(); f.select(); } } },
+    ...(it.link ? [{ label: '링크 열기', act: () => window.open(it.link, '_blank', 'noopener') }] : []),
+    { label: it.link ? '고치기 (내용, 담당, 링크)' : '고치기 (내용, 담당, 링크 넣기)', act: () => { editItem = id; editPick = it.owners.slice(); render(); const f = host.querySelector('.pj-iedit input[name=text]'); if (f) { f.focus(); f.select(); } } },
     '-',
     { label: '위로', disabled: i <= 0, act: () => swap(i - 1) },
     { label: '아래로', disabled: i >= sib.length - 1, act: () => swap(i + 1) },

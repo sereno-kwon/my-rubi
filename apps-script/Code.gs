@@ -104,9 +104,9 @@ const NOTE_COLS = ['id', 'type', 'text', 'date', 'time', 'color', 'author', 'ema
 const NOTE_HEADERS = ['ID', '종류(notice/event)', '내용', '날짜', '시간', '색', '작성자', '이메일', '작성일시', '수정일시'];
 const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'];
 
-// 체크리스트 탭 컬럼 (멤버별 체크리스트). project·due 는 2026-11 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
-const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'project', 'due'];
-const CHECK_HEADERS = ['ID', '담당(여러 명은 쉼표)', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시', '프로젝트 ID', '마감일'];
+// 체크리스트 탭 컬럼 (멤버별 체크리스트). project·due 는 2026-11 에, link(세부 항목 링크)는 2026-11-17 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
+const CHECK_COLS = ['id', 'owner', 'text', 'repeat', 'doneAt', 'doneBy', 'order', 'author', 'email', 'createdAt', 'updatedAt', 'project', 'due', 'link'];
+const CHECK_HEADERS = ['ID', '담당(여러 명은 쉼표)', '내용', '반복(daily/weekly/once)', '끝낸 일시', '끝낸 사람', '순서', '작성자', '이메일', '작성일시', '수정일시', '프로젝트 ID', '마감일', '링크'];
 const CHECK_REPEATS = ['daily', 'weekly', 'once'];
 
 // 프로젝트 탭 컬럼. 책임자는 여러 명(쉼표). desc(설명)·images(이미지)는 2026-11-15 에 뒤에 덧붙임 (예전 시트도 처음 쓸 때 머리글이 채워짐)
@@ -447,7 +447,7 @@ function checkSheet_() {
     sh.setFrozenRows(1);
     sh.getRange(1, 1, sh.getMaxRows(), CHECK_COLS.length).setNumberFormat('@');
   } else if (sh.getLastColumn() < CHECK_COLS.length) {
-    // 예전 시트: 뒤에 새 열(프로젝트 ID, 마감일) 머리글을 채우고 글자 형식으로
+    // 예전 시트: 뒤에 새 열(프로젝트 ID, 마감일, 링크) 머리글을 채우고 글자 형식으로
     if (sh.getMaxColumns() < CHECK_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), CHECK_COLS.length - sh.getMaxColumns());
     sh.getRange(1, 1, 1, CHECK_HEADERS.length).setValues([CHECK_HEADERS]).setFontWeight('bold');
     sh.getRange(1, 1, sh.getMaxRows(), CHECK_COLS.length).setNumberFormat('@');
@@ -581,6 +581,8 @@ function saveCheck_(b, user) {
   const repeat = CHECK_REPEATS.indexOf(b.repeat) >= 0 ? b.repeat : 'once';
   const order = Number(b.order) || 0;
   const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) ? String(b.due) : '';
+  // 링크: http(s) 주소만. 'www.' 처럼 앞을 빼고 적었으면 https:// 를 붙임. 안 보낸 경우(undefined)는 고칠 때 예전 링크를 그대로 둠
+  const link = b.link == null ? null : checkLink_(b.link);
   if (!owners.length) throw new Error('담당 멤버가 필요합니다');
   if (!text) throw new Error('내용을 적어 주세요');
   if (project) {
@@ -594,7 +596,7 @@ function saveCheck_(b, user) {
 
   if (op === 'add') {
     const o = { id: Utilities.getUuid().slice(0, 8), owner, text, repeat, doneAt: '', doneBy: '', order,
-      author: who, email: user.email, createdAt: now_(), updatedAt: '', project, due };
+      author: who, email: user.email, createdAt: now_(), updatedAt: '', project, due, link: link || '' };
     writeRow(sh.getLastRow() + 1, o);
     return;
   }
@@ -605,10 +607,20 @@ function saveCheck_(b, user) {
     // 반복 종류가 바뀌면 끝낸 기록은 새로 시작
     if (o.repeat !== repeat) { o.doneAt = ''; o.doneBy = ''; }
     Object.assign(o, { owner, text, repeat, order, project, due, updatedAt: now_() });
+    if (link != null) o.link = link;
     writeRow(row, o);
     return;
   }
   throw new Error('unknown op');
+}
+
+/** 세부 항목 링크 정리: http(s) 주소만, 앞에 https:// 가 없으면 붙임, 500자까지. 맞지 않으면 빈칸 */
+function checkLink_(v) {
+  let s = String(v || '').trim();
+  if (!s) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+  if (!/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(s)) throw new Error('링크 주소를 확인해 주세요 (https://로 시작하는 주소)');
+  return s.slice(0, 500);
 }
 
 /** 프로젝트 op: add / update / delete. 지우면 그 프로젝트의 항목도 함께 지움 */

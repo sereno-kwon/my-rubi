@@ -351,6 +351,13 @@ body.panel-open{overflow:hidden}
 .pj-pick button:hover{border-color:var(--fg);color:var(--fg)}
 .pj-pick button[aria-pressed="true"]{border-color:var(--fg);background:var(--fg);color:var(--bg)}
 .pj-iedit .pj-pick{flex-basis:100%;padding:4px 0 0}
+/* 프로젝트 세부 항목 링크: 제목을 누르면 새 창으로 엶 */
+.pj-lnk{color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;text-decoration-thickness:1px}
+.pj-lnk:hover{text-decoration-color:currentColor}
+.pj-lnk .i{width:14px;height:14px;margin-left:4px;vertical-align:-1px;fill:none;stroke:currentColor;stroke-width:1.6;color:var(--muted)}
+.pj-lnk .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ck-row.done .pj-lnk{text-decoration-color:transparent}
+.ck-edit .pj-link-in{flex:1 1 100%;font-size:14px;border-color:var(--line)}
 .pj-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px 20px;margin-top:24px;padding:20px 0 24px;border-top:1px solid var(--fg);border-bottom:1px solid var(--line)}
 .pj-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:16px;color:var(--muted)}
 .pj-form label.wide{grid-column:1/-1}
