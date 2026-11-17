@@ -174,14 +174,15 @@ function render() {
 
 function listHtml() {
   const s = stats();
-  const metric = t => `<button class="crm-m" data-tier="${t.key}">
+  const metric = t => `<button class="crm-m t-${t.key}" data-tier="${t.key}">
       <span class="lb">${t.name}</span><span class="v">${s.tier[t.key]}</span>
       <span class="sub">${s.entered[t.key] ? `이번 주 +${s.entered[t.key]}` : esc(t.hint)}</span></button>`;
   const metrics = `<div class="crm-ms">${TIERS.map(metric).join('')}
     <button class="crm-m${s.flagged ? ' warn' : ''}" data-flag><span class="lb">확인 필요</span><span class="v">${s.flagged}</span><span class="sub">지연 · 사양 미정</span></button></div>`;
 
+  // 세 층위(고객문의·구매진행중·구매완료)를 색으로 나눔. 색은 text.css 의 --tc (t-inq·t-buy·t-done)
   const strip = `<div class="crm-strip" role="group" aria-label="단계로 거르기">${TIERS.map(t =>
-    `<div class="crm-tier">${t.stages.map(st => `<button data-stage="${esc(st)}" aria-pressed="${ui.stage === st}"${s.stage[st] ? '' : ' class="zero"'}><b>${s.stage[st]}</b>${esc(st)}</button>`).join('')}</div>`).join('')}</div>`;
+    `<div class="crm-tier t-${t.key}"><span class="crm-tn"><i aria-hidden="true"></i>${t.name}<em>${s.tier[t.key]}</em></span><div class="crm-tb">${t.stages.map(st => `<button data-stage="${esc(st)}" aria-pressed="${ui.stage === st}"${s.stage[st] ? '' : ' class="zero"'}><b>${s.stage[st]}</b>${esc(st)}</button>`).join('')}</div></div>`).join('')}</div>`;
 
   const groupCount = g => customers.filter(c => c.stage !== END && (g === ALL || c.group === g)).length;
   const tabs = `<div class="ck-tabs crm-tabs" role="tablist" aria-label="구분">${[ALL].concat(GROUPS).map(g =>
@@ -202,7 +203,7 @@ function listHtml() {
       if (old.length) { list = list.filter(recentDone); more = `<button class="crm-more" data-old>${DONE_DAYS}일 지난 구매완료 ${old.length}건 보기</button>`; }
     }
     if (ui.stage && !t.stages.includes(ui.stage)) return '';
-    return `<section class="ck-group"><h2 class="sec-h ko"><span>${t.name}<small>${esc(t.hint)}</small></span><span class="n">${list.length}</span></h2>
+    return `<section class="ck-group t-${t.key}"><h2 class="sec-h ko"><span>${t.name}<small>${esc(t.hint)}</small></span><span class="n">${list.length}</span></h2>
       ${list.length ? `<ol class="crm-rows">${list.map(rowHtml).join('')}</ol>` : `<p class="ck-none">${filt ? '조건에 맞는 고객이 없습니다.' : '해당 고객이 없습니다.'}</p>`}${more}</section>`;
   }).join('');
   const ended = customers.filter(c => c.stage === END && matches(c)).sort(byStage);
@@ -229,7 +230,7 @@ function rowHtml(c) {
 // ─── 고객 한 건 ───
 function stepper(c) {
   return `<div class="crm-steps" role="group" aria-label="단계 (누르면 바로 저장)">${TIERS.map(t =>
-    `<div class="crm-tier">${t.stages.map(st => {
+    `<div class="crm-tier t-${t.key}">${t.stages.map(st => {
       const i = stageIdx(st), ci = stageIdx(c.stage);
       return `<button type="button" data-step="${esc(st)}" class="${st === c.stage ? 'on' : ci >= 0 && i < ci ? 'past' : ''}"${busy ? ' disabled' : ''}>${esc(st)}</button>`;
     }).join('')}</div>`).join('')}</div>`;
