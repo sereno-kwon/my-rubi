@@ -3,6 +3,8 @@
 // 저장: 로그인하면 Index 스프레드시트의 '고객'·'고객로그' 탭 (Apps Script Code.gs 의 crm 동작), 로그인을 켜기 전에는 이 브라우저
 // 마일리지: 고객별 적립·사용 내역과 잔액 (시트 '적립금' 탭, Code.gs 의 point 동작). 잔액은 고객 이름(띄어쓰기 무시)으로 묶음
 //   다 받은 계약 견적은 '적립 예정'으로 보이고 한 번 눌러 적립. 견적 지불 현황의 '마일리지' 결제는 사용으로 자동 기록됨
+// 갤러리(2026-11-17): 고객 건 상세의 '갤러리' 탭. 출고 자전거 사진을 올리고(원본 + 가로 800px 미리보기, 구글 드라이브),
+//   포털 공개로 둔 사진은 고객이 portal.rubiworkshop.com 에서 보고 원본을 내려받음 (Code.gs 의 gallery 동작)
 // 매주 쓰던 주간 보고 텍스트를 붙여넣으면 고객별로 나눠 단계를 추정하고, 반대로 지금 데이터를 주간 보고 형식으로 뽑아냄
 // 고객 정보는 서버(시트)에만 있음. 이 파일이 올라가는 GitHub 리포지토리는 공개라서 고객 이름을 코드에 적지 않음
 (() => {
@@ -64,11 +66,13 @@ let customers = [];   // { id, name, info, group, item, stage, memo, flag, owner
 let logs = [];        // { id, cid, name, stage, memo, flag, by, at }
 let points = [];      // 마일리지 내역 { id, name, cid, qid, type, amount(+적립 −사용), memo, date, expire, by, createdAt }
 let ptArmed = '';     // 지우기를 한 번 누른 마일리지 줄
+let gallery = [];     // 갤러리 사진 { id, cid, tid, name, caption, w, h, bytes, pub(Y/N), order, by, at } (서버 crm 응답에 함께 옴)
 let quotes = [];      // 견적 요약 { id, no, cid, title, total, status, at } (견적 앱 assets/quote.js, 서버 crm 응답에 함께 옴)
 let msg = '', busy = false, started = false, loaded = false;
 let host = null, summaryEl = null, bound = false;
 let view = 'list';    // list | detail | new | import | report | points
 let cur = null;       // 보고 있는 고객 id
+let dtab = 'info';    // 상세 화면 탭: info(건 정보) | gallery
 let preset = null;    // 새 건 만들 때 미리 채울 값 (같은 고객 다른 건)
 let draft = null;     // 붙여넣기에서 읽은 줄들
 let pasted = '';
@@ -153,7 +157,7 @@ const recentDone = c => { const t = Date.parse(String(c.stageAt || c.updatedAt |
 // ─────────── 화면 ───────────
 function syncHash() {
   if (!host) return;
-  try { history.replaceState(null, '', '#customers' + (view === 'detail' && cur ? '/' + encodeURIComponent(cur) : view === 'points' ? '/points' : '')); } catch (e) {}
+  try { history.replaceState(null, '', '#customers' + (view === 'detail' && cur ? '/' + encodeURIComponent(cur) + (dtab === 'gallery' ? '/gallery' : '') : view === 'points' ? '/points' : '')); } catch (e) {}
 }
 
 function render() {
@@ -218,7 +222,7 @@ function rowHtml(c) {
     <span class="mn"><span class="nm">${esc(c.name)}${c.info ? `<small>${esc(c.info)}</small>` : ''}</span>
       ${c.item ? `<span class="it">${esc(c.item)}</span>` : ''}
       ${c.memo ? `<span class="me">${esc(c.memo)}</span>` : ''}</span>
-    <span class="rt">${c.flag ? `<span class="fl">${esc(c.flag)}</span>` : ''}<span class="ow">${esc([c.owner, when].filter(Boolean).join(' · '))}</span></span>
+    <span class="rt">${c.flag ? `<span class="fl">${esc(c.flag)}</span>` : ''}<span class="ow">${esc([galleryOf(c.id).length ? '사진 ' + galleryOf(c.id).length : '', c.owner, when].filter(Boolean).join(' · '))}</span></span>
   </button></li>`;
 }
 
@@ -276,11 +280,162 @@ function detailHtml(c) {
     ${c.item ? `<p class="crm-item">${esc(c.item)}</p>` : ''}
     ${others.length ? `<p class="crm-others">같은 고객의 다른 건 ${others.map(o => `<button data-open="${esc(o.id)}">${esc(o.item || o.stage)} · ${esc(o.stage)}</button>`).join('')}</p>` : ''}
   </div>
-  ${stepper(c)}
+  ${detailTabs(c)}
+  ${dtab === 'gallery' ? galleryHtml(c) : `${stepper(c)}
   ${formHtml(c)}
   ${pointsHtml(c)}
   ${quotesHtml(c)}
-  <section class="ck-group"><h2 class="sec-h ko"><span>기록<small>단계, 현재 상황, 확인 필요가 바뀔 때마다 남습니다</small></span><span class="n">${hist.length || ''}</span></h2>${histHtml}</section>`;
+  <section class="ck-group"><h2 class="sec-h ko"><span>기록<small>단계, 현재 상황, 확인 필요가 바뀔 때마다 남습니다</small></span><span class="n">${hist.length || ''}</span></h2>${histHtml}</section>`}`;
+}
+
+function detailTabs(c) {
+  const n = galleryOf(c.id).length;
+  return `<div class="ck-tabs crm-dtabs" role="tablist" aria-label="고객 건">
+    <button class="ck-tab" role="tab" data-dtab="info" aria-selected="${dtab !== 'gallery'}"><span class="nm">건 정보</span></button>
+    <button class="ck-tab" role="tab" data-dtab="gallery" aria-selected="${dtab === 'gallery'}"><span class="nm">갤러리</span><span class="ct">${n || ''}</span></button></div>`;
+}
+
+// ─────────── 갤러리 ───────────
+// 사진은 고객 건(cid)마다. 원본은 그대로 드라이브에, 미리보기(가로 800px JPEG)는 브라우저가 만들어 함께 올림
+// 포털 공개(Y) 사진만 고객 포털에 보임 (고객 포털에 견적을 공개하고 고객코드를 발급한 같은 이름의 고객)
+const GAL_MAX_BYTES = 20 * 1024 * 1024;
+const GAL_THUMB_W = 800;
+const GAL_BATCH = 12;   // Code.gs 의 GAL_BATCH 와 같게
+const galSort = (a, b) => (+a.order || 0) - (+b.order || 0) || String(a.at).localeCompare(String(b.at));
+const galleryOf = cid => gallery.filter(g => g.cid === cid).sort(galSort);
+const gThumbs = new Map();   // 사진 ID → 미리보기 data URL ('' 이면 못 불러옴)
+const gWait = new Set();
+let galBusy = '', galMsg = '', gViewer = null;
+const fmtBytes = n => { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : n ? Math.max(1, Math.round(n / 1024)) + 'KB' : ''; };
+
+function galleryHtml(c) {
+  if (!shared()) return '<p class="ck-none">갤러리는 회사 구글 계정으로 로그인해야 쓸 수 있습니다.</p>';
+  const list = galleryOf(c.id);
+  const pubN = list.filter(g => g.pub === 'Y').length;
+  setTimeout(() => loadGalThumbs(c.id), 0);
+  const cells = list.map((g, i) => {
+    const t = gThumbs.get(g.id);
+    const pic = t ? `<img src="${esc(t)}" alt="${esc(g.caption || g.name)}" loading="lazy">` : `<span class="ph">${t === '' ? '미리보기 없음' : '불러오는 중'}</span>`;
+    return `<li class="pj-img gal-img${g.pub === 'Y' ? '' : ' hid'}">
+      <button class="th" data-gview="${esc(g.id)}" data-gth="${esc(g.id)}" title="크게 보기">${pic}</button>
+      <input class="gal-cap" data-gcap="${esc(g.id)}" value="${esc(g.caption)}" placeholder="설명 (고객에게 보임)" maxlength="200" aria-label="사진 설명">
+      <span class="by" title="${esc(g.name)}">${esc([g.w && g.h ? `${g.w}×${g.h}` : '', fmtBytes(g.bytes), g.by, fmtDay(g.at)].filter(Boolean).join(' · '))}</span>
+      <span class="ac">
+        <label class="gal-pub"><input type="checkbox" data-gpub="${esc(g.id)}"${g.pub === 'Y' ? ' checked' : ''}${galBusy ? ' disabled' : ''}>포털 공개</label>
+        <button data-gmove="${esc(g.id)}" data-dir="-1"${i === 0 || galBusy ? ' disabled' : ''} aria-label="앞으로">←</button>
+        <button data-gmove="${esc(g.id)}" data-dir="1"${i === list.length - 1 || galBusy ? ' disabled' : ''} aria-label="뒤로">→</button>
+        <button data-gdel="${esc(g.id)}" class="danger"${galBusy ? ' disabled' : ''}>지우기</button>
+      </span>
+    </li>`;
+  }).join('');
+  const box = gViewer ? `<div class="pj-viewer" data-gclose>
+      <figure><img src="${esc(gViewer.url)}" alt="${esc(gViewer.name)}">
+      <figcaption><span>${esc(gViewer.caption || gViewer.name)}${gViewer.full ? '' : ' · 원본을 불러오는 중'}</span>${gViewer.full ? `<a class="pj-btn" href="${esc(gViewer.url)}" download="${esc(gViewer.name)}">원본 내려받기</a>` : ''}<button class="pj-btn" data-gclose>닫기</button></figcaption></figure>
+    </div>` : '';
+  return `<section class="ck-group pj-imgs gal" data-gdrop>
+    <h2 class="sec-h ko"><span>갤러리<small>출고 자전거 사진. 여기로 끌어다 놓아도 올라갑니다</small></span><span class="n">${list.length ? `공개 ${pubN} / ${list.length}` : ''}</span></h2>
+    <p class="gal-hint">포털 공개로 둔 사진은 고객이 portal.rubiworkshop.com 에서 고객코드로 들어와 보고 원본을 내려받습니다. 고객 포털에 견적을 공개하고 고객코드를 발급한 같은 이름의 고객에게만 보입니다.</p>
+    ${list.length ? `<ul class="pj-igrid gal-grid">${cells}</ul>` : '<p class="ck-none">아직 올린 사진이 없습니다. 스튜디오에서 루비 톤으로 맞춘 사진을 올리면 고객에게 그대로 전달됩니다.</p>'}
+    <div class="pj-iup">
+      <label class="pj-btn pri${galBusy ? ' off' : ''}">사진 올리기<input type="file" name="gup" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden${galBusy ? ' disabled' : ''}></label>
+      ${list.length > 1 ? `<button class="pj-btn" data-gpuball="1"${galBusy || pubN === list.length ? ' disabled' : ''}>모두 공개</button><button class="pj-btn" data-gpuball="0"${galBusy || !pubN ? ' disabled' : ''}>모두 숨기기</button>` : ''}
+      ${galBusy ? `<span class="st">${esc(galBusy)}</span>` : galMsg ? `<span class="st err">${esc(galMsg)}</span>` : '<span class="st">한 장 20MB까지 · 원본 화질 그대로 저장</span>'}
+    </div>
+    ${box}
+  </section>`;
+}
+
+/** 미리보기는 12장씩 불러와서, 화면 전체를 다시 그리지 않고 그 칸만 바꿈 (설명을 적는 중에도 끊기지 않게) */
+function loadGalThumbs(cid) {
+  const need = galleryOf(cid).map(g => g.id).filter(id => !gThumbs.has(id) && !gWait.has(id)).slice(0, GAL_BATCH);
+  if (!need.length) return;
+  need.forEach(id => gWait.add(id));
+  MR.get({ action: 'gallery', op: 'thumbs', cid, ids: need.join(',') })
+    .then(j => { need.forEach(id => gThumbs.set(id, (j.thumbs || {})[id] || '')); })
+    .catch(e => { need.forEach(id => gThumbs.set(id, '')); galMsg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 갤러리를 쓸 수 있습니다' : '미리보기를 불러오지 못했습니다. ' + e.message; })
+    .finally(() => {
+      need.forEach(id => gWait.delete(id));
+      if (!host) return;
+      need.forEach(id => {
+        const el = host.querySelector(`[data-gth="${CSS.escape(id)}"]`); if (!el) return;
+        const t = gThumbs.get(id), g = gallery.find(x => x.id === id) || {};
+        el.innerHTML = t ? `<img src="${esc(t)}" alt="${esc(g.caption || g.name)}">` : '<span class="ph">미리보기 없음</span>';
+      });
+      const st = host.querySelector('.gal .pj-iup .st'); if (st && galMsg && !galBusy) { st.className = 'st err'; st.textContent = galMsg; }
+      if (view === 'detail' && dtab === 'gallery' && cur === cid) loadGalThumbs(cid);
+    });
+}
+
+const readUrl = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(new Error('파일을 읽지 못했습니다')); r.readAsDataURL(f); });
+/** 가로 800px 미리보기 JPEG. 브라우저가 못 여는 형식이면 빈 값 */
+function makeThumb(url) {
+  return new Promise(ok => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const k = Math.min(1, GAL_THUMB_W / (im.naturalWidth || GAL_THUMB_W));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, c.width, c.height);
+        ok({ thumb: c.toDataURL('image/jpeg', 0.84), w: im.naturalWidth, h: im.naturalHeight });
+      } catch (e) { ok({ thumb: '', w: 0, h: 0 }); }
+    };
+    im.onerror = () => ok({ thumb: '', w: 0, h: 0 });
+    im.src = url;
+  });
+}
+
+async function galUpload(files) {
+  const c = byId(cur); if (!c || galBusy || !shared()) return;
+  const list = Array.from(files || []).filter(f => /^image\//.test(f.type) || /\.(heic|heif)$/i.test(f.name));
+  if (!list.length) { galMsg = '사진 파일만 올릴 수 있습니다'; render(); return; }
+  galMsg = '';
+  let done = 0;
+  const skipped = [];
+  for (const f of list) {
+    if (f.size > GAL_MAX_BYTES) { skipped.push(`${f.name}(20MB 넘음)`); continue; }
+    galBusy = `올리는 중 ${done + 1}/${list.length} · ${f.name}`; render();
+    try {
+      const data = await readUrl(f);
+      const t = await makeThumb(data);
+      // 미리보기를 못 만드는 형식(이 브라우저가 못 여는 HEIC 등)은 고객 화면에서도 안 보이므로 받지 않음
+      if (!t.thumb) { skipped.push(`${f.name}(이 브라우저에서 열 수 없는 형식, JPG로 바꿔 올려 주세요)`); continue; }
+      const mime = f.type || (/\.heif$/i.test(f.name) ? 'image/heif' : 'image/heic');
+      const j = await MR.post({ action: 'gallery', op: 'add', cid: c.id, name: f.name, mime, data, thumb: t.thumb, w: t.w, h: t.h });
+      if (j.saved) gThumbs.set(j.saved, t.thumb);
+      if (j.gallery) { gallery = j.gallery; saveCache(); }
+      done++;
+    } catch (e) {
+      galMsg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 사진을 올릴 수 있습니다' : `${f.name}: 올리지 못했습니다. ${e.message}`;
+      break;
+    }
+  }
+  if (skipped.length && !galMsg) galMsg = '올리지 않은 사진: ' + skipped.join(', ');
+  galBusy = ''; render();
+}
+
+async function galOp(op, d, label) {
+  if (galBusy || !shared()) return false;
+  galBusy = label || '저장하는 중'; galMsg = ''; render();
+  let ok = true;
+  try {
+    const j = await MR.post(Object.assign({ action: 'gallery', op }, d));
+    if (j.gallery) { gallery = j.gallery; saveCache(); }
+    if (op === 'delete') gThumbs.delete(d.fid);
+  } catch (e) { galMsg = '저장하지 못했습니다. ' + e.message; ok = false; }
+  galBusy = ''; render();
+  return ok;
+}
+
+async function galView(fid) {
+  const g = gallery.find(x => x.id === fid); if (!g) return;
+  // 미리보기를 먼저 크게 띄우고, 원본이 오면 바꿔 끼움
+  gViewer = { id: fid, name: g.name, caption: g.caption, url: gThumbs.get(fid) || '', full: false }; render();
+  try {
+    const j = await MR.get({ action: 'gallery', op: 'full', fid });
+    if (gViewer && gViewer.id === fid) { gViewer.url = j.image.url; gViewer.full = true; render(); }
+  } catch (e) { galMsg = '원본을 불러오지 못했습니다. ' + e.message; gViewer = null; render(); }
 }
 
 /** 상세 화면의 마일리지: 잔액, 적립 예정, 내역, 넣기 */
@@ -490,7 +645,7 @@ function renderSummary() {
 }
 
 // ─────────── 저장 ───────────
-const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs, quotes, points }));
+const saveCache = () => ls.set(K_CACHE(), JSON.stringify({ customers, logs, quotes, points, gallery }));
 function readLocal() {
   const d = readJson(K_LOCAL, {}); customers = d.customers || []; logs = d.logs || []; points = d.points || [];
   // 로그인 전에는 견적 앱이 이 브라우저에 둔 견적에서 요약을 만듦
@@ -502,7 +657,7 @@ async function load() {
   if (!shared()) { readLocal(); loaded = true; if (!dirty) render(); else renderSummary(); return; }
   try {
     const j = await MR.get({ action: 'crm' });
-    customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || []; points = j.points || []; loaded = true;
+    customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || []; points = j.points || []; gallery = j.gallery || gallery; loaded = true;
     saveCache(); msg = '';
   } catch (e) {
     msg = /unknown action/.test(e.message) ? 'Apps Script를 새 버전으로 배포해야 고객관리를 쓸 수 있습니다' : '고객 목록을 불러오지 못했습니다. ' + e.message;
@@ -537,7 +692,7 @@ async function run(op, d) {
     if (shared()) {
       const body = op === 'bulk' ? { rows: d.rows.map(r => Object.assign({ id: r.id || '' }, pickFields(r))) } : op === 'delete' ? { id: d.id } : Object.assign({ id: d.id || '' }, pickFields(d));
       const j = await MR.post(Object.assign({ action: 'crm', op }, body));
-      customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || quotes; points = j.points || points; loaded = true;
+      customers = j.customers || []; logs = j.crmLogs || []; quotes = j.quotes || quotes; points = j.points || points; gallery = j.gallery || gallery; loaded = true;
       saveCache();
       out = j.saved || true;
     } else {
@@ -561,7 +716,7 @@ async function runPoint(op, d) {
   try {
     if (shared()) {
       const j = await MR.post(Object.assign({ action: 'point', op }, d));
-      customers = j.customers || customers; logs = j.crmLogs || logs; quotes = j.quotes || quotes; points = j.points || []; loaded = true;
+      customers = j.customers || customers; logs = j.crmLogs || logs; quotes = j.quotes || quotes; points = j.points || []; gallery = j.gallery || gallery; loaded = true;
       saveCache();
     } else if (op === 'delete') { points = points.filter(p => p.id !== d.id); writeLocal(); }
     else {
@@ -581,7 +736,9 @@ async function runPoint(op, d) {
 }
 
 // ─────────── 조작 ───────────
-function go(v, id) {
+function go(v, id, tab) {
+  if (v !== 'detail' || id !== cur) { gViewer = null; galMsg = ''; }
+  dtab = v === 'detail' ? (tab || (id === cur ? dtab : 'info')) : 'info';
   view = v; cur = id || null; dirty = false; msg = '';
   if (v !== 'new') preset = null;
   if (v !== 'import') { draft = null; }
@@ -604,10 +761,29 @@ function bind() {
   document.addEventListener('compositionend', e => { if (inHost(e)) onInput(e); });
   document.addEventListener('change', e => { if (inHost(e)) onChange(e); });
   document.addEventListener('keydown', e => { if (inHost(e)) onKey(e); }, true);
+  // 크게 보기는 초점이 어디 있든 Esc로 닫음 (패널은 그대로)
+  document.addEventListener('keydown', e => { if (gViewer && host && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); gViewer = null; render(); } }, true);
+  // 갤러리 칸에 사진을 끌어다 놓기
+  const zone = e => inHost(e) && e.target.closest('[data-gdrop]');
+  document.addEventListener('dragover', e => { const z = zone(e); if (z && e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) { e.preventDefault(); z.classList.add('over'); } });
+  document.addEventListener('dragleave', e => { const z = zone(e); if (z && !z.contains(e.relatedTarget)) z.classList.remove('over'); });
+  document.addEventListener('drop', e => { const z = zone(e); if (!z) return; e.preventDefault(); z.classList.remove('over'); galUpload(e.dataTransfer.files); });
 }
 
 async function onClick(e) {
   const t = e.target;
+  // 갤러리
+  if (t.closest('[data-gclose]') && !t.closest('figure img') && !t.closest('a')) { gViewer = null; render(); return; }
+  const dt = t.closest('[data-dtab]'); if (dt) { dtab = dt.dataset.dtab; gViewer = null; render(); const b = host.querySelector('.ck-body'); if (b) b.scrollTop = 0; return; }
+  const gv = t.closest('[data-gview]'); if (gv) { galView(gv.dataset.gview); return; }
+  const gm = t.closest('[data-gmove]'); if (gm) { galOp('move', { fid: gm.dataset.gmove, dir: +gm.dataset.dir }, '순서 바꾸는 중'); return; }
+  const gd = t.closest('[data-gdel]');
+  if (gd) {
+    const x = gallery.find(z => z.id === gd.dataset.gdel);
+    if (x && confirm(`“${x.caption || x.name}” 사진을 지울까요? 드라이브 휴지통으로 옮겨지고 고객 포털에서도 바로 빠집니다.`)) galOp('delete', { fid: x.id }, '지우는 중');
+    return;
+  }
+  const ga = t.closest('[data-gpuball]'); if (ga) { const c0 = byId(cur); if (c0) galOp('puball', { cid: c0.id, on: ga.dataset.gpuball === '1' }); return; }
   const g = t.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
   // 견적 묶음: 주소를 바꾸면 shell.js 가 견적 패널을 엶
   const qo = t.closest('[data-quote]'); if (qo) { location.hash = '#quote/' + encodeURIComponent(qo.dataset.quote); return; }
@@ -677,6 +853,7 @@ async function onClick(e) {
 
 function onInput(e) {
   const t = e.target;
+  if (t.dataset && t.dataset.gcap != null) { dirty = true; return; }   // 사진 설명을 적는 중에는 새로 불러와도 다시 그리지 않음
   if (t.name === 'q' && t.closest('.crm-q')) {
     ui.q = t.value; const pos = t.selectionStart; render();
     const q = host.querySelector('.crm-q input'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) {} }
@@ -703,6 +880,14 @@ function onInput(e) {
 
 function onChange(e) {
   const t = e.target;
+  if (t.name === 'gup' && t.files) { galUpload(t.files); t.value = ''; return; }
+  if (t.dataset && t.dataset.gpub) { galOp('pub', { fid: t.dataset.gpub, on: t.checked }); return; }
+  if (t.dataset && t.dataset.gcap != null) {
+    const x = gallery.find(z => z.id === t.dataset.gcap), v = t.value.replace(/\s+/g, ' ').trim();
+    dirty = false;
+    if (x && v !== (x.caption || '')) { x.caption = v; galOp('caption', { fid: x.id, text: v }); }
+    return;
+  }
   const k = t.closest('[data-dkeep]');
   if (k && draft) { draft[+k.dataset.dkeep].skip = !k.checked; render(); return; }
   const df = t.closest('select[data-dfield]');
@@ -748,6 +933,7 @@ async function onSubmit(e) {
 }
 
 function onKey(e) {
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.gcap != null) { e.preventDefault(); e.target.blur(); return; }
   if (e.key !== 'Escape') return;
   // 목록 밖이면 목록으로, 찾기 칸에 글이 있으면 지움. 목록에서는 패널 닫기(shell.js)
   if (e.target.matches('.crm-q input') && e.target.value) { e.stopPropagation(); if (e.target.classList.contains('crm-pq')) ui.pq = ''; else ui.q = ''; render(); return; }
@@ -770,14 +956,17 @@ window.MYRUBI_CRM = {
       });
     }
     started = true;
-    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; quotes = c.quotes || []; points = c.points || []; } }
+    if (shared()) { const c = readJson(K_CACHE(), null); if (c) { customers = c.customers || []; logs = c.logs || []; quotes = c.quotes || []; points = c.points || []; gallery = c.gallery || []; } }
     else readLocal();
     render(); load();
   },
   /** 패널 안에 붙이기. id 를 주면 그 고객을 바로 엶, 층위 key(inq·buy·done·flag)면 그 구역으로 */
   mount(el, arg) {
     host = el; bind();
-    view = 'list'; cur = null; dirty = false; draft = null; msg = '';
+    view = 'list'; cur = null; dirty = false; draft = null; msg = ''; dtab = 'info'; gViewer = null;
+    // 'ID/gallery' 면 그 고객의 갤러리 탭
+    const sub = String(arg || '').split('/');
+    if (sub[1] === 'gallery') { arg = sub[0]; dtab = 'gallery'; }
     if (arg === 'points') { view = 'points'; }
     else if (arg && byId(arg)) { view = 'detail'; cur = arg; }
     else if (arg && arg !== 'points' && !TIERS.some(t => t.key === arg) && arg !== 'flag') { view = 'detail'; cur = arg; }   // 아직 안 불러온 고객 id

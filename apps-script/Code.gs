@@ -10,6 +10,9 @@
  *    '프로젝트' 열에 프로젝트 ID가 들어감. 담당은 여러 명(쉼표로 구분)이고, 프로젝트 항목은 개인 목록 설정과 관계없이 모두에게 보임
  *  - 고객관리: 고객 구매 건을 '고객' 탭에, 단계·상황이 바뀐 기록을 '고객로그' 탭에 저장함 (GET/POST crm)
  *    단계는 상담 10단계(문의 → … → 루비케어) + 종료. 포털이 이를 고객문의·구매진행중·구매완료 세 층위로 묶어 보여줌
+ *  - 고객 갤러리(2026-11-17): 고객관리 건(cid)마다 출고 자전거 사진을 '갤러리' 탭(한 줄 = 사진 한 장)과 드라이브 '고객 갤러리/고객명 (건 ID)' 폴더에 저장 (GET/POST gallery)
+ *    원본은 그대로, 미리보기는 브라우저가 줄여 보낸 가로 800px JPEG. 파일은 공유하지 않고 이 웹앱을 거쳐서만 읽힘
+ *    포털 공개(Y)인 사진은 고객 포털에서 같은 이름 고객의 고객 키로 보고 원본을 내려받음 (GET portal&img=thumbs|full)
  *  - 마일리지(예전 이름 적립금): 고객별 적립·사용 내역을 '적립금' 탭에 저장함 (POST point, 목록은 crm 응답의 points). 잔액은 포털이 고객 이름으로 묶어 더함
  *    견적의 지불 현황에서 결제 수단이 '마일리지'(예전 '적립금')인 금액은 그 견적의 '사용' 줄로 자동 기록됨
  *  - 고객 포털(portal.rubiworkshop.com): 견적 앱에서 '고객 포털에 공개'를 누르면 정제한 견적 사본을 '포털' 탭에 저장하고 추측할 수 없는 키를 붙임
@@ -115,6 +118,13 @@ const PROJ_IMG_MAX = 40;                      // 프로젝트 하나에 올릴 �
 const PROJ_IMG_BYTES = 20 * 1024 * 1024;      // 원본 한 장 최대 크기
 const PROJ_STATUS = ['active', 'hold', 'done'];
 
+// 고객 갤러리 (갤러리 탭): 한 줄 = 사진 한 장. 고객관리 건(cid)에 붙음
+const GAL_COLS = ['id', 'cid', 'tid', 'name', 'caption', 'w', 'h', 'bytes', 'pub', 'order', 'by', 'email', 'at'];
+const GAL_HEADERS = ['파일 ID', '고객 건 ID', '미리보기 파일 ID', '파일 이름', '설명', '가로(px)', '세로(px)', '크기(바이트)', '포털 공개(Y/N)', '순서', '올린 사람', '이메일', '올린 일시'];
+const GAL_FOLDER = '고객 갤러리';            // Index 스프레드시트와 같은 폴더 안에 자동으로 만듦
+const GAL_MAX = 80;                          // 고객 건 하나에 올릴 수 있는 사진 수
+const GAL_BATCH = 12;                        // 미리보기를 한 번에 돌려주는 장수 (응답 크기 제한)
+
 // 고객 탭 컬럼 (고객관리). 한 줄 = 고객 한 명의 구매 건 하나 (한 사람이 두 건이면 두 줄)
 const CRM_COLS = ['id', 'name', 'info', 'group', 'item', 'stage', 'memo', 'flag', 'owner', 'amount', 'stageAt', 'author', 'email', 'createdAt', 'updatedAt'];
 const CRM_HEADERS = ['ID', '고객명', '고객 정보(소속·관계)', '구분', '브랜드·모델', '단계', '현재 상황', '확인 필요', '담당', '계약금(원)', '단계 바뀐 일시', '작성자', '이메일', '작성일시', '수정일시'];
@@ -182,7 +192,8 @@ function doGet(e) {
     if (p.action === 'ping') return json_({ ok: true });   // 연결 확인은 로그인 없이
     // 고객 포털: 고객코드 로그인(code=) 또는 키(세션)로 정제 사본만
     //  주의: 'c' 와 'sid' 는 Apps Script 웹앱이 따로 쓰는 예약 이름이라 c= 로 보내면 스크립트에 닿기 전에 막힘 → code= 를 씀
-    if (p.action === 'portal') return json_(p.code ? portalLogin_(p.code) : portalView_(p.k));
+    //  img=thumbs|full 은 갤러리 사진 (같은 키로 확인)
+    if (p.action === 'portal') return json_(p.img ? portalImg_(p) : p.code ? portalLogin_(p.code) : portalView_(p.k));
     const user = auth_(p.s);
 
     switch (p.action) {
@@ -197,6 +208,7 @@ function doGet(e) {
       case 'garage':   return json_({ ok: true, ...garageData_(user) });
       case 'strategy': return json_({ ok: true, ...strategyData_(user, p.b) });
       case 'projimg':  return json_({ ok: true, ...readProjImg_(p) });
+      case 'gallery':  return json_({ ok: true, ...readGallery_(p) });
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -224,6 +236,7 @@ function doPost(e) {
       case 'report':   return json_({ ok: true, ...saveReport_(body, user) });
       case 'garage':   return json_({ ok: true, ...saveGarage_(body, user) });
       case 'projimg':  { const saved = saveProjImg_(body, user) || ''; return json_({ ok: true, saved, ...checkData_(user) }); }
+      case 'gallery':  { const saved = saveGallery_(body, user) || ''; return json_({ ok: true, saved, gallery: galList_() }); }
       default:         return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -816,6 +829,8 @@ function crmData_() {
     // 고객 상세 화면의 '견적' 묶음용 요약 (품목은 빼고)
     quotes: quoteRows_().filter(q => q.cid).map(q => ({ id: q.id, no: q.no, cid: q.cid, title: [q.kind, q.brand, q.model, q.title].filter(Boolean).join(' · '), total: q.total, paid: q.paid, status: q.status, ship: q.ship, at: q.updatedAt || q.createdAt })),
     points: pointRows_().map(o => { delete o.email; return o; }),
+    // 고객 갤러리 사진 목록 (이미지 자체는 gallery 동작으로 따로)
+    gallery: galList_(),
   };
 }
 
@@ -879,6 +894,7 @@ function saveCrm_(b, user) {
   if (op === 'delete') {
     const row = findRow(b.id);
     if (row > 0) sh.deleteRow(row);
+    galDropCase_(b.id);   // 그 건의 갤러리 사진은 드라이브 휴지통으로
     // 그 고객의 기록도 아래에서부터 지움
     const last = lsh.getLastRow();
     if (last >= 2) {
@@ -902,6 +918,195 @@ function saveCrm_(b, user) {
       .setValues(logs.map(l => CRM_LOG_COLS.map(k => String(l[k] == null ? '' : l[k]))));
   }
   return out;
+}
+
+// ───────────────────────────── 고객 갤러리 (갤러리 탭 + 구글 드라이브) ─────────────────────────────
+// 고객관리 건(cid)마다 출고 자전거 사진. 원본과 미리보기(브라우저가 줄여 보낸 가로 800px JPEG)를
+// '고객 갤러리/고객명 (건 ID)' 폴더에 저장. 파일은 공유하지 않고 이 웹앱을 거쳐서만 읽힘
+//  - 직원: 로그인 세션으로 모든 사진 (GET/POST gallery)
+//  - 고객: 포털 키(고객 키 또는 견적 키)로 그 고객의 포털 공개(Y) 사진만 (GET portal&img=…)
+
+function galSheet_() {
+  const ss = indexSs_();
+  let sh = ss.getSheetByName('갤러리');
+  if (!sh) {
+    sh = ss.insertSheet('갤러리');
+    sh.getRange(1, 1, 1, GAL_HEADERS.length).setValues([GAL_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), GAL_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+function galRows_() {
+  const sh = galSheet_(), last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, GAL_COLS.length).getValues()
+    .map((r, i) => { const o = { _row: i + 2 }; GAL_COLS.forEach((k, j) => o[k] = noteCell_(r[j], k)); return o; })
+    .filter(o => o.id && o.cid);
+}
+const galWrite_ = (row, o) => galSheet_().getRange(row, 1, 1, GAL_COLS.length).setNumberFormat('@').setValues([GAL_COLS.map(k => o[k] == null ? '' : String(o[k]))]);
+const galSort_ = (a, b) => (+a.order || 0) - (+b.order || 0) || String(a.at).localeCompare(String(b.at));
+/** 직원 화면용 목록 (이메일·시트 줄 번호 없이, 건별 순서대로) */
+function galList_() {
+  return galRows_().sort((a, b) => String(a.cid).localeCompare(String(b.cid)) || galSort_(a, b))
+    .map(o => { const x = Object.assign({}, o); delete x.email; delete x._row; return x; });
+}
+function galRoot_() {
+  const props = PropertiesService.getScriptProperties();
+  const saved = props.getProperty('GAL_FOLDER_ID');
+  if (saved) { try { const f = DriveApp.getFolderById(saved); if (!f.isTrashed()) return f; } catch (e) {} }
+  const parents = DriveApp.getFileById(indexSs_().getId()).getParents();
+  const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  const it = parent.getFoldersByName(GAL_FOLDER);
+  const f = it.hasNext() ? it.next() : parent.createFolder(GAL_FOLDER);
+  props.setProperty('GAL_FOLDER_ID', f.getId());
+  return f;
+}
+/** 고객 건 폴더. 이름은 '고객명 (건 ID)', 고객 이름이 바뀌면 폴더 이름도 맞춤 */
+function galFolder_(c) {
+  const root = galRoot_();
+  const name = `${c.name} (${c.id})`.replace(/[\\/]/g, ' ');
+  const it = root.getFolders();
+  while (it.hasNext()) { const f = it.next(); if (f.getName().indexOf(`(${c.id})`) >= 0) { if (f.getName() !== name) f.setName(name); return f; } }
+  return root.createFolder(name);
+}
+const galTrash_ = g => [g.id, g.tid].forEach(id => { if (!id) return; try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {} });
+/** 드라이브 파일 → data URL */
+const galUrl_ = (id, fallbackMime) => { const bl = DriveApp.getFileById(id).getBlob(); return `data:${bl.getContentType() || fallbackMime};base64,` + Utilities.base64Encode(bl.getBytes()); };
+
+/** 고객 건을 지울 때: 그 건의 사진을 휴지통으로 보내고 줄을 지움 */
+function galDropCase_(cid) {
+  if (!cid) return;
+  const rows = galRows_().filter(g => g.cid === String(cid));
+  if (!rows.length) return;
+  rows.forEach(galTrash_);
+  const sh = galSheet_();
+  rows.map(g => g._row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+}
+
+/** op: add / delete / move(dir) / caption(text) / pub(on) / puball(cid, on). add 는 새 사진 ID를 돌려줌 */
+function saveGallery_(b, user) {
+  const op = String(b.op || '');
+  const who = user.name || user.email;
+  const sh = galSheet_();
+  const rows = galRows_();
+  const one = () => { const g = rows.find(x => x.id === String(b.fid || '')); if (!g) throw new Error('사진을 찾지 못했습니다. 새로 고침해 주세요'); return g; };
+
+  if (op === 'add') {
+    const c = crmRows_(crmSheet_()).find(x => x.id === String(b.cid || ''));
+    if (!c) throw new Error('고객 건을 찾지 못했습니다. 새로 고침해 주세요');
+    const mine = rows.filter(x => x.cid === c.id);
+    if (mine.length >= GAL_MAX) throw new Error(`사진은 고객 건마다 ${GAL_MAX}장까지입니다`);
+    const mime = String(b.mime || '');
+    if (!/^image\/(jpeg|png|gif|webp|heic|heif|avif)$/.test(mime)) throw new Error('사진 파일(JPG, PNG, WebP, HEIC)만 올릴 수 있습니다');
+    const name = String(b.name || 'photo').replace(/[\\/]/g, ' ').slice(0, 120);
+    const folder = galFolder_(c);
+    const blob = projImgBlob_(b.data, mime, name);
+    const file = folder.createFile(blob);
+    let tid = '';
+    if (b.thumb) tid = folder.createFile(projImgBlob_(b.thumb, 'image/jpeg', '.thumb_' + name.replace(/\.[^.]+$/, '') + '.jpg')).getId();
+    const order = mine.reduce((m, x) => Math.max(m, +x.order || 0), 0) + 1;
+    galWrite_(sh.getLastRow() + 1, {
+      id: file.getId(), cid: c.id, tid, name, caption: String(b.caption || '').trim().slice(0, 200),
+      w: +b.w || '', h: +b.h || '', bytes: blob.getBytes().length, pub: b.pub === false || b.pub === 'N' ? 'N' : 'Y',
+      order, by: who, email: user.email, at: now_(),
+    });
+    return file.getId();
+  }
+  if (op === 'delete') {
+    const g = rows.find(x => x.id === String(b.fid || ''));
+    if (g) { galTrash_(g); sh.deleteRow(g._row); }
+    return '';
+  }
+  if (op === 'move') {
+    const g = one();
+    const mine = rows.filter(x => x.cid === g.cid).sort(galSort_);
+    const i = mine.findIndex(x => x.id === g.id), j = i + (Number(b.dir) < 0 ? -1 : 1);
+    if (j < 0 || j >= mine.length) return '';
+    const t = mine[i]; mine[i] = mine[j]; mine[j] = t;
+    // 예전 순서 값이 겹쳐 있어도 지금 보이는 순서대로 다시 매김 (바뀐 줄만 씀)
+    mine.forEach((x, k) => { if (String(x.order) !== String(k + 1)) { x.order = k + 1; galWrite_(x._row, x); } });
+    return '';
+  }
+  if (op === 'caption') {
+    const g = one();
+    g.caption = String(b.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    galWrite_(g._row, g);
+    return '';
+  }
+  if (op === 'pub') {
+    const g = one();
+    g.pub = b.on ? 'Y' : 'N';
+    galWrite_(g._row, g);
+    return '';
+  }
+  if (op === 'puball') {
+    rows.filter(x => x.cid === String(b.cid || '')).forEach(g => { g.pub = b.on ? 'Y' : 'N'; galWrite_(g._row, g); });
+    return '';
+  }
+  throw new Error('unknown op');
+}
+
+/** GET action=gallery (직원). op=thumbs&cid=ID&ids=… → 미리보기 data URL 묶음 / op=full&fid=ID → 원본 */
+function readGallery_(q) {
+  const rows = galRows_();
+  if (q.op === 'full') {
+    const g = rows.find(x => x.id === String(q.fid || ''));
+    if (!g) throw new Error('사진을 찾지 못했습니다');
+    return { image: { id: g.id, name: g.name, url: galUrl_(g.id, 'image/jpeg') } };
+  }
+  const want = String(q.ids || '').split(',').filter(Boolean).slice(0, GAL_BATCH);
+  const thumbs = {};
+  rows.filter(g => (!q.cid || g.cid === String(q.cid)) && want.indexOf(g.id) >= 0).forEach(g => {
+    try { thumbs[g.id] = galUrl_(g.tid || g.id, 'image/jpeg'); } catch (e) { thumbs[g.id] = ''; }
+  });
+  return { thumbs };
+}
+
+/** 포털에 줄 사진 정보 (파일 ID·이름·설명·크기만). 고객 건 ID → 목록 */
+function galPublic_(cids) {
+  const out = {};
+  galRows_().filter(g => g.pub === 'Y' && cids.has(g.cid)).sort(galSort_).forEach(g => {
+    (out[g.cid] = out[g.cid] || []).push({ id: g.id, name: g.name, caption: g.caption, w: +g.w || 0, h: +g.h || 0, bytes: +g.bytes || 0, at: String(g.at).slice(0, 10) });
+  });
+  return out;
+}
+/** 포털 키 → 사진을 볼 수 있는 고객 건 ID 묶음
+ *  고객 키(로그인·첫 화면): 그 고객 이름(띄어쓰기 무시)의 모든 고객관리 건 / 견적 키(예전 링크): 그 견적의 고객 건 하나 */
+function galCasesFor_(key, rows, crm) {
+  const mine = rows.filter(x => x.ckey === key && x.active === 'Y');
+  if (mine.length) {
+    const names = new Set(mine.map(x => portalPerson_(x.name)));
+    return new Set(crm.filter(c => names.has(portalPerson_(c.name))).map(c => c.id).concat(mine.map(x => x.cid).filter(Boolean)));
+  }
+  const one = rows.find(x => x.key === key && x.active === 'Y');
+  return new Set(one && one.cid ? [one.cid] : []);
+}
+const galKey_ = cid => Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, 'gal:' + cid).map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('');
+
+/** GET portal&img=thumbs&k=키&ids=… / img=full&k=키&fid=… (고객). 그 고객의 포털 공개 사진만 */
+function portalImg_(q) {
+  const none = { ok: false, error: 'not found' };
+  const key = String(q.k || '').replace(/[^0-9a-f]/gi, '');
+  if (key.length < 32) return none;
+  const cids = galCasesFor_(key, portalRows_(), crmRows_(crmSheet_()));
+  if (!cids.size) return none;
+  const imgs = galRows_().filter(g => g.pub === 'Y' && cids.has(g.cid));
+  if (q.img === 'full') {
+    const g = imgs.find(x => x.id === String(q.fid || ''));
+    if (!g) return none;
+    return { ok: true, image: { id: g.id, name: g.name, url: galUrl_(g.id, 'image/jpeg') } };
+  }
+  const want = String(q.ids || '').split(',').filter(Boolean).slice(0, GAL_BATCH);
+  const thumbs = {};
+  imgs.filter(g => want.indexOf(g.id) >= 0).forEach(g => { try { thumbs[g.id] = galUrl_(g.tid || g.id, 'image/jpeg'); } catch (e) { thumbs[g.id] = ''; } });
+  return { ok: true, thumbs };
+}
+
+/** 편집기에서 한 번 실행해 드라이브 권한을 확인하고 폴더를 만들어 둠 */
+function test_gallery() {
+  const f = galRoot_();
+  Logger.log('고객 갤러리 폴더: ' + f.getName() + ' ' + f.getUrl() + ' · 사진 ' + galRows_().length + '장');
 }
 
 // ───────────────────────────── 적립금 (적립금 탭) ─────────────────────────────
@@ -1080,7 +1285,7 @@ function portalPublish_(b, user) {
 }
 
 /** 포털 한 줄 → 고객에게 줄 견적 하나: 정제 사본 + 고객관리의 지금 단계·단계별 날짜(메모 없이) + 남은 금액이 있을 때 입금 계좌 */
-function portalItem_(r, crm, logs, bank) {
+function portalItem_(r, crm, logs, bank, gal) {
   const data = quoteParse_(r.data, null);
   if (!data) return null;
   let stage = '', stages = {};
@@ -1093,7 +1298,7 @@ function portalItem_(r, crm, logs, bank) {
       if (c.stageAt && !stages[c.stage]) stages[c.stage] = String(c.stageAt).slice(0, 10);
     }
   }
-  return { id: r.key, quote: data, stage, stages, bank: data.remain > 0 ? bank : '', publishedAt: r.publishedAt };
+  return { id: r.key, quote: data, stage, stages, bank: data.remain > 0 ? bank : '', publishedAt: r.publishedAt, gallery: (gal && r.cid && gal[r.cid]) || [] };
 }
 
 /** GET portal
@@ -1110,19 +1315,28 @@ function portalView_(key) {
   if (!mine.length && !one) return none;
   const crm = crmRows_(crmSheet_()), logs = crmLogRows_();
   const bank = PropertiesService.getScriptProperties().getProperty('QUOTE_BANK') || '';
+  // 갤러리: 포털 공개 사진 (고객 키면 같은 이름 고객의 모든 건, 견적 키면 그 견적의 건만)
+  const cids = galCasesFor_(key, all, crm);
+  const gal = cids.size ? galPublic_(cids) : {};
   // 열어 본 횟수 (직원 화면에서 고객이 봤는지 확인용)
   const seen = rows => rows.forEach(r => { try { portalWrite_(r._row, Object.assign({}, r, { views: String((+r.views || 0) + 1), lastView: now_() })); } catch (e) {} });
   if (one) {
-    const it = portalItem_(one, crm, logs, bank);
+    const it = portalItem_(one, crm, logs, bank, gal);
     if (!it) return none;
     seen([one]);
     return Object.assign({ ok: true, mode: 'one' }, it);
   }
-  const items = mine.map(r => portalItem_(r, crm, logs, bank)).filter(Boolean)
+  const items = mine.map(r => portalItem_(r, crm, logs, bank, gal)).filter(Boolean)
     .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)));
   if (!items.length) return none;
   seen(mine);
-  return { ok: true, mode: 'list', name: mine[0].name, items };
+  // 공개한 견적이 없는 고객 건의 사진 (예: 견적 앱 이전에 출고한 자전거)은 사진만 따로 한 줄씩
+  const used = new Set(mine.map(r => r.cid).filter(Boolean));
+  const galleries = crm.filter(c => gal[c.id] && !used.has(c.id)).map(c => {
+    const shipLog = logs.filter(l => l.cid === c.id && l.stage === '출고').map(l => String(l.at).slice(0, 10)).sort()[0] || '';
+    return { id: galKey_(c.id), title: c.item || '자전거', stage: c.stage === '종료' ? '' : c.stage, ship: shipLog, images: gal[c.id] };
+  });
+  return { ok: true, mode: 'list', name: mine[0].name, items, galleries };
 }
 
 // ───────────────────────────── 고객코드 (포털 로그인) ─────────────────────────────

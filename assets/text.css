@@ -388,6 +388,17 @@ body.panel-open{overflow:hidden}
 .pj-viewer figcaption{display:flex;align-items:center;gap:8px;color:#fff;font-size:13px}
 .pj-viewer figcaption span{margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pj-viewer .pj-btn{color:#fff;border-color:rgba(255,255,255,.5);display:inline-flex;align-items:center;text-decoration:none}
+.crm-dtabs{padding-top:16px;margin-top:8px}
+.gal-hint{margin:12px 0 0;font-size:13px;line-height:20px;color:var(--muted);word-break:keep-all}
+.gal-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.gal-img.hid .th{opacity:.45}
+.gal-img .th img{object-fit:cover}
+.gal-cap{width:100%;height:30px;padding:0;border:none;border-bottom:1px solid var(--line);border-radius:0;background:transparent;outline:none;font-size:13px;line-height:18px;color:var(--fg)}
+.gal-cap:focus{border-bottom-color:var(--fg)}
+.gal-cap::placeholder{color:var(--faint)}
+.gal-pub{display:inline-flex;align-items:center;gap:4px;height:26px;margin-right:auto;font-size:12px;line-height:16px;color:var(--muted);cursor:pointer}
+.gal-pub input{margin:0;accent-color:var(--fg);color-scheme:light}
+.gal .pj-iup{flex-wrap:wrap}
 .pj-alldone{display:flex;align-items:center;gap:16px;margin:24px 0 0;font-size:14px;color:var(--muted)}
 .projs .ct.late{color:#e58a96}
 .cs-more{border:none;background:none;padding:0;text-align:left;font-size:12px;line-height:16px;color:var(--t-muted)}
