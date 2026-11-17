@@ -1,7 +1,7 @@
 // 스튜디오 · 룩북 썸네일 (/studio/lookbook/)
 // 흐름: 사진 추가 → 사진마다 문구를 적음(새 사진은 마지막 문구를 이어받음) → 미리보기·썸네일에 블랙 레이어와 가운데 문구를 그림
 //       → 저장할 때 원본을 다시 읽어 고른 비율로 자르고(기본 원본 비율), 고른 가로로(기본 원본 크기) 계단식으로 줄인 뒤 레이어·문구를 얹어 JPG 최고 품질로 한 번만 인코딩
-// 서체는 Pretendard(굵기 Thin–Medium, 기본 Light)를 쓸 때만 CDN에서 불러옴. 글자 크기는 결과 가로에 대한 % 라서 미리보기와 결과의 비례가 같음
+// 서체는 Pretendard(굵기 Thin–Medium, 기본 Light)를 쓸 때만 /studio/fonts/ 에서 불러옴. 글자 크기는 결과 가로에 대한 % 라서 미리보기와 결과의 비례가 같음
 // 자르기·저장(ZIP, 휴대폰 공유 창) 방식은 톤 매칭(/studio/tone.js)과 같음
 (() => {
   'use strict';
@@ -9,7 +9,8 @@
 
   const K_OPT = 'myrubi.lookbook.opt2', K_SIZE = 'myrubi.lookbook.size', K_TEXT = 'myrubi.lookbook.text';
   const FONT = 'StudioPretendard';
-  const FONT_BASE = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-';
+  // Pretendard v1.3.9 (OFL) 를 포털에 같이 둠. CDN(jsDelivr gh)은 저장소가 커서 막히는 경우가 있어 2026-11-17 옮김
+  const FONT_BASE = '/studio/fonts/Pretendard-';
   const WEIGHTS = [{ w: 100, k: 'Thin' }, { w: 200, k: 'ExtraLight' }, { w: 300, k: 'Light' }, { w: 400, k: 'Regular' }, { w: 500, k: 'Medium' }];
   const OPT_DEF = { weight: 300, size: 6, track: -5, op: 40 };   // 2026-11-17 기본값: 크기 6%, 자간 -5, 오퍼시티 40%
   const RATIOS = [{ k: '원본', r: 0 }, { k: '4:3', r: 4 / 3 }, { k: '3:2', r: 3 / 2 }, { k: '1:1', r: 1 }, { k: '4:5', r: 4 / 5 }, { k: '16:9', r: 16 / 9 }];
@@ -57,7 +58,7 @@
       const k = WEIGHTS.find(x => x.w === w).k;
       fontJobs[w] = new FontFace(FONT, `url("${FONT_BASE}${k}.woff2") format("woff2")`, { weight: String(w) }).load()
         .then(f => { document.fonts.add(f); return true; })
-        .catch(() => { delete fontJobs[w]; toast('서체를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요', 4000); return false; });
+        .catch(() => { delete fontJobs[w]; toast('서체를 불러오지 못했습니다. 새로고침한 뒤 다시 저장해 주세요', 4000); return false; });
     }
     return fontJobs[w];
   }
