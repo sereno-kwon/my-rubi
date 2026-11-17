@@ -279,3 +279,14 @@ td.down { color: var(--bad-ink); }
 .legacy { margin-top: 8px; }
 @media (max-width: 1000px) { .ranks, .kpi-row.k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { table.paths { min-width: 760px; } .th3 { flex-direction: column; } }
+
+/* 연도별 비교 (매출보고서 #years, 매입보고서 #pyears) */
+.rp-sec h3.gap, .rp-two.gap { margin-top: 32px; }
+.rp-two.gap h3 { margin-top: 0; }
+.rp-two.gap h3 + table + h3 { margin-top: 24px; }
+table.years td small.up, table.mini td small.up { color: var(--good-ink); }
+table.years td small.down, table.mini td small.down { color: var(--bad-ink); }
+table.years tr.sub td { color: var(--ink2); border-top: 1px solid var(--fg); }
+td.good { color: var(--good-ink); }
+.lnk .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+small.tag { margin-left: 4px; padding: 0 4px; border: 1px solid var(--line); font-size: 11px; color: var(--ink2); white-space: nowrap; }

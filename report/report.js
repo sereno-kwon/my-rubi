@@ -33,7 +33,7 @@
     // 위에서부터 처음 맞는 규칙. 색은 이 순서로 고정 (거래처가 늘어도 색이 바뀌지 않음). 어디에도 안 맞는 RB 거래처는 '기타 (RB)'
     PLATFORMS: [
       ['루비워크샵 쇼룸', '쇼룸|매장|방문', 'RB'],
-      ['루비워크샵 홈페이지', '^(?!.*몰튼).*(홈페이지|아임웹|사이트|온라인|rubiworkshop)', 'RB'],
+      ['루비워크샵 홈페이지', '^(?!.*몰튼).*(홈페이지|아임웹|사이트|온라인|커머셜|rubiworkshop)', 'RB'],
       ['루비워크샵 스마트스토어', '^(?!.*개러지).*(워크샵.*스마트\\s*스토어|^\\s*(\\[RB\\]|RB\\s*/)\\s*스마트\\s*스토어)', 'RB'],
       ['루비개러지 스마트스토어', '개러지', 'RB'],
       ['루비서플라이 홈페이지', '루비\\s*서플라이|rubisupply', ''],
@@ -42,7 +42,7 @@
     ],
     // 브랜드 표기: 이카운트의 대문자 표기를 보기 좋게 바꿀 때 예외 (원래 대문자인 브랜드)
     BRAND_UPPER: ['QUOC', 'MKS', 'THM', 'ENVE', 'ABUS', 'SRAM', 'BMC', 'DT', 'PRO', 'REX', 'EVT', 'KMC', 'SKS', 'BBB', 'CPLX', '3T', 'OLD'],
-    BRAND_NAMES: {},
+    BRAND_NAMES: { 'WHITEINDUSTRIES': 'White Industries', 'WHITE INDUSTRIES': 'White Industries', 'CHRISKING': 'Chris King', 'CHRIS KING': 'Chris King', 'CARBON-TI': 'Carbon-Ti', 'WOLFTOOTH': 'Wolf Tooth', 'WOLF TOOTH': 'Wolf Tooth', 'CRANE BELL': 'Crane Bell', 'VELO ORANGE': 'Velo Orange', 'MUC-OFF': 'Muc-Off' },
     GARAGE_PARTNER: '개러지',   // 판매현황 거래처명 중 루비개러지로 볼 것 (Code.gs 의 GARAGE_PARTNER 와 같게)    // 예: { 'WOLFTOOTH': 'Wolf Tooth', 'MUC-OFF': 'Muc-Off' }
   }, CFG.REPORT || {});
 
@@ -92,11 +92,23 @@
 
   // ─────────── 이름 풀기 ───────────
   const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
-  function brandKey(name) {
+  // 같은 브랜드의 다른 표기(CARBON-TI · CARBON TI, MUC-OFF · MUC OFF)는 띄어쓰기·하이픈·점을 뺀 이름으로 묶고, 가장 많이 쓴 표기로 보여줌
+  const brandNorm = k => String(k || '').replace(/[\s\-_.]/g, '');
+  let BRAND_CANON = new Map();
+  function rawBrand(name) {
     const m = String(name || '').match(/^\s*\[([^\]]+)\]/);
     if (!m) return '';
     const parts = m[1].split('/').map(x => x.trim()).filter(x => x && !/^old$/i.test(x));
     return (parts[0] || '').toUpperCase();
+  }
+  function brandKey(name) {
+    const k = rawBrand(name);
+    return k ? (BRAND_CANON.get(brandNorm(k)) || k) : '';
+  }
+  function buildBrandCanon(names) {
+    const cnt = new Map();
+    names.forEach(n => { const k = rawBrand(n); if (!k) return; const nk = brandNorm(k); const m = cnt.get(nk) || new Map(); m.set(k, (m.get(k) || 0) + 1); cnt.set(nk, m); });
+    BRAND_CANON = new Map([...cnt].map(([nk, m]) => [nk, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
   }
   function brandLabel(k) {
     if (!k) return '브랜드 표기 없음';
@@ -122,12 +134,15 @@
   }
   const platColor = name => (PLAT_RULES.find(r => r.name === name) || {}).color || OTHER;
   const partnerLabel = p => String(p || '').replace(/^\s*(\[(RB|RS)\]|(RB|RS)\s*\/)\s*/i, '').trim() || '거래처 없음';
-  const isRB = p => /^\s*(\[RB\]|RB\s*\/)/i.test(String(p || ''));
+  // RB/ · [RB] 로 시작하는 거래처. 접두어 없이 '루비워크샵 …'·'루비개러지 …'로 적힌 예전 전표도 직접 판매로 봄
+  const isRB = p => /^\s*(\[RB\]|RB\s*\/|루비\s*(워크샵|개러지))/i.test(String(p || ''));
 
   // ─────────── 데이터 정리 ───────────
   function prepare(r) {
     const C = r.cols;
     const pick = (row, cols) => { const o = {}; cols.forEach((k, i) => o[k] = row[i]); return o; };
+    const nameAt = (rows, cols) => { const i = (cols || []).indexOf('name'); return i < 0 ? [] : (rows || []).map(row => row[i]); };
+    buildBrandCanon([].concat(nameAt(r.sales, C.sales), nameAt(r.purchases, C.purchases || C.sales), nameAt(r.stock, C.stock), nameAt(r.items, C.items)));
     const items = new Map(), itemByName = new Map();
     (r.items || []).forEach(row => {
       const o = pick(row, C.items);
@@ -181,11 +196,21 @@
   ];
   const dmax = () => db ? (MODE === 'purchase' ? db.pMaxD : db.maxD) : '';
   const dmin = () => db ? (MODE === 'purchase' ? db.pMinD : db.minD) : '';
+  // 지난 연도 버튼: 올린 자료가 있는 해 중 올해 앞 (예: 2024년 · 2025년). '올해' 앞에 놓음
+  function presetList() {
+    const thisY = +todayKST().slice(0, 4), lo = dmin(), years = [];
+    if (lo) for (let y = Math.max(+lo.slice(0, 4), thisY - 6); y < thisY; y++) years.push(['y' + y, y + '년']);
+    if (ui.preset && /^y\d{4}$/.test(ui.preset) && !years.some(([k]) => k === ui.preset)) years.push([ui.preset, ui.preset.slice(1) + '년']);
+    const i = PRESETS.findIndex(([k]) => k === 'ytd');
+    return PRESETS.slice(0, i).concat(years, PRESETS.slice(i));
+  }
   function period() {
     const today = todayKST(), mx = dmax();
     const anchor = mx ? (mx < today ? mx : today) : today;
     let from, to, label;
-    switch (ui.preset) {
+    const yr = /^y(\d{4})$/.exec(ui.preset || '');
+    if (yr) { from = yr[1] + '-01-01'; to = yr[1] + '-12-31'; label = `${yr[1]}년`; if (mx && mx < to && mx >= from) label += ` (${+mx.slice(5, 7)}월 ${+mx.slice(8, 10)}일까지 자료)`; }
+    else switch (ui.preset) {
       case 'thisMonth': from = monthStart(today); to = today; label = `${+today.slice(5, 7)}월 (진행 중)`; break;
       case 'lastWeek': {
         const wd = (new Date(D(today)).getUTCDay() + 6) % 7;   // 월요일 0
@@ -212,7 +237,8 @@
   }
   // 기준 날짜까지 끝난 마지막 달의 말일 (기준이 말일이면 그 달)
   function lastFull(s) { return s === monthEnd(s) ? s : monthEnd(addMonths(s, -1)); }
-  const covers = (f, t) => db && dmin() && dmin() <= f && dmax() >= t;
+  // 자료 첫날은 연초 휴일 때문에 1월 2~7일일 수 있으므로 시작 쪽은 7일까지 봐줌 (예: 2024년 첫 전표가 1월 2일이어도 2025년의 전년 비교가 보이게)
+  const covers = (f, t) => db && dmin() && dmin() <= addDays(f, 7) && dmax() >= t;
 
   // ─────────── 집계 ───────────
   const val = x => ui.metric === 'total' ? x.total : x.supply;
@@ -308,7 +334,7 @@
   function renderBar() {
     const P = db ? period() : null;
     $('#bar').innerHTML = `
-      <div class="seg" role="group" aria-label="기간">${PRESETS.map(([k, l]) => `<button type="button" data-preset="${k}" aria-pressed="${ui.preset === k}">${l}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="기간">${presetList().map(([k, l]) => `<button type="button" data-preset="${k}" aria-pressed="${ui.preset === k}">${l}</button>`).join('')}</div>
       ${ui.preset === 'custom' ? `<label class="dt"><span>시작</span><input type="date" id="cFrom" value="${esc(ui.from || (P && P.from) || '')}"></label><label class="dt"><span>끝</span><input type="date" id="cTo" value="${esc(ui.to || (P && P.to) || '')}"></label>` : ''}
       <div class="seg" role="group" aria-label="금액 기준"><button type="button" data-metric="supply" aria-pressed="${ui.metric === 'supply'}">공급가액</button><button type="button" data-metric="total" aria-pressed="${ui.metric === 'total'}">합계 (부가세 포함)</button></div>`;
     const chips = [];
@@ -334,6 +360,7 @@
     if (!covers(P.from, P.to)) out.push(`<p class="rp-warn">선택한 기간(${esc(P.label)}) 중 일부는 올린 판매현황 밖입니다. 판매현황은 ${esc(db.minD)} ~ ${esc(db.maxD)} 만 있습니다.</p>`);
     out.push(kpis(P, sc, sp, sy, hasPrev, hasYoy, T));
     out.push(trendView(P));
+    out.push(yearView());
     out.push(`<div class="rp-two">${platformView(cur, prev, hasPrev)}${partnerView(cur)}</div>`);
     out.push(brandView(cur, prev, hasPrev, T));
     out.push(stockView(T));
@@ -452,6 +479,116 @@
         <span class="vv">${fmtShort(r.v)}</span><span class="sh">${share(r.v, tot).toFixed(0)}%</span><span class="dd">${d == null ? '' : fmtPct(d)}</span></button></li>`;
     }).join('')}</ul><p class="foot">RB(직접 판매) ${share(rb, tot).toFixed(0)}% · RS(도매) ${share(tot - rb, tot).toFixed(0)}%</p>` : '<p class="none">이 기간 매출이 없습니다.</p>';
     return sec('platform', '플랫폼별 매출', '거래처명을 플랫폼으로 묶음 · 오른쪽 끝은 전 기간 대비', body);
+  }
+
+  // ─────────── 연도별 비교 (매출보고서) ───────────
+  // 매년 1월 1일부터 자료 마지막 날과 같은 월·일까지를 같은 기간으로 맞춰 비교 (예: 2024·2025·2026 모두 1/1 ~ 11/17)
+  // 지난 해는 연간 전체도 함께. 위 기간 버튼과 상관없이 늘 같은 창으로 보고, 브랜드·플랫폼 거른 조건은 따름
+  const acctKey = p => partnerLabel(p).replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, '').toLowerCase();
+  function yearWindows(lo, hi) {
+    if (!lo || !hi) return [];
+    const md = hi.slice(5), out = [];
+    for (let y = +lo.slice(0, 4); y <= +hi.slice(0, 4); y++) {
+      const from = y + '-01-01', to = y + '-' + (md === '02-29' && y % 4 ? '02-28' : md);
+      if (lo > y + '-01-15') continue;   // 그해 1월 중순 뒤부터 자료가 있으면 같은 기간 비교에서 뺌
+      out.push({ y, from, to, full: hi >= y + '-12-31' ? { from, to: y + '-12-31' } : null });
+    }
+    return out;
+  }
+  // 증감이 300%를 넘으면 배수로 (작은 금액에서 크게 늘어난 브랜드가 +25881% 처럼 보이지 않게)
+  const ycell = (v, pv, f) => `${f ? f(v) : fmtShort(v)}${pv == null ? '' : ` <small class="${pv > 0.05 ? 'up' : pv < -0.05 ? 'down' : ''}">${pv > 300 ? '×' + Math.round(pv / 100 + 1) : fmtPct(pv)}</small>`}`;
+
+  function yearView() {
+    const W0 = yearWindows(db.minD, db.maxD);
+    if (W0.length < 2) return sec('years', '연도별 비교', '', `<p class="none">지난해 판매현황을 함께 올리면 같은 기간끼리 연도별로 비교합니다. 지금 판매현황은 ${esc(db.minD)} ~ ${esc(db.maxD)} 입니다.</p>`);
+    const md = db.maxD.slice(5), mdL = `${+md.slice(0, 2)}월 ${+md.slice(3)}일`;
+    const firstSeen = new Map();   // 도매 거래처를 처음 본 날
+    db.sales.forEach(x => { if (x.rb) return; const k = acctKey(x.partner); if (!firstSeen.has(k) || x.d < firstSeen.get(k)) firstSeen.set(k, x.d); });
+    const acctName = new Map(); db.sales.forEach(x => { if (!x.rb) acctName.set(acctKey(x.partner), partnerLabel(x.partner)); });
+    const Y = W0.map(w => {
+      const list = inRange(w.from, w.to, baseFilt), s = sum(list);
+      const rb = list.filter(x => x.rb).reduce((m, x) => m + val(x), 0);
+      const acc = new Map(); list.forEach(x => { if (x.rb) return; const k = acctKey(x.partner); acc.set(k, (acc.get(k) || 0) + val(x)); });
+      const accs = [...acc].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), rs = s.v - rb;
+      const top5 = accs.slice(0, 5).reduce((m, a) => m + a[1], 0);
+      const neu = accs.filter(([k]) => (firstSeen.get(k) || '') >= w.from);
+      const brands = new Set(list.filter(x => x.brand && val(x) > 0).map(x => x.brand));
+      const full = w.full ? sum(inRange(w.full.from, w.full.to, baseFilt)).v : null;
+      return Object.assign({}, w, { list, v: s.v, orders: s.orders, rb, rs, acc, accs, top5: share(top5, rs), neu, neuV: neu.reduce((m, a) => m + a[1], 0), brands: brands.size, fullV: full });
+    });
+    const last = Y[Y.length - 1], prevY = Y[Y.length - 2];
+    const pc = (i, f) => i ? chg(f(Y[i]), f(Y[i - 1])) : null;
+    const rowsDef = [
+      ['매출', o => o.v, null, true],
+      ['RB 직접 판매', o => o.rb, null, true],
+      ['RS 도매', o => o.rs, null, true],
+      ['도매 비중', o => share(o.rs, o.v), v => v.toFixed(0) + '%', false],
+      ['전표 수', o => o.orders, v => fmt(v) + '건', true],
+      ['건당 매출', o => o.orders ? o.v / o.orders : 0, null, true],
+      ['활성 도매 거래처', o => o.accs.length, v => fmt(v) + '곳', true],
+      ['새 도매 거래처', o => o.neu.length, v => fmt(v) + '곳', false, true],
+      ['새 거래처 매출', o => o.neuV, null, false, true],
+      ['상위 5곳 비중 (도매)', o => o.top5, v => v.toFixed(0) + '%', false],
+      ['매출 있는 브랜드', o => o.brands, v => fmt(v) + '개', true],
+    ];
+    const head = `<tr><th>${esc('1/1 ~ ' + mdL)}</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr>`;
+    // 새 거래처는 첫해에는 모두 새것으로 잡히므로 첫해 칸은 비움
+    const body = rowsDef.map(([l, f, fm, d, skip0]) => `<tr><td>${l}</td>${Y.map((o, i) => `<td class="n">${skip0 && !i ? '<small>–</small>' : ycell(f(o), d ? pc(i, f) : null, fm)}</td>`).join('')}</tr>`).join('')
+      + (Y.some(o => o.fullV != null) ? `<tr class="sub"><td>연간 전체 매출</td>${Y.map(o => `<td class="n">${o.fullV == null ? '<small>진행 중</small>' : fmtShort(o.fullV)}</td>`).join('')}</tr>` : '');
+    const summary = `<div class="scroll"><table class="years">${'<thead>' + head + '</thead>'}<tbody>${body}</tbody></table></div>`;
+
+    // 월별 선그래프 (해마다 한 줄)
+    const YC = Y.map((o, i) => i === Y.length - 1 ? SLOTS[0] : i === Y.length - 2 ? SLOTS[1] : i === Y.length - 3 ? SLOTS[2] : OTHER);
+    const mv = Y.map(o => { const a = Array(12).fill(0); db.sales.forEach(x => { if (x.d.slice(0, 4) === String(o.y) && baseFilt(x)) a[+x.d.slice(5, 7) - 1] += val(x); }); return a; });
+    const lastM = +db.maxD.slice(5, 7);
+    const W = 760, H = 260, L = 52, R = 8, Tp = 18, B = 30, iw = W - L - R, ih = H - Tp - B;
+    const max = niceMax(Math.max(1, ...mv.flat()));
+    const yy = v => Tp + ih - Math.max(0, v) / max * ih, band = iw / 12, cx = i => L + band * i + band / 2;
+    let g = '';
+    for (let i = 0; i <= 4; i++) { const v = max * i / 4, y0 = yy(v); g += `<line x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}" class="${i ? 'grid' : 'base'}"/><text x="${L - 8}" y="${y0 + 4}" class="ax" text-anchor="end">${i ? fmtShort(v) : '0'}</text>`; }
+    Y.forEach((o, k) => {
+      const n = o === last ? lastM : 12, pts = mv[k].slice(0, n).map((v, i) => `${cx(i)},${yy(v)}`);
+      g += `<polyline points="${pts.join(' ')}" fill="none" stroke="${YC[k]}" stroke-width="${o === last ? 2.5 : 1.75}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      mv[k].slice(0, n).forEach((v, i) => { g += `<circle cx="${cx(i)}" cy="${yy(v)}" r="${o === last ? 3 : 2.25}" fill="${YC[k]}"/>`; });
+    });
+    for (let i = 0; i < 12; i++) {
+      const tipTxt = `<b>${i + 1}월</b>` + Y.map((o, k) => o === last && i + 1 > lastM ? '' : `<br><i style="background:${YC[k]}"></i>${o.y}년 ${fmt(mv[k][i])}원${o === last && i + 1 === lastM && db.maxD < monthEnd(db.maxD) ? ` <small>(${+db.maxD.slice(8)}일까지)</small>` : ''}`).join('');
+      g += `<rect x="${L + band * i}" y="${Tp}" width="${band}" height="${ih}" class="hit" data-tip="${esc(tipTxt)}"/><text x="${cx(i)}" y="${H - 10}" class="ax" text-anchor="middle">${i + 1}월</text>`;
+    }
+    const chart = `<ul class="legend">${Y.map((o, k) => `<li><i style="background:${YC[k]}"></i>${o.y}년</li>`).join('')}</ul><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="연도별 월 매출">${g}</svg>
+      <details class="rp-tbl"><summary>표로 보기</summary><div class="scroll"><table><thead><tr><th>월</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr></thead><tbody>${Array.from({ length: 12 }, (_, i) => `<tr><td>${i + 1}월</td>${Y.map((o, k) => `<td class="n">${o === last && i + 1 > lastM ? '' : fmt(mv[k][i])}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+
+    // 플랫폼별
+    const plats = PLAT_RULES.map(r => r.name).concat(PLAT_OTHER);
+    const pv = Y.map(o => groupBy(o.list, x => x.plat));
+    const pRows = plats.filter(p => pv.some(m => m.get(p) && m.get(p).v)).sort((a, b) => ((pv[pv.length - 1].get(b) || {}).v || 0) - ((pv[pv.length - 1].get(a) || {}).v || 0));
+    const platT = `<table class="mini"><thead><tr><th>플랫폼</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr></thead><tbody>${pRows.map(p => `<tr><td><button type="button" class="lnk" data-plat="${esc(p)}"><i class="dot" style="background:${platColor(p)}"></i>${esc(p)}</button></td>${Y.map((o, i) => { const v = (pv[i].get(p) || {}).v || 0, b = i ? (pv[i - 1].get(p) || {}).v || 0 : null; return `<td class="n">${ycell(v, i && b ? chg(v, b) : null)}</td>`; }).join('')}</tr>`).join('')}</tbody></table>`;
+
+    // 브랜드: 올해 상위 15와 크게 늘어난·줄어든 브랜드
+    const bv = Y.map(o => groupBy(o.list.filter(x => x.brand), x => x.brand));
+    const bL = bv[bv.length - 1], bP = bv[bv.length - 2];
+    const bAll = new Set(); bv.forEach(m => m.forEach((o, k) => bAll.add(k)));
+    const bTop = [...bL.values()].sort((a, b) => b.v - a.v).slice(0, 15).map(o => o.k);
+    const bRow = k => `<tr><td><button type="button" class="lnk" data-brand="${esc(k)}">${esc(brandLabel(k))}</button></td>${Y.map((o, i) => { const v = (bv[i].get(k) || {}).v || 0, b = i ? (bv[i - 1].get(k) || {}).v || 0 : null; return `<td class="n">${v ? ycell(v, i && b > 0 ? chg(v, b) : null) : '–'}</td>`; }).join('')}</tr>`;
+    const bHead = `<thead><tr><th>브랜드</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr></thead>`;
+    const diffs = [...bAll].map(k => ({ k, d: ((bL.get(k) || {}).v || 0) - ((bP.get(k) || {}).v || 0) }));
+    const up = diffs.filter(o => o.d > 0).sort((a, b) => b.d - a.d).slice(0, 6), dn = diffs.filter(o => o.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
+    const mover = (list, title) => `<h3>${title} <small>${prevY.y} → ${last.y} 같은 기간</small></h3><table class="mini"><tbody>${list.map(o => `<tr><td><button type="button" class="lnk" data-brand="${esc(o.k)}">${esc(brandLabel(o.k))}</button></td><td class="n">${fmtShort((bP.get(o.k) || {}).v || 0)} → ${fmtShort((bL.get(o.k) || {}).v || 0)}</td><td class="n ${o.d > 0 ? 'good' : 'bad'}">${o.d > 0 ? '+' : '−'}${fmtShort(Math.abs(o.d))}</td></tr>`).join('') || '<tr><td class="none">없음</td></tr>'}</tbody></table>`;
+    const brandT = `<div class="scroll"><table class="mini years">${bHead}<tbody>${bTop.map(bRow).join('')}</tbody></table></div>`;
+
+    // 도매 거래처
+    const aKeys = new Set(); Y.forEach(o => o.accs.slice(0, 12).forEach(([k]) => aKeys.add(k)));
+    const aTop = [...last.acc].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k]) => k);
+    const aRow = k => `<tr><td>${esc(acctName.get(k) || k)}${(firstSeen.get(k) || '') >= last.from ? ' <small class="tag">새 거래처</small>' : ''}</td>${Y.map((o, i) => { const v = o.acc.get(k) || 0, b = i ? Y[i - 1].acc.get(k) || 0 : null; return `<td class="n">${v ? ycell(v, i && b > 0 ? chg(v, b) : null) : '–'}</td>`; }).join('')}</tr>`;
+    const aDiff = [...new Set([...last.acc.keys(), ...prevY.acc.keys()])].map(k => ({ k, d: (last.acc.get(k) || 0) - (prevY.acc.get(k) || 0) })).filter(o => o.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
+    const acctT = `<div class="scroll"><table class="mini years"><thead><tr><th>거래처 (${last.y} 상위 12)</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr></thead><tbody>${aTop.map(aRow).join('')}</tbody></table></div>`;
+    const acctDn = `<h3>크게 줄어든 거래처 <small>${prevY.y} → ${last.y} 같은 기간</small></h3><table class="mini"><tbody>${aDiff.map(o => `<tr><td>${esc(acctName.get(o.k) || o.k)}</td><td class="n">${fmtShort(prevY.acc.get(o.k) || 0)} → ${fmtShort(last.acc.get(o.k) || 0)}</td><td class="n bad">−${fmtShort(-o.d)}</td></tr>`).join('') || '<tr><td class="none">없음</td></tr>'}</tbody></table>
+      <p class="foot">${last.y}년 새 도매 거래처 ${fmt(last.neu.length)}곳 · 매출 ${fmtShort(last.neuV)}원 (처음 거래한 날이 ${last.y}년인 거래처)</p>`;
+
+    return sec('years', '연도별 비교', `매년 1월 1일 ~ ${mdL} 같은 기간 · ${ui.metric === 'total' ? '합계, 부가세 포함' : '공급가액, 부가세 별도'}${ui.brand || ui.plat ? ' · 거른 조건 적용' : ''} · 작은 글씨는 전년 같은 기간 대비`,
+      `${summary}<h3 class="gap">월별 매출 <small>해마다 한 줄 · ${last.y}년은 ${mdL}까지</small></h3>${chart}
+       <div class="rp-two gap"><div><h3>플랫폼별</h3>${platT}</div><div>${mover(up, '크게 늘어난 브랜드')}${mover(dn, '크게 줄어든 브랜드')}</div></div>
+       <div class="rp-two gap"><div><h3>브랜드별 <small>${last.y} 상위 15</small></h3>${brandT}</div><div><h3>도매 거래처</h3>${acctT}${acctDn}</div></div>`);
   }
 
   function partnerView(cur) {
@@ -636,11 +773,46 @@
         ${tile('재고 금액', db.stockDate ? fmtShort(sv) + '원' : '–', db.stockDate ? `재고일수 ${dosAll == null ? '–' : isFinite(dosAll) ? fmt(dosAll) + '일' : '판매 없음'}` : '재고현황을 올려 주세요', '', '', '입고단가(없으면 최근 매입 단가) × 재고 수량')}
       </div></section>`);
     out.push(pTrend(P));
+    out.push(pYearView());
     out.push(pRecent(T));
     out.push(`<div class="rp-two">${pBrands(cur, prev, hasPrev, P, mo, T)}${pSuppliers(cur)}</div>`);
     out.push(pModels(P, T));
     out.push(uploadsView());
     main.innerHTML = out.join('');
+  }
+
+  // ─────────── 연도별 비교 (매입보고서) ───────────
+  // 매출보고서와 같은 창: 매년 1월 1일 ~ 구매현황 마지막 날과 같은 월·일
+  function pYearView() {
+    const W0 = yearWindows(db.pMinD, db.pMaxD);
+    if (W0.length < 2) return sec('pyears', '연도별 비교', '', `<p class="none">지난해 구매현황을 함께 올리면 같은 기간끼리 연도별 매입을 비교합니다. 지금 구매현황은 ${esc(db.pMinD)} ~ ${esc(db.pMaxD)} 입니다.</p>`);
+    const md = db.pMaxD.slice(5), mdL = `${+md.slice(0, 2)}월 ${+md.slice(3)}일`;
+    const Y = W0.map(w => {
+      const list = pIn(w.from, w.to), s = sum(list), sv = sum(sIn(w.from, w.to)).v;
+      const mo = Math.max(1, (days(w.from, w.to) + 1) / 30.4375);
+      return Object.assign({}, w, { list, v: s.v, q: s.q, sv, mo, brands: new Set(list.filter(x => val(x) > 0).map(x => x.brand)).size, sups: new Set(list.map(x => acctKey(x.partner)).filter(Boolean)).size, fullV: w.full ? sum(pIn(w.full.from, w.full.to)).v : null });
+    });
+    const last = Y[Y.length - 1];
+    const rowsDef = [
+      ['매입', o => o.v, null, true],
+      ['월 평균 매입', o => o.v / o.mo, null, true],
+      ['같은 기간 매출', o => o.sv, null, true],
+      ['매출 대비 매입', o => o.sv ? o.v / o.sv * 100 : 0, v => Math.round(v) + '%', false],
+      ['매입 수량', o => o.q, v => fmt(v) + '개', true],
+      ['매입 브랜드', o => o.brands, v => fmt(v) + '개', true],
+      ['공급처', o => o.sups, v => fmt(v) + '곳', true],
+    ];
+    const body = rowsDef.map(([l, f, fm, d]) => `<tr><td>${l}</td>${Y.map((o, i) => `<td class="n">${ycell(f(o), d && i ? chg(f(o), f(Y[i - 1])) : null, fm)}</td>`).join('')}</tr>`).join('')
+      + (Y.some(o => o.fullV != null) ? `<tr class="sub"><td>연간 전체 매입</td>${Y.map(o => `<td class="n">${o.fullV == null ? '<small>진행 중</small>' : fmtShort(o.fullV)}</td>`).join('')}</tr>` : '');
+    const bv = Y.map(o => groupBy(o.list.filter(x => x.brand), x => x.brand));
+    const bs = groupBy(sIn(last.from, last.to).filter(x => x.brand), x => x.brand);
+    const top = [...bv[bv.length - 1].values()].sort((a, b) => b.v - a.v).slice(0, 15).map(o => o.k);
+    const bT = `<div class="scroll"><table class="mini years"><thead><tr><th>브랜드 (${last.y} 매입 상위 15)</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}<th class="n">${last.y} 매출 대비</th></tr></thead><tbody>${top.map(k => {
+      const lv = (bv[bv.length - 1].get(k) || {}).v || 0, sv = (bs.get(k) || {}).v || 0;
+      return `<tr><td><button type="button" class="lnk" data-brand="${esc(k)}">${esc(brandLabel(k))}</button></td>${Y.map((o, i) => { const v = (bv[i].get(k) || {}).v || 0, b = i ? (bv[i - 1].get(k) || {}).v || 0 : null; return `<td class="n">${v ? ycell(v, i && b > 0 ? chg(v, b) : null) : '–'}</td>`; }).join('')}<td class="n ${sv && lv / sv > 1 ? 'bad' : ''}">${sv ? Math.round(lv / sv * 100) + '%' : '매출 없음'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+    return sec('pyears', '연도별 비교', `매년 1월 1일 ~ ${mdL} 같은 기간 · ${ui.metric === 'total' ? '합계, 부가세 포함' : '공급가액, 부가세 별도'}${ui.brand ? ' · 거른 조건 적용' : ''} · 작은 글씨는 전년 같은 기간 대비 · 매출 대비가 100%를 넘으면 판 것보다 많이 사들인 것`,
+      `<div class="scroll"><table class="years"><thead><tr><th>${esc('1/1 ~ ' + mdL)}</th>${Y.map(o => `<th class="n">${o.y}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div><h3 class="gap">브랜드별 매입</h3>${bT}`);
   }
 
   function pTrend(P) {
