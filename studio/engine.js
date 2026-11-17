@@ -1,4 +1,4 @@
-// 톤 매칭 엔진 (/tone/)
+// 스튜디오 · 톤 매칭 엔진 (/studio/)
 // 사진 한 장의 톤을 숫자로 요약(analyze)하고, 기준 톤(profile)에 맞추는 3D LUT를 만들어 픽셀에 입힙니다.
 // 브라우저(window.ToneEngine)와 Node(require) 양쪽에서 같은 코드가 돌아서, 프리셋도 이 코드로 만듭니다.
 //

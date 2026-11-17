@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스튜디오 · 룩북 썸네일 · My Rubi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
+<link rel="stylesheet" href="/studio/studio.css?v=20261117a">
+<!-- 스튜디오 · 룩북 썸네일: 사진 위에 블랙 레이어(기본 60%)를 얹고 가운데에 Pretendard 문구(기본 Light)를 넣어 JPG로 저장
+     사진은 서버로 보내지 않고 이 브라우저 안에서만 처리함. 코드는 /studio/lookbook.js -->
+</head>
+<body>
+<div class="tm" id="app">
+  <header class="tm-hd">
+    <div>
+      <p class="k">App</p>
+      <h1>스튜디오</h1>
+      <nav class="st-tabs" aria-label="스튜디오 기능"><a href="/studio/">톤 매칭</a><a href="/studio/lookbook/" aria-current="page">룩북 썸네일</a></nav>
+      <p class="tm-status" id="status">사진을 올리면 블랙 레이어와 문구를 얹어 보여줍니다</p>
+    </div>
+    <div class="tm-acts">
+      <button class="btn pri" id="btnAdd" type="button">사진 추가</button>
+    </div>
+  </header>
+
+  <div class="tm-body">
+    <section class="tm-stage" id="stage" aria-label="미리보기">
+      <label class="tm-drop" id="drop" for="fileIn">
+        <span class="t">사진을 끌어다 놓거나 눌러서 고르세요</span>
+        <span class="s">사진 위에 블랙 레이어를 얹고 가운데에 문구를 넣습니다. 여러 장을 올리면 사진마다 문구를 따로 적을 수 있고, 레이어·서체·크기는 모두 같게 들어갑니다. 사진은 이 브라우저 안에서만 처리되고 어디에도 올라가지 않습니다.</span>
+      </label>
+      <div class="tm-view" id="view" hidden>
+        <canvas id="cv" aria-label="룩북 썸네일 미리보기"></canvas>
+      </div>
+      <div class="tm-bar" id="viewBar" hidden>
+        <span class="tm-name" id="curName"></span>
+        <span class="sp"></span>
+        <button class="btn sm ghost" id="btnRemove" type="button">빼기</button>
+        <button class="btn sm" id="btnSaveOne" type="button">이 사진 저장</button>
+      </div>
+      <p class="tm-hint" id="hint" hidden>보이는 화면이 저장될 영역입니다. 비율을 바꿨다면 사진을 끌어서 자를 위치를 옮기고, 두 번 누르면 가운데로 돌아갑니다.</p>
+      <ol class="tm-strip" id="strip" aria-label="올린 사진"></ol>
+    </section>
+
+    <aside class="tm-side">
+      <section class="tm-sec">
+        <h2>문구 <button class="lnk" id="btnTextAll" type="button">모든 사진에 같게</button></h2>
+        <label class="tm-field lb-text">이 사진의 문구
+          <input id="text" type="text" maxlength="80" autocomplete="off" spellcheck="false" placeholder="예: Surly Straggler">
+        </label>
+        <p class="tm-note">새로 올리는 사진에는 마지막에 적은 문구가 들어갑니다.</p>
+      </section>
+
+      <section class="tm-sec">
+        <h2>서체 <button class="lnk" id="btnTypeReset" type="button">처음 값으로</button></h2>
+        <div class="tm-size">
+          <span class="lb">굵기</span>
+          <div class="seg sm" id="weightSeg" role="group" aria-label="Pretendard 굵기"></div>
+        </div>
+        <div class="tm-sl" id="typeSliders"></div>
+        <p class="tm-note">Pretendard. 크기는 결과 가로에 대한 비율이라 저장 크기를 바꿔도 같은 비례로 들어갑니다.</p>
+      </section>
+
+      <section class="tm-sec">
+        <h2>레이어 <button class="lnk" id="btnLayerReset" type="button">처음 값으로</button></h2>
+        <div class="tm-sl" id="layerSliders"></div>
+      </section>
+
+      <section class="tm-sec">
+        <h2>크기 <button class="lnk" id="btnSizeReset" type="button">처음 값으로</button></h2>
+        <div class="tm-size">
+          <span class="lb">비율</span>
+          <div class="seg" id="ratioSeg" role="group" aria-label="비율"></div>
+          <span class="lb">가로</span>
+          <div class="wrow">
+            <label class="win"><input id="outW" type="number" min="320" max="6000" step="1" inputmode="numeric" aria-label="가로 픽셀" placeholder="원본"><span>px</span></label>
+            <div class="seg sm" id="wSeg" role="group" aria-label="자주 쓰는 가로"></div>
+          </div>
+        </div>
+        <p class="tm-note" id="sizeNote"></p>
+      </section>
+
+      <section class="tm-sec">
+        <h2>저장</h2>
+        <button class="btn pri wide" id="btnSaveAll" type="button" disabled>전체 저장</button>
+        <p class="tm-note">파일 이름은 <span id="namePrev">rubi-lookbook-문구.jpg</span> 형식입니다. 원본 파일은 그대로 두고 JPG(최고 품질)로 한 번만 저장합니다. 컴퓨터에서는 여러 장이면 ZIP 하나로, 휴대폰에서는 공유 창에서 '이미지 저장'을 고르면 사진 앱에 들어갑니다.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept="image/*" multiple hidden>
+<div class="tm-toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/config.js?v=20261109a"></script>
+<script src="/lib.js?v=20261029h"></script>
+<script src="/studio/lookbook.js?v=20261117a"></script>
+</body>
+</html>

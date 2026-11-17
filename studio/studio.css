@@ -1,4 +1,4 @@
-/* 톤 매칭 (/tone/) · rubi-type.css 토큰 위에 얹음. 글자 크기 28 · 24 · 18 · 15 · 14 · 13 · 12 */
+/* 스튜디오 (/studio/ 톤 매칭, /studio/lookbook/ 룩북 썸네일) · rubi-type.css 토큰 위에 얹음. 글자 크기 28 · 24 · 18 · 15 · 14 · 13 · 12 */
 * { box-sizing: border-box; }
 html { scrollbar-width: none; }
 html::-webkit-scrollbar { display: none; }
@@ -131,3 +131,14 @@ h1, h2, b { font-weight: 400; }
   .tm-sl .row { padding: 8px 0; }
   .tm-sl input[type=range] { height: 32px; }
 }
+
+/* 스튜디오 기능 탭 (톤 매칭 · 룩북 썸네일) */
+.st-tabs { display: flex; gap: 16px; margin-top: 10px; }
+.st-tabs a { padding-bottom: 2px; border-bottom: 1px solid transparent; font-size: 14px; line-height: 20px; color: var(--muted); text-decoration: none; }
+.st-tabs a:hover { color: var(--fg); }
+.st-tabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--fg); }
+
+/* 룩북 썸네일 */
+.lb-text { margin-top: 0; }
+#typeSliders { margin-top: 8px; }
+.lb-text input { width: 100%; }

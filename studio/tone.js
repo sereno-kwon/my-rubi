@@ -1,4 +1,4 @@
-// 톤 매칭 앱 (/tone/)
+// 스튜디오 · 톤 매칭 (/studio/)
 // 흐름: 사진 추가 → 사진마다 톤 요약(engine.analyze, 긴 변 512px) → 기준 톤과 조정값으로 LUT를 만들어 미리보기·썸네일에 입힘
 //       → 저장할 때 원본을 다시 읽어 고른 비율(기본 4:3)로 자르고, 원본에서 바로 2000×1500으로 줄인 뒤(한 번에 2배 넘게 줄이지 않음) LUT를 입혀 JPG 최고 품질로 한 번만 인코딩
 // 자르는 위치는 사진마다 미리보기에서 끌어서 정함(cx, cy: 0–1, 기본 가운데)
@@ -271,7 +271,7 @@
     const id = b.closest('li').dataset.id, p = custom.find(x => x.id === id); if (!p) return;
     if (b.dataset.act === 'code') {
       const line = `  { id: ${JSON.stringify(p.id)}, name: ${JSON.stringify(p.name)}, note: ${JSON.stringify(p.note.replace(' · 이 브라우저', ''))}, profile: ${JSON.stringify(p.profile)} },`;
-      try { await navigator.clipboard.writeText(line); toast('복사했습니다. tone/presets.js 에 붙이면 모든 직원이 함께 씁니다'); }
+      try { await navigator.clipboard.writeText(line); toast('복사했습니다. studio/presets.js 에 붙이면 모든 직원이 함께 씁니다'); }
       catch (err) { prompt('아래 줄을 복사하세요', line); }
     } else if (b.dataset.act === 'del') {
       if (!b.classList.contains('warn')) { b.classList.add('warn'); b.textContent = '한 번 더 누르면 지움'; setTimeout(() => { if (b.isConnected) { b.classList.remove('warn'); b.textContent = '지우기'; } }, 3000); return; }

@@ -20,13 +20,14 @@ window.MYRUBI_APPS = [
   { id: 'project',   title: '프로젝트',     icon: 'note',   tint: 'amber', kind: 'builtin', note: '프로젝트 세부 항목, 멤버 체크리스트와 연동' },
   { id: 'stock',     title: '재고확인',     icon: 'box',    tint: 'blue',  kind: 'builtin', note: '이카운트 창고별 재고' },
   { id: 'nas',       title: 'NAS',         icon: 'server', tint: 'slate', kind: 'builtin' },
-  { id: 'manual',    title: '메뉴얼',      icon: 'note',   tint: 'slate', kind: 'frame', url: '/manual/', note: '포털 앱 사용법. 고객관리 · 견적 · 지오메트리 · 톤 매칭' },
+  { id: 'manual',    title: '메뉴얼',      icon: 'note',   tint: 'slate', kind: 'frame', url: '/manual/', note: '포털 앱 사용법. 고객관리 · 견적 · 지오메트리 · 스튜디오' },
 
   // APP (준비 중)
   { id: 'customers',    title: '고객관리',     icon: 'bike',  tint: 'ruby',  kind: 'builtin', note: '고객 CRM, 고객문의·구매진행중·구매완료 현황과 주간 보고' },
   { id: 'quote',        title: '견적',        icon: 'note',  tint: 'paper', kind: 'builtin', note: '자전거 견적 세팅, 이카운트 품목·판매단가, A4 견적서 인쇄·PDF' },
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
-  { id: 'tone',         title: '톤 매칭',     icon: 'camera', tint: 'paper', kind: 'frame', url: '/tone/', note: '사진을 루비 톤(또는 직접 고른 기준 사진의 톤)으로 맞춰 보정·저장, 사진은 브라우저 안에서만 처리' },
+  // 스튜디오: 예전 이름 톤 매칭. 바탕화면 배치·고정이 그대로 남도록 id 는 'tone' 그대로 둠 (/tone/ 은 /studio/ 로 넘김)
+  { id: 'tone',         title: '스튜디오',    icon: 'camera', tint: 'paper', kind: 'frame', url: '/studio/', note: '사진 작업. 톤 매칭(루비 톤으로 보정·저장), 룩북 썸네일(블랙 레이어와 가운데 문구), 사진은 브라우저 안에서만 처리' },
 
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
   // 루비개러지는 REPORT 구역에 있지만 보이는 사람은 아래 only 목록(전요셉 포함)을 따름
