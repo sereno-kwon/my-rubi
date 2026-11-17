@@ -7,11 +7,11 @@
   'use strict';
   if (window.MR && !MR.requireLogin()) return;
 
-  const K_OPT = 'myrubi.lookbook.opt', K_SIZE = 'myrubi.lookbook.size', K_TEXT = 'myrubi.lookbook.text';
+  const K_OPT = 'myrubi.lookbook.opt2', K_SIZE = 'myrubi.lookbook.size', K_TEXT = 'myrubi.lookbook.text';
   const FONT = 'StudioPretendard';
   const FONT_BASE = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-';
   const WEIGHTS = [{ w: 100, k: 'Thin' }, { w: 200, k: 'ExtraLight' }, { w: 300, k: 'Light' }, { w: 400, k: 'Regular' }, { w: 500, k: 'Medium' }];
-  const OPT_DEF = { weight: 300, size: 6, track: 0, op: 60 };
+  const OPT_DEF = { weight: 300, size: 6, track: -5, op: 40 };   // 2026-11-17 기본값: 크기 6%, 자간 -5, 오퍼시티 40%
   const RATIOS = [{ k: '원본', r: 0 }, { k: '4:3', r: 4 / 3 }, { k: '3:2', r: 3 / 2 }, { k: '1:1', r: 1 }, { k: '4:5', r: 4 / 5 }, { k: '16:9', r: 16 / 9 }];
   const WIDTHS = [0, 1080, 1600, 2000, 2560];  // 0 = 원본 (자른 영역의 원래 가로, 키우지 않음)
   const SIZE_DEF = { ratio: '원본', w: 0 }, W_MIN = 320, W_MAX = 6000;
