@@ -1072,26 +1072,29 @@ function forkDiagram() {
 const BRANDS = [
   { id: 'specialized', name: '스페셜라이즈드', en: 'Specialized' },
   { id: 'trek', name: '트렉', en: 'Trek' },
+  { id: 'cannondale', name: '캐논데일', en: 'Cannondale' },
   { id: 'pinarello', name: '피나렐로', en: 'Pinarello' },
   { id: 'parlee', name: '팔리 사이클', en: 'Parlee Cycles', short: 'Parlee' },
   { id: 'crust', name: '크러스트', en: 'Crust Bikes', short: 'Crust' },
+  { id: 'surly', name: '설리', en: 'Surly Bikes', short: 'Surly' },
 ];
 const CATS = [
   ['road', '로드'], ['aero', '에어로 로드'], ['endurance', '엔듀런스 로드'], ['gravel', '그래블'], ['cyclocross', '사이클로크로스'], ['track', '트랙'], ['touring', '투어링'],
-  ['xc', 'XC 풀서스펜션'], ['hardtail', '하드테일'], ['trail', '트레일'], ['enduro', '엔듀로'], ['dh', '다운힐'], ['dirtjump', '더트점프'],
-  ['hybrid', '하이브리드 · 피트니스'], ['city', '시티'],
-  ['ebike-road', 'e-바이크 로드'], ['ebike-gravel', 'e-바이크 그래블'], ['ebike-mtb', 'e-바이크 MTB'], ['ebike-city', 'e-바이크 시티'], ['other', '기타'],
+  ['xc', 'XC 풀서스펜션'], ['hardtail', '하드테일'], ['trail', '트레일'], ['enduro', '엔듀로'], ['dh', '다운힐'], ['dirtjump', '더트점프'], ['fat', '팻바이크'],
+  ['hybrid', '하이브리드 · 피트니스'], ['city', '시티'], ['cargo', '카고'],
+  ['ebike-road', 'e-바이크 로드'], ['ebike-gravel', 'e-바이크 그래블'], ['ebike-mtb', 'e-바이크 MTB'], ['ebike-city', 'e-바이크 시티'], ['ebike-cargo', 'e-바이크 카고'], ['other', '기타'],
 ];
 const CAT_NAME = Object.fromEntries(CATS);
 const brandCache = {};
 function loadBrand(id) {
-  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261109d`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
+  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261117a`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
   return brandCache[id];
 }
 const isNum = v => typeof v === 'number' && isFinite(v);
-const MTB = /^(xc|trail|enduro|dh|dirtjump|hardtail|ebike-mtb)$/;
+const MTB = /^(xc|trail|enduro|dh|dirtjump|hardtail|fat|ebike-mtb)$/;
 function brandBike(br, m, sz) {
-  const cat = m.category || 'other', mtb = MTB.test(cat), flatBar = mtb || /^(hybrid|city|ebike-city)$/.test(cat);
+  // barType('flat'|'drop')로 카테고리 기본 핸들바를 바꿀 수 있음 (예: 설리 Bridge Club · Ogre 같은 플랫바 투어링)
+  const cat = m.category || 'other', mtb = MTB.test(cat), flatBar = m.barType ? m.barType === 'flat' : mtb || /^(hybrid|city|cargo|ebike-city|ebike-cargo)$/.test(cat);
   const wheel = sz.wheel || m.wheel || 622, tire = sz.tire || m.tire || (mtb ? 60 : 28);
   const rwheel = sz.rearWheel || m.rearWheel || wheel;   // 멀릿 (앞 29, 뒤 27.5)
   const b = clone(DEF);
@@ -1119,12 +1122,12 @@ function brandBike(br, m, sz) {
     else b.forkLen = r1(L - sz.ht - b.lowerStack);
   } else if (isNum(sz.forkLen)) b.forkLen = sz.forkLen;
   const ht = isNum(sz.ht) ? sz.ht : L - b.lowerStack - b.forkLen;
-  if (b.forkType === 'susp' && b.forkLen < 450) b.forkType = 'straight';   // 짧은 포크는 리지드로 그림
+  if (b.forkType === 'susp' && (b.forkLen < 450 || m.fork === 'rigid')) b.forkType = 'straight';   // 짧은 포크 · 리지드 포크(fork: 'rigid')는 리지드로 그림
   b.htTopExt = r1(Math.min(28.9, Math.max(12, ht * 0.2))); b.htBotExt = r1(Math.min(49.2, Math.max(18, ht * 0.3)));
   if (b.stMode === 'ct') b.stExt = r1(Math.min(80, Math.max(25, b.stVal * 0.11)));
   // 튜브 굵기 (그림용)
   if (mtb) Object.assign(b, { ttDia: 40, dtDia: 50, stDia: 34.9, htDia: 50, csDia: 26, ssDia: 20 });
-  else if (/gravel|cyclocross|touring|hybrid|city|ebike/.test(cat)) Object.assign(b, { ttDia: 36, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 23, ssDia: 17 });
+  else if (/gravel|cyclocross|touring|hybrid|city|cargo|ebike/.test(cat)) Object.assign(b, { ttDia: 36, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 23, ssDia: 17 });
   else Object.assign(b, { ttDia: 34, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 22, ssDia: 16 });
   // 핏 부품 (제조사 값이 있으면 그 값, 없으면 예시)
   b.crankLen = isNum(sz.crank) ? sz.crank : mtb ? 170 : 172.5;
@@ -1206,7 +1209,7 @@ function fillModels(f, br, data) {
 }
 function buildBrandMenu() {
   const m = $('#mBrand'); m.innerHTML = '';
-  const q = document.createElement('input'); q.type = 'text'; q.className = 'txt bq'; q.placeholder = '모델 찾기 (예: Tarmac, Madone, Dogma, Ouray, Evasion)';
+  const q = document.createElement('input'); q.type = 'text'; q.className = 'txt bq'; q.placeholder = '모델 찾기 (예: Tarmac, SuperSix, Dogma, Straggler, Evasion)';
   q.addEventListener('pointerdown', e => e.stopPropagation());
   m.appendChild(q);
   const box = el('div'); m.appendChild(box);
