@@ -76,11 +76,11 @@
       mk(COMMON_TITLE, COMMON_BODY, 'common')
     ];
   }
-  const DEF = () => ({ en: '', ko: '', brand: '', items: standard(0) });
+  const DEF = () => ({ en: '', ko: '', brand: '', items: standard(0), ai: null });
 
   function normalize(s) {
     if (!s || typeof s !== 'object' || !Array.isArray(s.items)) return null;
-    return { en: s.en || '', ko: s.ko || '', brand: s.brand || '', items: s.items.map(it => mk(it.title, it.body, it.scope, it.open)) };
+    return { en: s.en || '', ko: s.ko || '', brand: s.brand || '', items: s.items.map(it => mk(it.title, it.body, it.scope, it.open)), ai: s.ai && typeof s.ai === 'object' ? s.ai : null };
   }
 
   let st = normalize(store.get(K_CUR, null)) || DEF();
@@ -282,7 +282,22 @@
 
   function renderAll() {
     $('fEn').value = st.en; $('fKo').value = st.ko; $('fBrand').value = st.brand;
-    renderItems(); renderDrafts(); renderBrandList(); preview();
+    renderItems(); renderDrafts(); renderBrandList(); renderAi(); preview();
+  }
+
+  // AI가 만든 초안: 확인할 것과 출처 (코드에는 들어가지 않음)
+  function renderAi() {
+    const box = $('aiBox'), a = st.ai;
+    if (!a) { box.hidden = true; box.innerHTML = ''; return; }
+    const un = (a.unverified || []).filter(Boolean);
+    const src = (a.sources || []).filter(Boolean);
+    box.hidden = false;
+    box.innerHTML = `
+      <h3>AI 초안 · 올리기 전에 확인해 주세요</h3>
+      ${un.length ? `<ul class="warn">${un.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="ac-note" style="margin:0 0 10px">확인 못 한 항목 없음. 스펙 표의 빈칸이 있는지만 봐 주세요.</p>'}
+      ${src.length ? `<details class="src"><summary>출처 ${src.length}곳</summary><ul>${src.map(u => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></li>`).join('')}</ul></details>` : ''}
+      <div class="ft"><span>${esc(a.at || '')}${a.by ? ' · ' + esc(a.by) : ''}${a.model ? ' · ' + esc(a.model) : ''}</span><span class="sp"></span><button class="lnk" type="button" id="btnAiDone">확인 끝, 이 안내 닫기</button></div>`;
+    $('btnAiDone').onclick = () => { st.ai = null; renderAi(); preview(); };
   }
 
   $('presets').innerHTML = KINDS.map((k, i) => `<button type="button" data-i="${i}">${esc(k.name)}</button>`).join('') + '<button type="button" data-i="-1">기본 5섹션 다시</button>';
@@ -366,6 +381,7 @@
     if (!code.includes('ai.rubiworkshop.com') || !/rubisupply\.com\/warranty/.test(code)) {
       if (!confirm('v6 링크(제품 상담 · 워런티)가 빠져 있습니다. 그래도 복사할까요?')) return;
     }
+    if (st.ai && (st.ai.unverified || []).length && !confirm(`AI 초안에 확인할 항목이 ${st.ai.unverified.length}건 남아 있습니다. 확인을 마쳤으면 '확인 끝'을 누르세요.\n그래도 지금 복사할까요?`)) return;
     try { await navigator.clipboard.writeText(code); }
     catch (e) {
       const t = $('code'); $('codeWrap').hidden = false; $('btnCode').textContent = '코드 닫기';
@@ -397,15 +413,19 @@
     $('draftSel').innerHTML = `<option value="">${list.length ? `저장한 초안 ${list.length}개` : '저장한 초안 없음'}</option>` +
       list.map((d, i) => `<option value="${i}">${esc(d.label)} · ${esc(d.at)}</option>`).join('');
   }
-  $('btnSave').addEventListener('click', () => {
-    const label = st.ko.trim() || st.en.trim() || (st.items[0] && st.items[0].title) || '이름 없는 초안';
-    const list = drafts().filter(d => d.label !== label);
+  function stamp() {
     const now = new Date();
-    const at = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    list.unshift({ label, at, data: JSON.parse(JSON.stringify(st)) });
+    return `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+  function saveDraft(state) {
+    const label = state.ko.trim() || state.en.trim() || (state.items[0] && state.items[0].title) || '이름 없는 초안';
+    const list = drafts().filter(d => d.label !== label);
+    list.unshift({ label, at: stamp(), data: JSON.parse(JSON.stringify(state)) });
     store.set(K_DRAFTS, list.slice(0, 80));
-    renderDrafts(); toast(`'${label}' 초안을 저장했습니다`);
-  });
+    renderDrafts();
+    return label;
+  }
+  $('btnSave').addEventListener('click', () => { toast(`'${saveDraft(st)}' 초안을 저장했습니다`); });
   $('btnLoad').addEventListener('click', () => {
     const v = $('draftSel').value; if (v === '') return toast('열 초안을 고르세요');
     const d = drafts()[+v]; if (!d) return;
@@ -513,6 +533,99 @@
     } catch (err) { $('importErr').textContent = err.message; $('importErr').hidden = false; }
   });
 
+
+  // ───────── 목록으로 만들기 (AI, Apps Script POST accGen) ─────────
+  const cell = v => String(v == null ? '' : v).replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim();
+  const noteLine = v => { v = cell(v); return !v ? '' : /^※/.test(v) ? v : '※ ' + v; };
+  function fromAi(r, kindIdx, brandIn) {
+    const k = KINDS[kindIdx] || KINDS[0];
+    const spec = (r.spec || []).filter(x => Array.isArray(x) && cell(x[0])).map(x => `${cell(x[0])} | ${cell(x[1])}`).join('\n');
+    const feats = (r.features || []).filter(f => f && (f.en || f.text)).map(f => `## ${cell(f.en || f.ko)}${f.en && f.ko ? ' | ' + cell(f.ko) : ''}\n${String(f.text || '').trim()}`).join('\n\n');
+    const guide = (r.guide || []).filter(x => Array.isArray(x) && cell(x[0])).map(x => `${cell(x[0])} | ${cell(x[1])}`).join('\n');
+    const brand = (brandIn || r.brand_ko || '').trim();
+    const lib = brandLib()[brand];
+    const story = lib ? lib.body : (r.brand_story || []).map(x => String(x).trim()).filter(Boolean).join('\n\n');
+    const next = DEF();
+    next.en = cell(r.en); next.ko = cell(r.ko); next.brand = brand;
+    next.items = [
+      mk('제품 요약', (r.summary || []).map(x => String(x).trim()).filter(Boolean).join('\n\n'), 'item', true),
+      mk('제품 특징', [spec, feats, noteLine(r.spec_note)].filter(Boolean).join('\n\n'), 'item'),
+      mk(k.s3, [guide, noteLine(r.guide_note)].filter(Boolean).join('\n\n'), 'item'),
+      mk(lib ? lib.title : '브랜드 이야기', story, 'brand'),
+      mk(COMMON_TITLE, COMMON_BODY, 'common')
+    ];
+    // 스펙 빈칸도 확인 목록에
+    const blanks = []
+      .concat((r.spec || []).filter(x => Array.isArray(x) && cell(x[0]) && !cell(x[1])).map(x => `제품 특징 표 '${cell(x[0])}' 빈칸`))
+      .concat((r.guide || []).filter(x => Array.isArray(x) && cell(x[0]) && !cell(x[1])).map(x => `${k.s3} 표 '${cell(x[0])}' 빈칸`));
+    next.ai = { unverified: (r.unverified || []).map(cell).concat(blanks), sources: r.sources || [], at: stamp(), by: (window.MR && MR.user().name) || '', model: r._model || '' };
+    // 브랜드 이야기를 새로 만들었으면 브랜드별로 보관
+    if (brand && !lib && story) { const L = brandLib(); L[brand] = { title: '브랜드 이야기', body: story }; store.set(K_BRANDS, L); renderBrandList(); }
+    return next;
+  }
+
+  const batch = { rows: [], running: false, stop: false };
+  $('batchKind').innerHTML = KINDS.map((k, i) => `<option value="${i}">${esc(k.name)} · 3번 '${esc(k.s3)}'</option>`).join('');
+  function renderBatch() {
+    $('batchList').innerHTML = batch.rows.map((r, i) => `
+      <li class="${r.st}" data-i="${i}">
+        <span class="nm">${esc(r.line)}</span>
+        <span class="st">${esc(r.msg)}</span>
+        ${r.st === 'done' ? '<button class="btn sm" type="button" data-act="open">열기</button>' : ''}
+        ${r.st === 'err' ? '<button class="btn sm ghost" type="button" data-act="retry">다시</button>' : ''}
+      </li>`).join('');
+    const done = batch.rows.filter(r => r.st === 'done').length, err = batch.rows.filter(r => r.st === 'err').length;
+    $('batchInfo').textContent = batch.rows.length ? `${batch.rows.length}개 중 완료 ${done}${err ? ` · 실패 ${err}` : ''}${batch.running ? ' · 만드는 중' : ''}` : '';
+    $('btnBatchGo').hidden = batch.running;
+    $('btnBatchStop').hidden = !batch.running;
+    $('btnBatch').textContent = batch.running ? `목록으로 만들기 (${done}/${batch.rows.length})` : '목록으로 만들기 (AI)';
+  }
+  async function runBatch() {
+    if (batch.running) return;
+    batch.running = true; batch.stop = false; renderBatch();
+    for (const r of batch.rows) {
+      if (batch.stop) break;
+      if (r.st !== 'wait') continue;
+      r.st = 'run'; r.msg = '조사하고 쓰는 중…'; renderBatch();
+      try {
+        const brandKnown = r.brand && brandLib()[r.brand];
+        const j = await MR.post({ action: 'accGen', line: r.line, brand: r.brand, kind: KINDS[r.kind].s3, needBrand: !brandKnown });
+        const res = Object.assign({}, j.result, { _model: j.model });
+        r.state = fromAi(res, r.kind, r.brand);
+        r.label = saveDraft(r.state);
+        const un = r.state.ai.unverified.length;
+        r.st = 'done'; r.msg = `${j.sec != null ? j.sec : '?'}초${un ? ` · 확인 ${un}건` : ''}`;
+      } catch (e) {
+        r.st = 'err'; r.msg = e.message || '실패';
+      }
+      renderBatch();
+    }
+    batch.running = false; renderBatch();
+    const done = batch.rows.filter(r => r.st === 'done');
+    if (done.length) toast(`${done.length}개를 만들어 초안에 저장했습니다. 열기로 확인해 주세요`);
+  }
+  $('btnBatch').addEventListener('click', () => { renderBatch(); $('dlgBatch').showModal(); });
+  $('btnBatchGo').addEventListener('click', () => {
+    const lines = $('batchIn').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!lines.length && !batch.rows.some(r => r.st === 'wait')) { toast('제품을 한 줄에 하나씩 넣어 주세요'); return; }
+    if (lines.length > 30) { toast('한 번에 30개까지 만들 수 있습니다'); return; }
+    const kind = +$('batchKind').value || 0, brand = $('batchBrand').value.trim();
+    batch.rows = batch.rows.filter(r => r.st === 'done' || r.st === 'wait').concat(lines.map(line => ({ line, kind, brand, st: 'wait', msg: '대기' })));
+    $('batchIn').value = '';
+    runBatch();
+  });
+  $('btnBatchStop').addEventListener('click', () => { batch.stop = true; toast('지금 만드는 제품까지 끝내고 멈춥니다'); });
+  $('batchList').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const r = batch.rows[+b.closest('li').dataset.i]; if (!r) return;
+    if (b.dataset.act === 'open' && r.state) {
+      st = normalize(JSON.parse(JSON.stringify(r.state))) || DEF(); renderAll();
+      $('dlgBatch').close(); toast(`'${r.label}'을 열었습니다. 확인할 것을 보고 코드를 복사하세요`);
+    }
+    if (b.dataset.act === 'retry') { r.st = 'wait'; r.msg = '대기'; runBatch(); }
+  });
+  window.addEventListener('beforeunload', e => { if (batch.running) { e.preventDefault(); e.returnValue = ''; } });
+
   let tt = 0;
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.hidden = false;
@@ -520,7 +633,7 @@
   }
 
   // 콘솔 확인용
-  window.RubiAccordion = { build: () => build(false), importHtml, blocks, state: () => st };
+  window.RubiAccordion = { build: () => build(false), importHtml, blocks, state: () => st, fromAi };
 
   renderAll();
 })();

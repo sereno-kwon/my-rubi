@@ -38,6 +38,9 @@
  *    스마트스토어 통계 엑셀(유입·조회·결제)은 '트래픽' 탭에 저장
  *  - 브랜드전략(/strategy/브랜드/): 'Index 스프레드시트 브랜드전략' 탭(brand | title | html | updatedAt | by)의 본문 조각을 돌려줌 (GET strategy, b=브랜드)
  *    공급율·마진 같은 내부 숫자가 들어 있어서 리포지토리에 두지 않고, 보고서와 같은 REPORT_VIEWERS 에게만 내려줌
+ *  - 아코디언 V6(/accordion/) AI 생성: 제품 이름 한 줄을 받아 Claude API(웹 검색)로 상세 아코디언 1~4번 섹션 내용을 JSON으로 만들어 돌려줌 (POST accGen)
+ *    API 키는 스크립트 속성 ANTHROPIC_API_KEY, 모델은 ACC_MODEL(비우면 claude-sonnet-5-5). 만든 기록은 '아코디언생성' 탭에 남김
+ *    확인하지 못한 스펙은 빈칸으로 두고 unverified 목록으로 따로 돌려줌. 직원이 미리보기에서 확인한 뒤 복사함
  *  - 구글 캘린더(CONFIG.CALENDARS)의 한 달치 일정을 읽어 첫 화면 오른쪽 달력에 돌려줌 (GET calendar)
  *    달력에서 일정 넣기·고치기·지우기도 받음 (POST event). 반복 일정은 구글 캘린더에서만 고침
  *
@@ -217,6 +220,13 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  // 아코디언 AI 생성은 웹 검색으로 30초~2분 걸리므로 스크립트 잠금을 잡지 않음 (다른 직원의 저장을 막지 않게)
+  let pre = null;
+  try { pre = JSON.parse((e.postData && e.postData.contents) || '{}'); } catch (x) {}
+  if (pre && pre.action === 'accGen') {
+    try { const user = auth_(pre.s); return json_({ ok: true, ...accGen_(pre, user) }); }
+    catch (err) { return json_({ ok: false, error: errMsg_(err) }); }
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -2201,4 +2211,114 @@ function saveTraffic_(b, user) {
   } else reportAppend_(sh, n, rows);
   if (b.last) reportLog_(Object.assign({}, b, { from, to, scope: dim }), up, 'traffic', who);
   return { saved: up, count: rows.length };
+}
+
+
+// ───────────────────────────── 아코디언 V6 AI 생성 (POST accGen) ─────────────────────────────
+// 입력: { line: '제품 한 줄(영문·한글·이카운트 품목명)', brand: '브랜드 한글(선택)', kind: '3번 섹션 제목', needBrand: true/false }
+// 출력: { result: {...JSON}, sources: [url], model, ms }
+
+const ACC_LOG_HEADERS = ['시각', '작성자', '입력', '브랜드', '3번 섹션', '모델', '결과', '출처', '걸린 초'];
+
+const ACC_SYSTEM = [
+  '당신은 서울의 프리미엄 자전거 수입·유통사 루비컴퍼니(루비워크샵 소매, 루비서플라이 도매)의 상품 상세페이지 담당자입니다.',
+  '주어진 제품 하나를 웹에서 조사해, 아임웹 상품 상세 아코디언에 들어갈 한국어 내용을 JSON 하나로만 답합니다.',
+  '',
+  '조사 원칙',
+  '- 제조사 공식 사이트를 먼저 보고, 해외 공식 판매처 2곳 이상과 교차 확인합니다.',
+  '- 확인한 값만 spec 과 guide 에 넣습니다. 출처마다 다르거나 찾지 못한 값은 값을 빈 문자열로 두고, unverified 에 "항목: 이유" 로 적습니다. 추측으로 채우지 않습니다.',
+  '- 판매처마다 다른 값을 하나로 골랐다면 spec_note 나 guide_note 에 무엇을 기준으로 골랐는지 ※ 로 한 줄 적습니다.',
+  '',
+  '문체',
+  '- 존댓말 "입니다"체. 과장·광고 문구 없이 사실 위주로, 짧고 담백하게 씁니다. 느낌표와 이모지는 쓰지 않습니다.',
+  '- em dash(—)는 절대 쓰지 않습니다. 쉼표나 문장 나눔으로 대신합니다.',
+  '- 영문은 대소문자로 적습니다(Riten Bell). 원래 대문자인 브랜드(QUOC, MKS, THM, EVT)만 예외입니다.',
+  '- 표기 규칙: 표면 처리는 "피니시", top 은 "탑"(탑 튜브), 체인링 이빨 수는 "티스", 작은 바퀴 자전거는 "미니벨로", 루비컴퍼니의 지위는 "한국 공식 디스트리뷰터".',
+  '- 브랜드 한글 표기: Yohemite 요헤미티, MKS 엠케이에스, Spurcycle 스퍼사이클, Growtac 그로우택, Schmolke 쉬몰케, Extralite 엑스트라라이트, QUOC 쿽, Crane Bell 크레인 벨, Paul Component 폴 컴포넌트, White Industries 화이트 인더스트리, Wolf Tooth 울프투스, Chris King 크리스킹, Velo Orange 벨로오렌지, Moulton 몰튼, Crust 크러스트, Parlee 팔리, Bastion 바스티온.',
+  '',
+  '섹션',
+  '- summary: 제품 요약 2문단. 1문단은 무엇이고 어떻게 쓰는지, 2문단은 핵심 수치·소재·장착 규격·생산지.',
+  '- spec: 스펙 표 [항목, 값] 6~10줄. 브랜드(영문과 한글, 나라·도시), 모델, 소재, 무게, 규격, 피니시·색상, 원산지 순을 기본으로 제품에 맞게.',
+  '- features: 특징 3~4개. en 은 2~4단어 영문 제목(Title Case), ko 는 한글 부제, text 는 2~3문장.',
+  '- spec_note: 보통 "※ 표기된 사항은 제조사의 품질 개선 및 부품 수급 일정에 따라 변경될 수 있습니다."',
+  '- guide: 3번 섹션(제목은 요청에 주어짐) 표 [항목, 설명] 4~6줄. 규격·호환, 장착 위치, 조임·주의, 관리, 비슷한 모델과의 차이처럼 고객이 사기 전에 궁금한 것. 설명은 1~2문장.',
+  '- guide_note: 출처 교차 확인 내용이나 주의를 ※ 한 줄. 없으면 빈 문자열.',
+  '- brand_story: 요청에 needBrand 가 true 일 때만 4문단. 회사와 생산지, 소재·설계 철학, 라인업이 어울리는 자전거, 마지막 문단은 "루비컴퍼니는 {브랜드} 제품을 정품으로 수입해 루비워크샵과 루비서플라이로 공급합니다." 로 시작. false 면 빈 배열.',
+  '',
+  '답은 아래 모양의 JSON 하나만, 코드 블록이나 설명 없이:',
+  '{"en":"영문 제품 표기","ko":"한글 제품 표기","brand_ko":"브랜드 한글","summary":["",""],"spec":[["",""]],"features":[{"en":"","ko":"","text":""}],"spec_note":"","guide":[["",""]],"guide_note":"","brand_story":[],"unverified":[],"sources":["https://..."]}'
+].join('\n');
+
+function accGen_(b, user) {
+  const props = PropertiesService.getScriptProperties();
+  const key = props.getProperty('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('Apps Script 스크립트 속성에 ANTHROPIC_API_KEY 가 없습니다. 대표에게 API 키 등록을 요청해 주세요');
+  const model = props.getProperty('ACC_MODEL') || 'claude-sonnet-5-5';
+  const line = String(b.line || '').trim().slice(0, 200);
+  if (!line) throw new Error('제품 이름이 비어 있습니다');
+  const kind = String(b.kind || '장착 및 사용 안내').slice(0, 40);
+  const brand = String(b.brand || '').trim().slice(0, 40);
+  const t0 = Date.now();
+
+  const ask = [
+    '제품: ' + line,
+    brand ? '브랜드(한글): ' + brand : '',
+    '3번 섹션 제목: ' + kind,
+    'needBrand: ' + (b.needBrand ? 'true' : 'false')
+  ].filter(Boolean).join('\n');
+
+  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }];
+  const messages = [{ role: 'user', content: ask }];
+  let all = [];
+  for (let turn = 0; turn < 4; turn++) {
+    const r = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      payload: JSON.stringify({ model, max_tokens: 6000, system: ACC_SYSTEM, messages, tools }),
+      muteHttpExceptions: true
+    });
+    const code = r.getResponseCode();
+    let j; try { j = JSON.parse(r.getContentText()); } catch (x) { j = null; }
+    if (code !== 200 || !j) throw new Error('AI 응답 오류 (' + code + ') ' + ((j && j.error && j.error.message) || '').slice(0, 160));
+    all = all.concat(j.content || []);
+    if (j.stop_reason !== 'pause_turn') break;
+    // 웹 검색이 길어져 잠시 멈춘 경우: 받은 내용을 그대로 붙여 이어서 요청
+    messages.push({ role: 'assistant', content: j.content });
+  }
+
+  // 출처: 검색 결과 블록과 인용에서 모음
+  const sources = [];
+  const addSrc = u => { if (u && /^https?:\/\//.test(u) && sources.indexOf(u) < 0) sources.push(u); };
+  all.forEach(c => {
+    if (c.type === 'text' && c.citations) c.citations.forEach(ct => addSrc(ct.url));
+  });
+
+  // 인용이 붙으면 글이 여러 text 블록으로 쪼개지므로 그대로 이어 붙임. 마지막 검색 뒤의 글만 씀
+  let lastTool = -1;
+  all.forEach((c, i) => { if (c.type !== 'text') lastTool = i; });
+  const text = all.slice(lastTool + 1).filter(c => c.type === 'text').map(c => c.text).join('');
+  const result = accParse_(text) || accParse_(all.filter(c => c.type === 'text').map(c => c.text).join(''));
+  if (!result) throw new Error('AI 답을 읽지 못했습니다. 다시 시도해 주세요');
+  (result.sources || []).forEach(addSrc);
+  result.sources = sources.slice(0, 12);
+  // 대시 정리 (문체 규칙)
+  const fix = v => typeof v === 'string' ? v.replace(/\s*—\s*/g, ', ') : Array.isArray(v) ? v.map(fix) : (v && typeof v === 'object') ? Object.keys(v).reduce((o, k) => (o[k] = fix(v[k]), o), {}) : v;
+  const out = fix(result);
+  const sec = Math.round((Date.now() - t0) / 1000);
+
+  try {
+    const sh = reportSheet_('아코디언생성', ACC_LOG_HEADERS, ACC_LOG_HEADERS.length);
+    sh.appendRow([now_(), user.name || user.email, line, brand, kind, model, JSON.stringify(out).slice(0, 45000), out.sources.join('\n'), String(sec)]);
+  } catch (x) {}
+
+  return { result: out, model, sec };
+}
+
+function accParse_(text) {
+  if (!text) return null;
+  let t = String(text).replace(/```(?:json)?/g, '');
+  const a = t.indexOf('{'), z = t.lastIndexOf('}');
+  if (a < 0 || z <= a) return null;
+  try { return JSON.parse(t.slice(a, z + 1)); } catch (x) { return null; }
 }

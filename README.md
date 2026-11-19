@@ -230,6 +230,9 @@ Apps 목록의 **체크리스트**, 또는 오른쪽 Checklist 칸의 이름을 
 - v6 = v5 + 공통 섹션의 워런티(rubisupply.com/warranty) · 제품 상담(ai.rubiworkshop.com) 링크. 공통 문구는 `COMMON_BODY`. 원본의 `&mdash;` 라벨 구분은 띄어쓰기로 바꿈.
 - 내용 문법: 빈 줄 문단, `항목 | 내용` 표, `## English | 한글` 소제목, `**라벨**`, `※` 주석, `- ` 목록, `[글자](주소)` 링크.
 - 기존 v5 · v6 코드 불러오기: 머리 주석의 제품 표기, 섹션 주석의 범위와 브랜드까지 읽음. v5 공통 섹션은 v6 문구로 바꿈.
+- 목록으로 만들기 (AI): 한 줄에 제품 하나(영문·한글·이카운트 품목명), 최대 30개. 줄마다 POST `accGen` → Code.gs `accGen_` 이 Claude API(Messages, `web_search_20250305`, 최대 검색 6번, `pause_turn` 이어 받기)로 1~4번 섹션 JSON을 받아 옴. 앱이 v6 섹션으로 바꿔 초안에 저장하고, 확인 못 한 값(unverified)·스펙 빈칸·출처를 'AI 초안 · 확인' 상자에 보여 줌(코드에는 안 들어감). 같은 브랜드 이야기가 저장돼 있으면 새로 만들지 않음
+  - 준비: Apps Script 스크립트 속성 `ANTHROPIC_API_KEY`(필수), `ACC_MODEL`(선택, 기본 claude-sonnet-5-5). Anthropic Console 에서 웹 검색이 켜져 있어야 함. 만든 기록은 '아코디언생성' 탭
+  - accGen 은 오래 걸려서 doPost 의 스크립트 잠금을 잡지 않음
 - 브라우저 저장: 초안 `myrubi.acc.drafts.v2`, 브랜드 이야기 `myrubi.acc.brands`(브랜드를 적으면 자동으로 채움).
 
 ## 루비개러지 앱 (/garage/)
