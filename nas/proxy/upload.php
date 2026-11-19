@@ -1,8 +1,8 @@
 <?php
 /**
- * My Rubi 상품 업로드 연결 파일 (Synology Web Station에 올리는 파일, index.php · stock.php 와 같은 폴더)
+ * My Rubi 상품업로드 연결 파일 (Synology Web Station에 올리는 파일, index.php · stock.php 와 같은 폴더)
  *
- * 포털의 '상품 업로드' 앱 요청을 NAS 안의 상품 업로드 컨테이너(rubi-upload, 127.0.0.1:8791)로 넘김.
+ * 포털의 '상품업로드' 앱 요청을 NAS 안의 상품업로드 컨테이너(rubi-upload, 127.0.0.1:8791)로 넘김.
  * - my.rubiworkshop.com 에서 온 요청만 받음
  * - 정해진 동작만 통과, 직원 로그인 확인은 컨테이너가 함 (포털 세션을 Apps Script에 확인)
  * - file 은 만든 zip 을 그대로 내려보냄
@@ -68,7 +68,7 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 $body = curl_exec($ch);
 if ($body === false) {
   curl_close($ch);
-  out(502, ['ok' => false, 'error' => 'NAS 안의 상품 업로드 컨테이너(rubi-upload)가 응답하지 않습니다. Container Manager에서 실행 중인지 확인해 주세요']);
+  out(502, ['ok' => false, 'error' => 'NAS 안의 상품업로드 컨테이너(rubi-upload)가 응답하지 않습니다. Container Manager에서 실행 중인지 확인해 주세요']);
 }
 $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);

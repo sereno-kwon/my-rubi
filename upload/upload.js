@@ -1,4 +1,4 @@
-// 상품 업로드: 이카운트 품목 ↔ 아임웹 두 사이트 SKU 비교, 미업로드 상품 검토, 초안(공식 사이트 + Claude), 아임웹 일괄 추가 엑셀·이미지 zip
+// 상품업로드: 이카운트 품목 ↔ 아임웹 두 사이트 SKU 비교, 미업로드 상품 검토, 초안(공식 사이트 + Claude), 아임웹 일괄 추가 엑셀·이미지 zip
 // 서버: NAS 컨테이너 rubi-upload (nas/upload/upload.py), 연결 파일 nas/proxy/upload.php, 주소 config.js UPLOAD_API
 (function () {
   'use strict';
@@ -34,7 +34,7 @@
         headers: Object.assign({ 'X-MyRubi-Session': s ? s.token : '' }, opt.body ? { 'Content-Type': 'application/json' } : {}),
         body: opt.body ? JSON.stringify(opt.body) : undefined,
       });
-    } catch (e) { throw new Error('NAS 상품 업로드 서비스에 연결할 수 없습니다'); }
+    } catch (e) { throw new Error('NAS 상품업로드 서비스에 연결할 수 없습니다'); }
     if (opt.blob) {
       if (!r.ok) { let j = {}; try { j = await r.json(); } catch (e) {} throw new Error(j.error || '파일을 받지 못했습니다'); }
       return r.blob();
@@ -71,7 +71,7 @@
   function setup() {
     $('status').textContent = 'NAS 서비스가 아직 연결되지 않았습니다';
     $('main').innerHTML = `<div class="setup"><h2>처음 한 번 설정</h2>
-      <p>NAS에 상품 업로드 서비스(rubi-upload)를 띄우고, <code>config.js</code> 의 <code>UPLOAD_API</code> 에 연결 파일 주소를 넣으면 이 화면을 쓸 수 있습니다.
+      <p>NAS에 상품업로드 서비스(rubi-upload)를 띄우고, <code>config.js</code> 의 <code>UPLOAD_API</code> 에 연결 파일 주소를 넣으면 이 화면을 쓸 수 있습니다.
       설치 순서는 저장소의 <code>nas/upload/README.md</code> 에 있습니다.</p></div>`;
     ['btnScan', 'btnBuild', 'btnRequest'].forEach(id => { $(id).disabled = true; });
   }
@@ -457,7 +457,7 @@
     if (!pend.length) { toast('검토 대기 상품이 없습니다'); return; }
     const byBrand = {};
     pend.forEach(f => { byBrand[f.brandKo || f.brand] = (byBrand[f.brandKo || f.brand] || 0) + 1; });
-    const text = '상품 업로드 검토: ' + Object.entries(byBrand).map(([b, n]) => `${b} ${n}건`).join(', ');
+    const text = '상품업로드 검토: ' + Object.entries(byBrand).map(([b, n]) => `${b} ${n}건`).join(', ');
     const members = (CFG.MEMBERS || []);
     $('reqBody').innerHTML = `<div class="sec"><p class="small">검토 대기 상품 ${pend.length}개를 담당자 체크리스트에 한 줄로 넣습니다. 항목을 누르면 이 화면으로 옵니다.</p>
       <label class="fld"><span>담당자</span><select id="rWho">${members.map(m => `<option>${esc(m)}</option>`).join('')}</select></label>

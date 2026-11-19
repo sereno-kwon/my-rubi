@@ -235,7 +235,7 @@ Apps 목록의 **체크리스트**, 또는 오른쪽 Checklist 칸의 이름을 
   - accGen 은 오래 걸려서 doPost 의 스크립트 잠금을 잡지 않음
 - 브라우저 저장: 초안 `myrubi.acc.drafts.v2`, 브랜드 이야기 `myrubi.acc.brands`(브랜드를 적으면 자동으로 채움).
 
-## 상품 업로드 (/upload/)
+## 상품업로드 (/upload/)
 
 이카운트에 등록된 품목 가운데 루비서플라이·루비워크샵에 아직 없는 상품을 찾아 검토하고, 검토를 마친 상품은 아임웹 '상품 일괄 추가' 엑셀과 대표 이미지를 zip 하나로 만드는 앱입니다. 서버는 NAS 컨테이너 `rubi-upload` 이고 설치는 [`nas/upload/README.md`](nas/upload/README.md) 에 있습니다.
 
@@ -385,7 +385,7 @@ Apps 목록의 **재고 확인**을 열거나, 처음 화면 검색창에 단어
 - `geometry/` 지오메트리 앱 (BikeCAD 방식 프레임 지오메트리, 치수, 비교, 핏 맞추기, 라이브러리, .bcad 가져오기)
 - `assets/calendar.js` 첫 화면 오른쪽 구글 캘린더 달력 (월 보기)
 - `nas/proxy/index.php` NAS Web Station에 올리는 연결 파일, `nas/README.md` 설치 안내
-- `upload/` 상품 업로드 화면, `nas/upload/` NAS 컨테이너로 띄우는 상품 업로드 서비스 (`upload.py`, 아임웹 일괄 추가 양식 `template.xlsx`, `docker-compose.yml`, `upload.env.example`, 설치 안내 `README.md`), 연결 파일 `nas/proxy/upload.php`
+- `upload/` 상품업로드 화면, `nas/upload/` NAS 컨테이너로 띄우는 상품업로드 서비스 (`upload.py`, 아임웹 일괄 추가 양식 `template.xlsx`, `docker-compose.yml`, `upload.env.example`, 설치 안내 `README.md`), 연결 파일 `nas/proxy/upload.php`
 - `nas/stock/` NAS 컨테이너로 띄우는 이카운트 재고 조회 서비스 (`stock.py`, `docker-compose.yml`, `stock.env.example`, 설치 안내 `README.md`)
 - `config.js` Apps Script 주소, 구글 로그인 클라이언트 ID, 체크리스트 멤버 목록, NAS·재고 서버 주소, 견적서 회사 정보(`QUOTE`)
 - `lib.js` 로그인 세션과 API 호출 (두 화면과 앱이 같이 씀)

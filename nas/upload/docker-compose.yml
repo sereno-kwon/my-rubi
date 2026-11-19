@@ -1,4 +1,4 @@
-# My Rubi 상품 업로드 서비스 (Synology Container Manager 프로젝트)
+# My Rubi 상품업로드 서비스 (Synology Container Manager 프로젝트)
 # 이 폴더(upload.py, upload.env, template.xlsx 가 있는 곳)를 프로젝트 경로로 지정. 설치 안내는 README.md
 services:
   rubi-upload:

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-My Rubi 상품 업로드 서비스 (NAS 컨테이너에서 실행)
+My Rubi 상품업로드 서비스 (NAS 컨테이너에서 실행)
 
-포털(my.rubiworkshop.com)의 '상품 업로드' 앱이 이 서비스를 부름.
+포털(my.rubiworkshop.com)의 '상품업로드' 앱이 이 서비스를 부름.
 
   1. 점검: 이카운트 품목(재고 조회 서비스가 매일 받아 두는 목록)과 아임웹 두 사이트(루비서플라이·루비워크샵)의
      상품 SKU를 비교해, 이카운트에는 있는데 사이트에 없는 품목을 상품 단위로 묶어 검토 목록에 올림
@@ -1368,7 +1368,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
     brands()
-    log(f'상품 업로드 서비스 시작 · 127.0.0.1:{PORT} · Claude {"사용" if ANTHROPIC_KEY else "키 없음"} ({CLAUDE_MODEL})')
+    log(f'상품업로드 서비스 시작 · 127.0.0.1:{PORT} · Claude {"사용" if ANTHROPIC_KEY else "키 없음"} ({CLAUDE_MODEL})')
     try:
         m = IM.resolve(force=True)
         for s in SITES:
