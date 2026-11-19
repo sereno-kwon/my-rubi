@@ -47,7 +47,7 @@ window.MYRUBI_APPS = [
   { id: 'brands',    title: 'Brand',         kind: 'folder' },
   { id: 'management', title: 'Management',  kind: 'folder' },
   { id: 'logistics',  title: 'Logistics',   kind: 'folder' },
-  { id: 'strategy',   title: '브랜드전략',    kind: 'folder', only: ['ohyun', 'oryun'], note: '수입 브랜드별 전략' },
+  { id: 'strategy',   title: '전략상황판',    kind: 'folder', only: ['ohyun', 'oryun'], note: '수입 브랜드별 전략 상황판' },
 
   // 내장
   { id: 'settings',  title: '바탕화면 설정', icon: 'gear', tint: 'slate', kind: 'builtin' },
@@ -74,7 +74,7 @@ window.MYRUBI_APPS = [
   // LOGISTICS
   { id: 'l-package',     folder: 'logistics', title: '패키지 데이터베이스',          icon: 'box',   tint: 'amber',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1u-jDQnshR2zXRjpcBt77eXSWQ885G-JjJkdfyWK_xLo/edit?gid=1261343604#gid=1261343604' },
 
-  // BRAND STRATEGY (브랜드전략 폴더, Report 구역. 보는 사람은 매출·매입보고서와 같음)
+  // BRAND STRATEGY (전략상황판 폴더, Report 구역. 보는 사람은 매출·매입보고서와 같음)
   // 브랜드 목록은 위 BRAND 폴더(수입·유통 브랜드)와 맞출 것. 전략 페이지를 만들면 kind 를 frame 으로 바꾸고 url 을 넣음
   // 순서는 2026년 매출(이카운트 판매현황 공급가액, 1/1~11/10, 품목명 [브랜드] 기준) 높은 순. 공개 리포지토리라서 금액은 적지 않음. 2026 매출 없음: 츠바사·디워드 디자인
   { id: 's-moulton', folder: 'strategy', group: '2026 매출순', title: '몰튼', icon: 'note', tint: 'paper', kind: 'soon', only: ['ohyun', 'oryun'], note: '몰튼 브랜드전략' },
