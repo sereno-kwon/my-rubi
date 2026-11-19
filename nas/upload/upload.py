@@ -331,13 +331,18 @@ class Imweb:
                 raise RuntimeError(f'아임웹 {path} {e.code} {body}')
 
     def resolve(self, force=False):
-        """토큰마다 어느 사이트(도메인)인지 알아내 site → 토큰 연결"""
+        """토큰마다 어느 사이트인지 알아내 site → 토큰 연결.
+        파일 이름에 supply / workshop 이 들어 있으면 그 사이트로 보고(ecount-sync 의 data/imweb_open_supply.json 등),
+        아니면 아임웹 대표 도메인으로 맞춤. 건너뛴 토큰은 이유를 로그와 상태에 남김"""
         if TEST_MODE:
             return {s: {'token': 't', 'unitCode': 'u', 'where': 'test', 'domain': v['domain'], 'checked': now(), 'exp': 0} for s, v in SITES.items()}
         with self.lock:
-            if self.map and not force and all(now() - v['checked'] < 600 for v in self.map.values()):
+            if self.map and len(self.map) == len(SITES) and not force and all(now() - v['checked'] < 600 for v in self.map.values()):
                 return self.map
-            out = {}
+            if not force and now() - getattr(self, '_last_try', 0) < 60 and self.map is not None and getattr(self, '_tried', False):
+                return self.map
+            self._last_try, self._tried = now(), True
+            out, why = {}, {}
             cands = []
             for site, s in SITES.items():
                 if s['token']:
@@ -348,12 +353,26 @@ class Imweb:
                 if c['token'] in seen:
                     continue
                 seen.add(c['token'])
+                hint = c.get('site')
+                low = c['where'].lower()
+                if not hint:
+                    if 'workshop' in low:
+                        hint = 'workshop'
+                    elif 'supply' in low:
+                        hint = 'supply'
+                if hint in out:
+                    continue
                 exp = _jwt_exp(c['token'])
                 if exp and exp < now() + 60:
+                    msg = f'토큰이 만료됐습니다 ({kst(exp).strftime("%m-%d %H:%M")} 만료, {c["where"]}). ecount-sync 가 이 사이트를 다시 동기화하면 새 토큰으로 연결됩니다'
+                    if hint:
+                        why[hint] = msg
+                    log('아임웹 토큰 건너뜀', c['where'], '만료', kst(exp).strftime('%m-%d %H:%M'))
                     continue
                 try:
                     info = self._get(c['token'], '/site-info')
                     units = info.get('unitList') or []
+                    matched = False
                     for u in units:
                         uc = u.get('unitCode')
                         try:
@@ -362,17 +381,28 @@ class Imweb:
                         except Exception:
                             dom = ''
                         for site, s in SITES.items():
-                            if (c.get('site') == site or (dom and s['domain'] in dom)) and site not in out:
+                            if site in out:
+                                continue
+                            if hint == site or (not hint and dom and s['domain'] in dom):
                                 out[site] = {'token': c['token'], 'unitCode': uc, 'where': c['where'], 'domain': dom,
                                              'checked': now(), 'exp': exp}
+                                matched = True
+                                break
+                        if matched:
+                            break
+                    if not matched:
+                        doms = ', '.join(filter(None, [str(u.get('name', '')) for u in units]))
+                        log('아임웹 토큰 연결 못 함', c['where'], f'사이트 {info.get("siteCode", "")} {doms} 대표 도메인이 설정과 다름')
                 except Exception as e:
+                    if hint:
+                        why[hint] = f'토큰 확인 실패 ({c["where"]}): {str(e)[:100]}'
                     log('아임웹 토큰 확인 실패', c['where'], str(e)[:120])
                 if len(out) == len(SITES):
                     break
             self.map = out
             for site in SITES:
                 if site not in out:
-                    self.last_error[site] = '아임웹 토큰을 찾지 못했거나 만료됐습니다'
+                    self.last_error[site] = why.get(site) or '아임웹 토큰을 찾지 못했습니다 (ecount-sync 폴더에 이 사이트 토큰 파일이 없음)'
                 else:
                     self.last_error.pop(site, None)
             return out
@@ -503,8 +533,12 @@ class Scanner:
     def _run(self):
         try:
             items, cat_at = ecount_items()
-            site_skus, site_info = {}, {}
+            site_skus, site_info, skipped = {}, {}, []
+            connected = IM.resolve(force=True)
             for site in SITES:
+                if site not in connected:
+                    skipped.append(SITES[site]['name'])
+                    continue
                 self._progress(f'{SITES[site]["name"]} 상품 읽는 중')
                 prods = IM.products(site, self._progress)
                 skus = set()
@@ -515,6 +549,8 @@ class Scanner:
                         customs.add(fold(p['custom']))
                 site_skus[site] = skus
                 site_info[site] = {'products': len(prods), 'skus': len(skus), 'customs': customs}
+            if not site_skus:
+                raise UserError('두 사이트 모두 아임웹 토큰이 없어 점검하지 못했습니다. ' + ' / '.join(IM.last_error.values()))
             self._progress('비교 중')
             fams = {}
             for it in items:
@@ -524,15 +560,17 @@ class Scanner:
                 brand, base, opt = split_name(it.get('name'))
                 key = family_key(brand, base)
                 f = fams.setdefault(key, {'key': key, 'brand': brand, 'base': base, 'variants': []})
-                on = {s: fold(code) in site_skus[s] for s in SITES}
+                # 연결 안 된 사이트는 비교하지 않음 (있다고 봄)
+                on = {s: (fold(code) in site_skus[s]) if s in site_skus else True for s in SITES}
                 f['variants'].append({'code': code, 'name': it.get('name', ''), 'opt': opt, 'size': it.get('size', ''),
                                       'price': it.get('price') or 0, 'on': on})
             out = []
             for f in fams.values():
                 f['variants'].sort(key=lambda v: v['code'])
-                f['missing'] = {s: sum(1 for v in f['variants'] if not v['on'][s]) for s in SITES}
+                # 연결 안 된 사이트는 None (확인 안 됨)
+                f['missing'] = {s: sum(1 for v in f['variants'] if not v['on'][s]) if s in site_skus else None for s in SITES}
                 # 일부 옵션만 사이트에 있으면 새 상품이 아니라 기존 상품에 옵션을 더해야 함
-                f['partial'] = {s: 0 < f['missing'][s] < len(f['variants']) for s in SITES}
+                f['partial'] = {s: bool(f['missing'][s]) and f['missing'][s] < len(f['variants']) for s in SITES}
                 if any(f['missing'].values()):
                     out.append(f)
             out.sort(key=lambda f: (fold(f['brand']), fold(f['base'])))
@@ -550,7 +588,10 @@ class Scanner:
                     changed = True
             if changed:
                 Review.save(rv)
-            self.state.update(running=False, msg=f'상품 {len(out)}개에 미업로드 품목이 있습니다', at=now())
+            result['skipped'] = skipped
+            write_json(SCAN_FILE, result)
+            note = f' ({", ".join(skipped)}는 아임웹 연결이 안 되어 빼고 점검)' if skipped else ''
+            self.state.update(running=False, msg=f'상품 {len(out)}개에 미업로드 품목이 있습니다{note}', at=now())
             log('점검 끝', len(out), '개 상품')
         except UserError as e:
             self.state.update(running=False, error=str(e), msg='')

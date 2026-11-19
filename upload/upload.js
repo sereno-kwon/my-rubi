@@ -129,7 +129,7 @@
     return data.families.filter(f => {
       if (tabOf(f.status) !== tab) return false;
       if (b && f.brand !== b) return false;
-      if (s && !f.missing[s]) return false;
+      if (s && !f.missing[s]) return false;   // 확인 안 된 사이트(null)도 빠짐
       if (q && !(f.base.toLowerCase().includes(q) || f.brandKo.toLowerCase().includes(q) || f.variants.some(v => v.code.toLowerCase().includes(q) || v.name.toLowerCase().includes(q)))) return false;
       return true;
     });
@@ -160,6 +160,7 @@
     list.forEach(f => { (groups[f.brand] = groups[f.brand] || []).push(f); });
     const miss = (f, s) => {
       const n = f.missing[s], t = f.variants.length;
+      if (n == null) return '<span class="miss none" title="아임웹 연결이 안 되어 비교하지 않음">확인 안 됨</span>';
       if (!n) return '<span class="miss none">있음</span>';
       return `<span class="miss${f.partial && f.partial[s] ? ' part' : ''}" title="${f.partial && f.partial[s] ? '일부 옵션만 없음: 기존 상품에 옵션 추가' : '사이트에 없음'}"><b>${n}</b>/${t}${f.partial && f.partial[s] ? ' 옵션 추가' : ''}</span>`;
     };
@@ -415,10 +416,10 @@
         ? 'v5 아코디언(요약설명), 배송 안내(상세정보), 과세상품, 적립금 원, 할인 회원·% 단위, 배송방법 줄바꿈으로 만듭니다.'
         : 'v6 아코디언(요약설명, 아코디언 V6 앱과 같은 구조, 공통 섹션에 워런티·제품 상담 링크), 과세상품, 배송방법 줄바꿈으로 만듭니다.';
       $('bRows').innerHTML = ready.map(f => {
-        const need = f.missing[site] > 0 && !(f.partial && f.partial[site]);
+        const need = (f.missing[site] == null || f.missing[site] > 0) && !(f.partial && f.partial[site]);
         const done = f.built && f.built[site];
         return `<tr><td><input type="checkbox" data-bk="${f.key}" ${need && !done ? 'checked' : ''}></td><td>${esc(f.brandKo)} · ${esc(f.base)}</td>
-          <td class="small">${f.missing[site] ? `${f.missing[site]}/${f.variants.length} 없음${f.partial && f.partial[site] ? ' · 옵션 추가 대상' : ''}` : '사이트에 있음'}</td>
+          <td class="small">${f.missing[site] == null ? '사이트 확인 안 됨' : f.missing[site] ? `${f.missing[site]}/${f.variants.length} 없음${f.partial && f.partial[site] ? ' · 옵션 추가 대상' : ''}` : '사이트에 있음'}</td>
           <td class="small muted">${done ? when(done.at * 1000) + ' 만듦' : ''}</td></tr>`;
       }).join('');
     };
