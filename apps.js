@@ -28,7 +28,7 @@ window.MYRUBI_APPS = [
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
   // 스튜디오: 예전 이름 톤 매칭. 바탕화면 배치·고정이 그대로 남도록 id 는 'tone' 그대로 둠 (/tone/ 은 /studio/ 로 넘김)
   { id: 'tone',         title: '스튜디오',    icon: 'camera', tint: 'paper', kind: 'frame', url: '/studio/', note: '사진 작업. 톤 매칭(루비 톤으로 보정·저장), 룩북 썸네일(블랙 레이어와 가운데 문구), 사진은 브라우저 안에서만 처리' },
-  { id: 'accordion',    title: '아코디언 V6',  icon: 'note', tint: 'teal',  kind: 'frame', url: '/accordion/', note: '아임웹 상품 상세 아코디언 v6 코드 만들기(rb-sum 클래스, 인라인 CSS, 제품 상담·워런티 연결), 미리보기와 코드 복사, 기존 v5 코드 불러오기' },
+  { id: 'accordion',    title: '아코디언 V6',  icon: 'note', tint: 'teal',  kind: 'frame', url: '/accordion/', note: '루비 상세페이지 아코디언 v6 코드 만들기(v5 구조 그대로, 공통 섹션에 워런티·제품 상담 링크), 미리보기와 코드 복사, 기존 v5 코드 불러오기, 브랜드 이야기 저장' },
 
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
   // 루비개러지는 REPORT 구역에 있지만 보이는 사람은 아래 only 목록(전요셉 포함)을 따름

@@ -65,9 +65,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 .ac-help ul { margin: 8px 0 0; padding-left: 18px; }
 .ac-help li { margin-bottom: 4px; }
 
-.ac-fixed { display: flex; flex-direction: column; gap: 10px; }
-.ac-fixed .ac-item.off .fld, .ac-fixed .ac-item.off .ac-row2 { opacity: .4; pointer-events: none; }
-.ac-fixed .ac-item-hd b { flex: 1; font-size: 15px; }
+.ac-item-hd select { flex: 0 0 auto; height: 32px; padding: 0 6px; border: 1px solid var(--line); background: var(--bg); font-size: 13px; border-radius: 0; }
+.ac-item[data-scope="brand"] { border-left: 3px solid var(--accent); }
+.ac-item[data-scope="common"] { border-left: 3px solid var(--fg); background: var(--surface); }
+.ac-check { margin: 12px 0 0; font-size: 13px; line-height: 18px; color: var(--muted); }
+.ac-check.warn { color: var(--danger); }
 
 .ac-drafts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ac-drafts select { flex: 1 1 200px; height: 28px; padding: 0 8px; font-size: 13px; }
