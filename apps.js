@@ -183,7 +183,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
-  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone'] },
+  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone', 'accordion'] },
   { label: 'Report',    ids: ['strategy', 'sales-report', 'purchase-report', 'garage'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];
