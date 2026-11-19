@@ -413,7 +413,7 @@
     const draw = () => {
       $('bHint').textContent = site === 'supply'
         ? 'v5 아코디언(요약설명), 배송 안내(상세정보), 과세상품, 적립금 원, 할인 회원·% 단위, 배송방법 줄바꿈으로 만듭니다.'
-        : 'v6 아코디언(요약설명, 끝에 제품 상담·워런티), 과세상품, 배송방법 줄바꿈으로 만듭니다.';
+        : 'v6 아코디언(요약설명, 아코디언 V6 앱과 같은 구조, 공통 섹션에 워런티·제품 상담 링크), 과세상품, 배송방법 줄바꿈으로 만듭니다.';
       $('bRows').innerHTML = ready.map(f => {
         const need = f.missing[site] > 0 && !(f.partial && f.partial[site]);
         const done = f.built && f.built[site];

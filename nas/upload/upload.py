@@ -12,7 +12,7 @@ My Rubi 상품업로드 서비스 (NAS 컨테이너에서 실행)
   4. 만들기: 사이트별 아임웹 '상품 일괄 추가' 엑셀(template.xlsx 양식)과 대표 이미지(1000×1000, 흰 배경, 사방 10% 여백)를
      zip 하나로 묶어 내려받게 함
        루비서플라이: v5 아코디언(요약설명), 배송 안내(상세정보), 과세상품, 적립금 원, 할인 회원·% 단위, 배송방법 줄바꿈
-       루비워크샵:   v6 아코디언(요약설명, 끝에 제품 상담·워런티), 과세상품, 배송방법 줄바꿈
+       루비워크샵:   v6 아코디언(요약설명, 포털 아코디언 V6 앱과 같은 출력), 과세상품, 배송방법 줄바꿈
 
 연결
   - 이카운트 품목 목록: 재고 조회 서비스(rubi-stock)의 저장소 볼륨을 읽기 전용으로 붙여 catalog.json 을 읽음
@@ -878,62 +878,123 @@ def render_v5(dr, story):
     return '\n'.join(parts)
 
 
-# v6 (루비워크샵, 포털 아코디언 V6 앱과 같은 모양: rb-acc, 끝에 제품 상담·워런티)
+# v6 (루비워크샵): 포털 아코디언 V6 앱(accordion/accordion.js build)과 같은 출력
+#   머리 주석 + 섹션마다 <!-- ── n. 제목 [범위] ── --> + div.rb-sum > details > summary(셰브론 svg) + div.rb-body, 에스코어 드림 인라인
+#   5번 공통 섹션(배송 · 교환/반품 · A/S)에 워런티 · 제품 상담 링크
+FF = "font-family:'S-CoreDream','S-CoreDream-4Regular','Apple SD Gothic Neo','Noto Sans KR',sans-serif;"
 V6 = {
-    'wrap': 'margin:0;padding:0;border-bottom:1px solid #e3e3e3;font-family:inherit;font-weight:400;letter-spacing:-0.3px;text-align:left;',
-    'det': 'margin:0;padding:0;border-top:1px solid #e3e3e3;',
-    'sum': 'display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0;padding:18px 0;list-style:none;cursor:pointer;font-size:15px;line-height:22px;font-weight:400;color:#101114;',
-    'arrow': 'flex:0 0 auto;',
-    'body': 'margin:0;padding:0 0 22px;font-size:14px;line-height:23px;font-weight:400;color:#4a4b4f;word-break:keep-all;overflow-wrap:break-word;',
-    'p': 'margin:0 0 12px;',
-    'table': 'width:100%;margin:0 0 12px;border-collapse:collapse;border-top:1px solid #eeeeee;',
-    'th': 'width:34%;padding:9px 12px 9px 0;border-bottom:1px solid #eeeeee;text-align:left;vertical-align:top;font-size:14px;line-height:21px;font-weight:400;color:#6e6f73;',
-    'td': 'padding:9px 0;border-bottom:1px solid #eeeeee;text-align:left;vertical-align:top;font-size:14px;line-height:21px;font-weight:400;color:#101114;',
-    'note': 'margin:0 0 12px;font-size:13px;line-height:20px;color:#8a8b8f;',
-    'btn': 'display:inline-block;margin:4px 0 0;padding:10px 16px;border:1px solid #101114;color:#101114;background:#ffffff;text-decoration:none;font-size:14px;line-height:20px;font-weight:400;',
+    'wrap': FF,
+    'detFirst': 'border-top:1px solid #e4e1dd; border-bottom:1px solid #e4e1dd;',
+    'det': 'border-bottom:1px solid #e4e1dd;',
+    'sum': FF + ' list-style:none; cursor:pointer; display:block; position:relative; width:100%; padding:20px 30px 20px 2px; font-size:13px; font-weight:600; letter-spacing:.18em;',
+    'arrow': 'position:absolute; right:4px; top:50%; width:14px; height:14px; transform:translateY(-50%); line-height:0; transition:transform .3s ease;',
+    'svg': '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path d="M2.5 5 L7 9.5 L11.5 5" stroke="#333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'body': FF + ' padding:2px 2px 30px; font-size:14px; line-height:1.8; color:#555;',
+    'p': FF + ' margin:0 0 14px;',
+    'pLabel': FF + ' margin:0 0 10px;',
+    'pLast': FF + ' margin:0;',
+    'strong': FF + ' color:#222;',
+    'table': FF + ' width:100%; border-collapse:collapse; font-size:14px; color:#333; line-height:1.6; border-top:2px solid #222;',
+    'thFirst': FF + ' width:28%; background:#f7f7f7; border-bottom:1px solid #e3e3e3; padding:10px 12px; text-align:left; font-weight:600; color:#222;',
+    'th': FF + ' background:#f7f7f7; border-bottom:1px solid #e3e3e3; padding:10px 12px; text-align:left; font-weight:600; color:#222;',
+    'td': FF + ' border-bottom:1px solid #e3e3e3; padding:10px 12px;',
+    'h3': FF + ' font-size:17px; font-weight:700; color:#222; margin:24px 0 10px; letter-spacing:-0.3px;',
+    'h3sub': FF + ' font-size:13px; font-weight:400; color:#888;',
+    'note': FF + ' font-size:12px; color:#999; margin:16px 0 0; line-height:1.6;',
+    'a': FF + ' color:#222; text-decoration:underline; text-underline-offset:3px;',
 }
+V6_COMMON = [
+    '**배송** 평일 오후 3시 이전 결제 건은 당일 출고를 원칙으로 합니다. 주문 제작 및 예약 상품은 상품 페이지의 안내 일정을 따릅니다.',
+    '**교환/반품** 수령 후 7일 이내, 미사용·미장착 상태에 한해 가능합니다. 장착 흔적이 있는 부품, 커팅된 케이블류, 착화 흔적이 있는 슈즈는 교환/반품이 제한됩니다. 규격이나 호환 여부가 애매하시면 장착 전에 먼저 문의해 주세요.',
+    f'**A/S** 루비컴퍼니가 수입·유통하는 전 제품은 공식 수입원 정품 보증을 받습니다. 초기 불량 및 보증 범위 내 이슈는 루비 워크샵에서 직접 점검하고, 필요 시 본사 절차를 대행합니다. 브랜드별 보증 기간과 범위는 [워런티 페이지]({WARRANTY_URL})에서 확인하실 수 있습니다.',
+    f'**제품 상담** 사이즈, 호환, 다른 부품과의 조합이 궁금하시면 [AI 제품 상담]({CONSULT_URL})에서 바로 물어보실 수 있습니다. 필요하면 루비워크샵 직원 상담으로 이어집니다.',
+]
+V6_CHANGE = '※ 표기된 사항은 제조사의 품질 개선 및 부품 수급 일정에 따라 변경될 수 있습니다.'
 
 
-def v6_last(blocks):
-    """마지막 블록의 아래 여백을 0으로 (아코디언 V6 앱과 같게)"""
-    if blocks:
-        blocks[-1] = blocks[-1].replace('margin:0 0 12px;', 'margin:0;', 1)
-    return blocks
+def v6_inline(t):
+    """**굵게**, [글자](주소) 를 HTML로. 나머지는 이스케이프, ' · ' 는 &middot;"""
+    out, rest = [], str(t or '')
+    rx = re.compile(r'\*\*([^*]+)\*\*|\[([^\]]+)\]\((https?://[^)\s]+)\)')
+    while True:
+        m = rx.search(rest)
+        if not m:
+            break
+        out.append(E(rest[:m.start()]))
+        if m.group(1):
+            out.append(f'<strong style="{V6["strong"]}">{E(m.group(1))}</strong>')
+        else:
+            out.append(f'<a href="{E(m.group(3))}" target="_blank" rel="noopener" style="{V6["a"]}">{E(m.group(2))}</a>')
+        rest = rest[m.end():]
+    out.append(E(rest))
+    return ''.join(out).replace(' · ', ' &middot; ')
 
 
-def v6_table(rows):
-    trs = '\n'.join(f'        <tr><th scope="row" style="{V6["th"]}">{E(str(k))}</th><td style="{V6["td"]}">{nl2p(v) or "&nbsp;"}</td></tr>' for k, v in rows)
-    return f'      <table style="{V6["table"]}">\n        <tbody>\n{trs}\n        </tbody>\n      </table>'
-
-
-def v6_item(title, blocks, open_=False):
-    inner = '\n'.join(v6_last(list(blocks)))
-    return (f'  <details class="rb-sum" style="{V6["det"]}"{" open" if open_ else ""}>\n'
-            f'    <summary class="rb-summary" style="{V6["sum"]}">{E(title)}<span class="rb-arrow" style="{V6["arrow"]}"></span></summary>\n'
-            f'    <div class="rb-body" style="{V6["body"]}">\n{inner}\n    </div>\n  </details>')
+def v6_body(blocks):
+    """blocks: [('p', text) | ('rows', [(k,v)]) | ('h3', (en, ko)) | ('note', text)] → accordion.js bodyHtml 과 같은 HTML"""
+    pad = '\t\t\t'
+    out = []
+    for i, (t, v) in enumerate(blocks):
+        last = i == len(blocks) - 1
+        prev = blocks[i - 1] if i else None
+        nxt = blocks[i + 1] if not last else None
+        if t == 'h3':
+            en, ko = v
+            out.append(f'{pad}<h3 style="{V6["h3"]}">{v6_inline(en)}' + (f' <span style="{V6["h3sub"]}">{v6_inline(ko)}</span>' if ko else '') + '</h3>')
+        elif t == 'rows':
+            st = V6['table'] + (' margin-top:20px;' if prev else '') + (' margin-bottom:14px;' if nxt and nxt[0] not in ('note', 'h3') else '')
+            trs = '\n'.join(f'{pad}\t\t<tr>\n{pad}\t\t\t<th style="{V6["thFirst"] if j == 0 else V6["th"]}">{v6_inline(k)}</th>\n'
+                            f'{pad}\t\t\t<td style="{V6["td"]}">{v6_inline(val) or "&nbsp;"}</td>\n{pad}\t\t</tr>' for j, (k, val) in enumerate(v))
+            out.append(f'{pad}<table style="{st}">\n{pad}\t<tbody>\n{trs}\n{pad}\t</tbody>\n{pad}</table>')
+        elif t == 'note':
+            out.append(f'{pad}<p style="{V6["note"]}">{v6_inline(v)}</p>')
+        else:
+            label = bool(re.match(r'^\*\*[^*]+\*\*', v))
+            style = (V6['pLast'] if last else V6['pLabel']) if label else V6['p']
+            sep = '\n' if label and nxt else ''
+            out.append(f'{pad}<p style="{style}">{v6_inline(v)}</p>{sep}')
+    return '\n'.join(out)
 
 
 def render_v6(dr, story, brand_ko):
-    P = lambda t: f'      <p style="{V6["p"]}">{nl2p(t)}</p>'
-    feats = [f'      <p style="{V6["p"]}">{E(str(h))} {nl2p(t)}</p>' for h, t in dr.get('features') or []]
-    install = [tuple(r) for r in dr.get('install') or []]
-    items = [
-        v6_item('제품 요약', [P(dr.get('summary'))], True),
-        v6_item('제품 특징', [P(f'{dr.get("en", "")} · {dr.get("ko", "")}'), v6_table(dr.get('specs') or [])] + feats),
-        v6_item('장착 및 호환성 안내', [v6_table(install), f'      <p style="{V6["note"]}">※ {E(dr.get("note", ""))} {CHANGE}</p>']),
-    ]
+    sec2 = [('rows', [tuple(r) for r in dr.get('specs') or []])]
+    if dr.get('en') or dr.get('ko'):
+        sec2.append(('h3', (dr.get('en', ''), dr.get('ko', ''))))
+    for h, t in dr.get('features') or []:
+        sec2.append(('p', f'**{h}** {t}'))
+    sec2.append(('note', V6_CHANGE))
+    sec3 = [('rows', [tuple(r) for r in dr.get('install') or []])]
+    if dr.get('note'):
+        sec3.append(('note', '※ ' + dr['note']))
+    items = [('제품 요약', [('p', dr.get('summary', ''))], 'item'),
+             ('제품 특징', sec2, 'item'),
+             ('장착 및 사용 안내', sec3, 'item')]
     if story:
-        items.append(v6_item('브랜드 이야기', [P(story)]))
-    items.append(v6_item('배송 · 교환/반품 · A/S', [f'      <p style="{V6["p"]}">{E(k)}&nbsp; {E(v)}</p>' for k, v in SHIP_LINES]))
-    for title, text, label, url in (
-        ('제품 상담', '사이즈, 호환, 다른 제품과의 조합이 궁금하시면 AI 제품 상담에서 바로 물어보실 수 있습니다. 루비워크샵 모델·스펙 자료로 답하며, 필요하면 직원 상담으로 이어집니다.', 'AI 제품 상담 열기', CONSULT_URL),
-        ('워런티', '제조사 공식 워런티 기준으로 보증합니다. 브랜드별 보증 기간과 범위, 접수 방법은 워런티 페이지에서 확인하실 수 있습니다.', '워런티 확인하기', WARRANTY_URL),
-    ):
-        items.append(v6_item(title, [f'      <p style="margin:0 0 14px;">{E(text)}</p>',
-                                     f'      <a href="{E(url)}" target="_blank" rel="noopener" style="{V6["btn"]}">{E(label)}</a>']))
-    nm = dr.get('name', '')
-    label = (nm if brand_ko and nm.startswith(brand_ko) else f'{brand_ko} {nm}').strip().replace('--', '-')
-    return f'<!-- Rubi accordion v6 · {E(label)} -->\n<div class="rb-acc" style="{V6["wrap"]}">\n' + '\n'.join(items) + '\n</div>'
+        items.append(('브랜드 이야기', [('p', story)], 'brand'))
+    items.append(('배송 · 교환/반품 · A/S', [('p', x) for x in V6_COMMON], 'common'))
+    safe = lambda x: str(x).replace('--', '-').replace('>', '')
+    prod = ' / '.join(x for x in (dr.get('en', '').strip(), dr.get('ko', '').strip()) if x)
+    head = ['<!-- ============================================================', '     루비 상세페이지 아코디언 v6 · 서체 에스코어 드림']
+    if prod:
+        head.append(f'     ({safe(prod)})')
+    head += ['', f'     구성 (총 {len(items)}개 섹션)']
+    for i, (title, _, scope) in enumerate(items):
+        mark = '─' if len(items) == 1 else '┌' if i == 0 else '└' if i == len(items) - 1 else '├'
+        tag = {'item': '[상품별]     ', 'brand': '[브랜드 공통] ', 'common': '[전 상품 공통] '}[scope]
+        head.append(f'     {mark} {tag}{i + 1}. {safe(title)}')
+    head += ['', f'     v6: 제품 상담 {CONSULT_URL} · 워런티 {WARRANTY_URL}', '     서체: 아임웹 헤더 코드에 S-CoreDream @font-face가 있어야 적용됩니다.',
+             '============================================================ -->']
+    parts = []
+    for i, (title, blocks, scope) in enumerate(items):
+        tag = {'item': '[상품별]', 'brand': f'[브랜드 공통{" / " + brand_ko + " 상품에 복붙" if brand_ko else ""}]', 'common': '[전 상품 공통 복붙]'}[scope]
+        label = f'── {i + 1}. {safe(title)} {tag} '
+        parts.append(f'<!-- {label}{"─" * max(3, 54 - len(label))} -->\n'
+                     f'<div class="rb-sum" style="{V6["wrap"]}">\n'
+                     f'\t<details{" open=\"\"" if i == 0 else ""} style="{V6["detFirst"] if i == 0 else V6["det"]}">\n'
+                     f'\t\t<summary class="rb-summary" style="{V6["sum"]}">&nbsp;{v6_inline(title)}&nbsp;<span class="rb-arrow" style="{V6["arrow"]}">{V6["svg"]}</span>&nbsp;</summary>\n'
+                     f'\t\t<div class="rb-body" style="{V6["body"]}">\n\n' + (v6_body(blocks) or f'\t\t\t<p style="{V6["p"]}">&nbsp;</p>') + '\n'
+                     f'\t\t</div>\n\t</details>\n</div>')
+    return '\n'.join(head) + '\n' + '\n'.join(parts)
 
 
 SUPPLY_DETAIL = ('<div><p><br></p><p><span style="font-size: 20px;"><strong>배송 안내사항</strong></span></p><p><span style="font-size: 16px;"><br>'
