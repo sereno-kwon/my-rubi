@@ -30,6 +30,10 @@ window.MYRUBI_CONFIG = {
   // STOCK_API: 재고 조회 연결 파일 주소 (NAS 앱 index.php 와 같은 폴더의 stock.php). 비워두면 재고 확인 창에 설치 안내가 보임
   STOCK_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/stock.php',
 
+  // 상품 업로드 (nas/upload/README.md 참고)
+  // UPLOAD_API: 상품 업로드 연결 파일 주소 (stock.php 와 같은 폴더의 upload.php). 비워두면 상품 업로드 창에 설치 안내가 보임
+  UPLOAD_API: 'https://myrubi.rubibase.synology.me:8443/nas/proxy/upload.php',
+
   // 고객 포털 주소 (sereno-kwon/portal). 견적 앱의 '고객 포털에 공개'가 이 주소 뒤에 #키 를 붙여 고객 링크를 만듦
   PORTAL_URL: 'https://portal.rubiworkshop.com/',
 

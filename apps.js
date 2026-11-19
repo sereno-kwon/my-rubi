@@ -28,6 +28,7 @@ window.MYRUBI_APPS = [
   { id: 'geometry',     title: '지오메트리',    icon: 'bike',  tint: 'blue',  kind: 'frame', url: '/geometry/', note: 'BikeCAD 방식 프레임 지오메트리, 비교, 핏 맞추기' },
   // 스튜디오: 예전 이름 톤 매칭. 바탕화면 배치·고정이 그대로 남도록 id 는 'tone' 그대로 둠 (/tone/ 은 /studio/ 로 넘김)
   { id: 'tone',         title: '스튜디오',    icon: 'camera', tint: 'paper', kind: 'frame', url: '/studio/', note: '사진 작업. 톤 매칭(루비 톤으로 보정·저장), 룩북 썸네일(블랙 레이어와 가운데 문구), 사진은 브라우저 안에서만 처리' },
+  { id: 'upload',       title: '상품업로드',  icon: 'box',  tint: 'green', kind: 'frame', url: '/upload/', note: '이카운트 품목과 루비서플라이·루비워크샵 상품(SKU) 비교, 미업로드 상품 검토 요청(체크리스트), 공식 사이트 + Claude 초안, 아임웹 일괄 추가 엑셀과 대표 이미지 zip' },
   { id: 'accordion',    title: '아코디언 V6',  icon: 'note', tint: 'teal',  kind: 'frame', url: '/accordion/', note: '루비 상세페이지 아코디언 v6 코드 만들기(v5 구조 그대로, 공통 섹션에 워런티·제품 상담 링크), 미리보기와 코드 복사, 기존 v5 코드 불러오기, 브랜드 이야기 저장' },
 
   // REPORT (권오현·권오륜만. Code.gs 의 REPORT_VIEWERS 와 맞출 것)
@@ -183,7 +184,7 @@ window.MYRUBI_APPS = [
 // 텍스트 화면(/) 첫 목록의 구역과 순서. 여기에 없는 앱은 검색으로만 보임 (설정은 오른쪽 위 버튼)
 window.MYRUBI_HOME = [
   { label: 'Essential', ids: ['checklist', 'project', 'stock', 'nas', 'manual'] },
-  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone', 'accordion'] },
+  { label: 'App',       ids: ['customers', 'quote', 'geometry', 'tone', 'accordion', 'upload'] },
   { label: 'Report',    ids: ['strategy', 'sales-report', 'purchase-report', 'garage'] },
   { label: 'Bookmark',  ids: ['management', 'ecount', 'channel', 'google', 'shops', 'brands', 'logistics'] },
 ];

@@ -2,3 +2,5 @@
 nas/stock/stock.env
 nas/stock/data/
 __pycache__/
+nas/upload/upload.env
+nas/upload/data/

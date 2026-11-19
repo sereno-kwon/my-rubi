@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상품 업로드 · My Rubi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5h14l6 8-13 15L3 13z' fill='%239b2335'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/rubi-type.css?v=20261029h">
+<link rel="stylesheet" href="/upload/upload.css?v=20261119a">
+<!-- 상품 업로드: 이카운트 품목 ↔ 아임웹(루비서플라이·루비워크샵) SKU 비교 → 미업로드 상품 검토 → 초안(공식 사이트 + Claude) → 아임웹 일괄 추가 엑셀·대표 이미지 zip
+     서버는 NAS 컨테이너 rubi-upload (nas/upload/), 연결 파일 nas/proxy/upload.php, 주소는 config.js 의 UPLOAD_API. 화면 코드는 /upload/upload.js -->
+</head>
+<body>
+<div class="up" id="app">
+  <header class="up-hd">
+    <div>
+      <p class="k">App</p>
+      <h1>상품 업로드</h1>
+      <p class="up-status" id="status">불러오는 중…</p>
+    </div>
+    <div class="up-acts">
+      <button class="btn" id="btnRequest" type="button">검토 요청</button>
+      <button class="btn" id="btnScan" type="button">다시 점검</button>
+      <button class="btn pri" id="btnBuild" type="button">엑셀 만들기</button>
+    </div>
+  </header>
+
+  <div class="up-conn" id="conn"></div>
+
+  <nav class="up-bar" aria-label="보기">
+    <div class="seg" id="tabs" role="tablist"></div>
+    <span class="sp"></span>
+    <select id="fBrand" aria-label="브랜드"><option value="">모든 브랜드</option></select>
+    <select id="fSite" aria-label="사이트">
+      <option value="">두 사이트</option>
+      <option value="supply">루비서플라이에 없음</option>
+      <option value="workshop">루비워크샵에 없음</option>
+    </select>
+    <input id="fQ" type="search" placeholder="상품·품목코드 찾기" autocomplete="off">
+  </nav>
+
+  <div class="up-sel" id="selBar" hidden>
+    <span id="selN"></span>
+    <button class="btn sm" data-st="approved" type="button">업로드</button>
+    <button class="btn sm" data-st="hold" type="button">보류</button>
+    <button class="btn sm" data-st="excluded" type="button">제외</button>
+    <button class="btn sm ghost" data-st="new" type="button">검토 대기로</button>
+    <span class="sp"></span>
+    <button class="lnk" id="selClear" type="button">선택 해제</button>
+  </div>
+
+  <main id="main"><noscript><p>이 페이지는 자바스크립트가 필요합니다.</p></noscript></main>
+</div>
+
+<dialog class="up-dlg wide" id="dlgItem" aria-labelledby="itemT">
+  <div class="up-dlg-in">
+    <header><h2 id="itemT">상품</h2><button class="lnk" type="button" data-close>닫기</button></header>
+    <div id="itemBody"></div>
+  </div>
+</dialog>
+
+<dialog class="up-dlg" id="dlgBuild" aria-labelledby="buildT">
+  <div class="up-dlg-in">
+    <header><h2 id="buildT">엑셀 만들기</h2><button class="lnk" type="button" data-close>닫기</button></header>
+    <div id="buildBody"></div>
+  </div>
+</dialog>
+
+<dialog class="up-dlg" id="dlgReq" aria-labelledby="reqT">
+  <div class="up-dlg-in">
+    <header><h2 id="reqT">검토 요청</h2><button class="lnk" type="button" data-close>닫기</button></header>
+    <div id="reqBody"></div>
+  </div>
+</dialog>
+
+<div class="up-toast" id="toast" role="status" hidden></div>
+
+<script src="/config.js?v=20261119a"></script>
+<script src="/lib.js?v=20261029h"></script>
+<script src="/upload/upload.js?v=20261119a"></script>
+</body>
+</html>
