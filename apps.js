@@ -77,6 +77,7 @@ window.MYRUBI_APPS = [
   // BRAND STRATEGY (전략상황판 폴더, Report 구역. 보는 사람은 매출·매입보고서와 같음)
   // 2026-11-19: 전략 페이지가 있는 브랜드만 둠 (준비 중 항목은 모두 뺌). 새 브랜드 전략 페이지를 만들면 같은 모양으로 한 줄 추가
   { id: 's-quoc', folder: 'strategy', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/quoc/', only: ['ohyun', 'oryun'], note: 'QUOC 2027 플랜: 아젠다, 소비자가, 프리오더, 분기별 일정' },
+  { id: 's-parlee-aptos', folder: 'strategy', title: '팔리 APTOS', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/parlee-aptos/', only: ['ohyun', 'oryun'], note: 'Aptos 딜러 키트 한글판 PDF, 출시 일정과 가격 요약' },
 
   // BRAND (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비가 운영하는 한국 사이트. 순서는 브랜드전략과 같은 2026 매출순 (자전거·부품 각각). 사이트를 새로 만들면 여기에 한 줄 추가
