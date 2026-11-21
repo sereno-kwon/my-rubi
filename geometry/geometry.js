@@ -32,16 +32,60 @@ const DEF = {
   saddleLen: 270, saddleRail: 0, postSetback: 21, postDia: 27.2,
   crankLen: 172.5, ring: 50, cog: 15, crankAng: 0, showChain: true,
   ttDia: 31.8, dtDia: 34.9, stDia: 28.6, htDia: 40, csDia: 22, ssDia: 16, ssDrop: 18,
+  style: 'classic', ebike: false,
   frameColor: '#1597d0', forkSame: false, forkColor: '#151515', compColor: '#3a3a3a', tireColor: '#1e1e1e', tanwall: false, rimColor: '#707070', decal: '', decalColor: '#ffffff',
 };
 
 // 템플릿 (예시 치수, 특정 브랜드 제품이 아님)
 const TEMPLATES = [
-  { id: 'road', name: '예시 · 로드 54', b: {} },
-  { id: 'gravel', name: '예시 · 그래블 54', b: { seatAngle: 73.5, stVal: 500, bbVal: 75, csVal: 430, headAngle: 71, reachVal: 380, stackVal: 585, rearTire: 40, frontTire: 40, forkLen: 395, rake: 50, stemLen: 90, stemAngle: -6, ring: 40, cog: 20, saddleVal: 712, htTopExt: 30, htBotExt: 40 } },
-  { id: 'atb', name: '예시 · 투어링 ATB 26"', b: { rearBSD: 559, frontBSD: 559, rearTire: 50, frontTire: 50, seatAngle: 73, stVal: 430, bbVal: 60, csVal: 450, headAngle: 70, reachVal: 395, stackVal: 600, forkLen: 425, rake: 44, barType: 'swept', barRise: 30, barSweep: 120, stemLen: 80, stemAngle: 6, ring: 36, cog: 24, saddleVal: 700, crankLen: 170 } },
+  { id: 'road', name: '예시 · 로드 54', b: {}, style: 'road' },
+  { id: 'gravel', name: '예시 · 그래블 54', b: { seatAngle: 73.5, stVal: 500, bbVal: 75, csVal: 430, headAngle: 71, reachVal: 380, stackVal: 585, rearTire: 40, frontTire: 40, forkLen: 395, rake: 50, stemLen: 90, stemAngle: -6, ring: 40, cog: 20, saddleVal: 712, htTopExt: 30, htBotExt: 40 }, style: 'gravel' },
+  { id: 'atb', name: '예시 · 투어링 ATB 26"', b: { rearBSD: 559, frontBSD: 559, rearTire: 50, frontTire: 50, seatAngle: 73, stVal: 430, bbVal: 60, csVal: 450, headAngle: 70, reachVal: 395, stackVal: 600, forkLen: 425, rake: 44, barType: 'swept', barRise: 30, barSweep: 120, stemLen: 80, stemAngle: 6, ring: 36, cog: 24, saddleVal: 700, crankLen: 170 }, style: 'touring' },
   { id: 'mini', name: '예시 · 미니벨로 20" (451)', b: { rearBSD: 451, frontBSD: 451, rearTire: 28, frontTire: 28, bbMode: 'height', bbVal: 275, csVal: 400, seatAngle: 73, stVal: 470, headAngle: 72, reachVal: 385, stackMode: 'ht', stackVal: 175, forkLen: 330, rake: 45, stemLen: 90, stemAngle: 0, saddleVal: 705, ring: 53, cog: 13, crankLen: 165, htTopExt: 30, htBotExt: 35 } },
 ];
+
+// 스타일 (그림 모양만 바꿈. 지오메트리 치수와 바퀴·타이어 크기는 그대로)
+//  튜브 굵기(옆에서 본 깊이), 시트스테이 위치, 림 높이, 살 수, 포크 모양, 디스크 브레이크, 타이어 트레드, 뒤 서스펜션, 펜더·랙, 드로퍼 등
+const STYLES = [
+  ['classic', '클래식 · 스틸'], ['road', '로드 · 카본 레이스'], ['aero', '에어로 로드'], ['endurance', '엔듀런스 로드'],
+  ['gravel', '그래블'], ['cyclocross', '사이클로크로스'], ['track', '트랙'], ['touring', '투어링'],
+  ['hardtail', 'MTB 하드테일'], ['fullsus', 'MTB 풀서스펜션'], ['dh', '다운힐'], ['fat', '팻바이크'], ['city', '시티 · 하이브리드'],
+];
+const STYLE_PRESET = {
+  //            tt  dt  st  ht  cs  ss  ssDrop rim spokes blade post
+  classic:    [31.8, 34.9, 28.6, 40, 22, 16, 18, 20, 32, 28, 27.2],
+  road:       [36, 50, 34, 50, 26, 15, 70, 40, 24, 34, 27.2],
+  aero:       [36, 64, 46, 60, 28, 18, 170, 55, 21, 42, 40],
+  endurance:  [36, 52, 34, 50, 26, 15, 110, 35, 24, 34, 27.2],
+  gravel:     [38, 52, 34, 52, 26, 16, 90, 25, 28, 34, 27.2],
+  cyclocross: [36, 50, 34, 50, 26, 16, 40, 25, 28, 32, 27.2],
+  track:      [36, 52, 38, 48, 28, 18, 40, 60, 24, 36, 27.2],
+  touring:    [31.8, 34.9, 28.6, 40, 22, 16, 18, 18, 36, 28, 27.2],
+  hardtail:   [44, 60, 36, 56, 28, 20, 30, 24, 28, 32, 31.6],
+  fullsus:    [46, 64, 38, 58, 30, 22, 0, 26, 28, 34, 31.6],
+  dh:         [48, 68, 40, 60, 32, 24, 0, 28, 32, 38, 31.6],
+  fat:        [44, 60, 36, 56, 28, 20, 30, 50, 32, 32, 31.6],
+  city:       [38, 48, 34, 48, 24, 18, 22, 20, 32, 30, 27.2],
+};
+const MTB_STYLE = /^(hardtail|fullsus|dh|fat)$/;
+const DISC_STYLE = /^(road|aero|endurance|gravel|cyclocross|hardtail|fullsus|dh|fat|city)$/;
+const styleOfCat = c => ({ road: 'road', aero: 'aero', endurance: 'endurance', gravel: 'gravel', cyclocross: 'cyclocross', track: 'track', touring: 'touring',
+  xc: 'fullsus', trail: 'fullsus', enduro: 'fullsus', dh: 'dh', hardtail: 'hardtail', dirtjump: 'hardtail', fat: 'fat',
+  hybrid: 'city', city: 'city', cargo: 'city', 'ebike-road': 'road', 'ebike-gravel': 'gravel', 'ebike-mtb': 'fullsus', 'ebike-city': 'city', 'ebike-cargo': 'city' }[c] || 'road');
+// 스타일 바꾸기: 튜브·림·포크 모양. withBar 면 핸들바도 그 스타일에 맞춤 (MTB는 라이저, 시티는 플랫, 나머지는 드롭)
+function applyStyle(b, st, withBar) {
+  const p = STYLE_PRESET[st] || STYLE_PRESET.classic;
+  b.style = STYLE_PRESET[st] ? st : 'classic';
+  [b.ttDia, b.dtDia, b.stDia, b.htDia, b.csDia, b.ssDia, b.ssDrop, b.rimDepth, b.spokes, b.bladeDia, b.postDia] = p;
+  if (MTB_STYLE.test(st) && st !== 'fat') b.forkType = b.forkLen >= 450 ? 'susp' : 'straight';
+  else b.forkType = /^(classic|touring)$/.test(st) ? 'curved' : 'straight';
+  if (withBar) {
+    if (MTB_STYLE.test(st)) Object.assign(b, { barType: 'riser', barRise: 25, barSweep: 30 });
+    else if (st === 'city') Object.assign(b, { barType: 'flat', barRise: 0, barSweep: 20 });
+    else if (b.barType !== 'drop' && st !== 'touring') b.barType = 'drop';
+  }
+  return b;
+}
 
 // ─────────── 계산 ───────────
 const v2 = (x, y) => ({ x, y });
@@ -173,10 +217,36 @@ function wheelSvg(c, bsd, tire, b, mode) {
   s += circ(c, rr - b.rimDepth / 2, 'none', b.rimColor, b.rimDepth);
   s += circ(c, rr - 3, 'none', shade(b.rimColor, 0.45), 2.2);
   s += circ(c, rr + tire / 2, 'none', b.tireColor, tire);
+  // 트레드: 그래블·시클로크로스는 잔 노브, MTB·팻은 큰 노브
+  const knob = /^(hardtail|fullsus|dh|fat)$/.test(b.style) ? Math.min(9, tire * 0.14) : /^(gravel|cyclocross)$/.test(b.style) ? Math.min(4.5, tire * 0.1) : 0;
+  if (knob) { const rk = rr + tire + knob * 0.35, per = 2 * Math.PI * rk; const nk = Math.round(per / (knob * 3.2)); s += circ(c, rk, 'none', b.tireColor, knob * 1.5, `stroke-dasharray="${r1(per / nk * 0.55)} ${r1(per / nk * 0.45)}"`); }
   if (b.tanwall) s += circ(c, rr + tire * 0.3, 'none', '#c9a574', tire * 0.42);
   else s += circ(c, rr + tire * 0.32, 'none', '#3a3a3a', 1.2);
   s += circ(c, 26, '#a9a9a9', '#7a7a7a', 1.5) + circ(c, 9, '#5c5c5c');
   return s;
+}
+
+// 스타일 그림 도우미
+const ptsPath = (pts, fill, st, sw, ex = '') => `<path d="M${pts.map(P).join(' L')} Z" fill="${fill}" stroke="${st}" stroke-width="${sw}" stroke-linejoin="round" ${ex}/>`;
+function taper(a, c, w1, w2, fill, st, sw) {   // 굵기가 줄어드는 튜브 (포크 블레이드 등)
+  const d = nrmz(sub(c, a)), p = rot90(d);
+  return ptsPath([add(a, mul(p, w1 / 2)), add(c, mul(p, w2 / 2)), add(c, mul(p, -w2 / 2)), add(a, mul(p, -w1 / 2))], fill, st, sw);
+}
+function arcPts(c, r, a0, a1, n = 28) { const out = []; for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * D; out.push(add(c, v2(r * Math.cos(a), r * Math.sin(a)))); } return out; }
+function rotorSvg(c, r, toward, line) {     // 디스크 로터 + 캘리퍼 (toward: 캘리퍼가 붙는 방향 단위벡터)
+  let s = circ(c, r, 'none', line ? '#111' : '#8f8f8f', line ? 1.2 : 5, line ? NS : 'stroke-dasharray="7 4"') + circ(c, r - 9, 'none', line ? '#111' : '#b3b3b3', line ? 0.8 : 3, line ? NS : '');
+  const m = add(c, mul(toward, r - 4)), q = rot90(toward);
+  s += ptsPath([add(m, mul(q, 24)), add(add(m, mul(q, 24)), mul(toward, 14)), add(add(m, mul(q, -24)), mul(toward, 14)), add(m, mul(q, -24))].map(x => add(x, mul(toward, -10))), line ? '#fff' : '#2b2b2b', line ? '#111' : '#000', 1.2);
+  return s;
+}
+// 풀서스펜션 뒤 삼각: 메인 피벗, 로커, 쇼크 위치
+function suspPts(g) {
+  const b = g.b, k = b.style === 'dh' ? 0.5 : 0.6;
+  const K = mul(g.s, g.stCC * k);                                  // 로커 피벗 (시트튜브 위)
+  const N = add(K, v2(-62, 22)), M = add(K, v2(78, 30));           // 로커 뒤(시트스테이) · 앞(쇼크)
+  const Dm = mul(g.Jdt, b.style === 'dh' ? 0.35 : 0.45);           // 다운튜브 쇼크 마운트
+  const Pv = add(mul(g.s, 78), v2(-8, 0));                         // 메인 피벗 (BB 위)
+  return { K, N, M, Dm, Pv };
 }
 
 function bikeSvg(g, mode, opt = {}) {
@@ -198,7 +268,26 @@ function bikeSvg(g, mode, opt = {}) {
   const line = mode === 'line';
   const tube = (a, c, dia, col) => line ? [ln(a, c, dia + 2.4 / scale, '#111'), ln(a, c, dia, '#fff')] : [ln(a, c, dia + 2.2 / scale * 1.4, shade(col, -0.38)), ln(a, c, dia, col)];
   // 바퀴
-  if (!hide.wheels) out.push(grp('wheels', wheelSvg(g.R, b.rearBSD, b.rearTire, b, mode) + wheelSvg(g.F, b.frontBSD, b.frontTire, b, mode)));
+  if (!hide.wheels) {
+    let ws = wheelSvg(g.R, b.rearBSD, b.rearTire, b, mode) + wheelSvg(g.F, b.frontBSD, b.frontTire, b, mode);
+    if (DISC_STYLE.test(b.style)) {
+      const rr = MTB_STYLE.test(b.style) ? (b.style === 'dh' ? 101 : 90) : 80;
+      const towardR = nrmz(sub(/^(fullsus|dh)$/.test(b.style) ? suspPts(g).Pv : O, g.R)), towardF = nrmz(sub(g.C, g.F));
+      ws += rotorSvg(g.R, rr, nrmz(add(towardR, v2(0, 0.35))), line) + rotorSvg(g.F, rr, nrmz(add(towardF, mul(g.n, -0.8))), line);
+    }
+    // 펜더 (투어링·시티)
+    if (/^(touring|city)$/.test(b.style)) {
+      const fcol = line ? '#111' : '#2a2a2a', fw = 7;
+      [[g.R, g.Rr, 10, 205], [g.F, g.Rf, -25, 165]].forEach(([c, R0, a0, a1]) => { ws += `<path d="M${arcPts(c, R0 + 14, a0, a1).map(P).join(' L')}" fill="none" stroke="${fcol}" stroke-width="${fw}" stroke-linecap="round"/>`; });
+    }
+    out.push(grp('wheels', ws));
+  }
+  // 뒤 랙 (투어링)
+  if (b.style === 'touring' && !hide.frame) {
+    const y = g.R.y + g.Rr + 58, x0 = g.R.x - 150, x1 = g.R.x + 120, rc2 = line ? '#111' : '#3a3a3a';
+    let s = ln(v2(x0, y), v2(x1, y), 9, rc2, 'round') + ln(v2(x0 + 20, y), add(g.R, v2(-30, 10)), 7, rc2, 'round') + ln(v2(x0 + 110, y), add(g.R, v2(-6, 18)), 7, rc2, 'round') + ln(v2(x1, y), g.ssTop, 6, rc2, 'round');
+    out.push(grp('basic', s));
+  }
   // 반대편 크랭크, 체인, 스프라켓 (프레임 뒤)
   if (!hide.crank) {
     const a = (b.crankAng + 180) * D, pe = v2(b.crankLen * Math.cos(a), b.crankLen * Math.sin(a));
@@ -208,17 +297,49 @@ function bikeSvg(g, mode, opt = {}) {
     s += circ(g.R, rc, 'none', line ? '#555' : '#8d8d8d', 7, 'stroke-dasharray="3 3"');
     out.push(grp('crank', s));
   }
+  if (b.style === 'city' && !hide.crank) {
+    const rr = ringR(b.ring), rc = ringR(b.cog);
+    out.push(grp('crank', ln(v2(-10, rr + 10), add(g.R, v2(35, rc + 10)), 12, line ? '#111' : '#2c2c2c', 'round') + ln(add(g.R, v2(60, -5)), v2(g.R.x - 20, g.yg + 4), 9, line ? '#111' : '#555', 'round')));
+  }
   // 시트포스트
   if (!hide.post) {
     const pt = mul(g.s, g.saddleH - 55), K = v2(g.Sx, g.topY - 48);
-    out.push(grp('post', ln(g.stTop, pt, b.postDia, line ? '#fff' : shade(cc, 0.12)) + (line ? ln(g.stTop, pt, 1, '#111', 'butt', NS) : '') + ln(pt, K, 20, line ? '#555' : shade(cc, 0.05), 'round')));
+    let ps;
+    if (MTB_STYLE.test(b.style)) {   // 드로퍼: 아래는 검은 몸통, 위는 은색 스탠션, 사이에 칼라
+      const mid = mul(g.s, g.stCC + b.stExt + Math.max(30, (g.saddleH - 55 - g.stCC - b.stExt) * 0.35));
+      ps = ln(g.stTop, mid, b.postDia + 3, line ? '#111' : '#151515') + (line ? ln(g.stTop, mid, b.postDia + 0.6, '#fff') : '') + ln(mid, pt, b.postDia - 4, line ? '#fff' : '#c4c4c4') + (line ? ln(mid, pt, 1, '#111', 'butt', NS) : '') + ln(add(mid, mul(g.s, -5)), add(mid, mul(g.s, 5)), b.postDia + 8, line ? '#555' : '#2a2a2a');
+    } else ps = ln(g.stTop, pt, b.postDia, line ? '#fff' : (b.style === 'aero' ? '#1a1a1a' : shade(cc, 0.12))) + (line ? ln(g.stTop, pt, 1, '#111', 'butt', NS) : '');
+    out.push(grp('post', ps + ln(pt, K, 20, line ? '#555' : shade(cc, 0.05), 'round')));
   }
   // 프레임
   if (!hide.frame) {
-    const tubes = [
-      [O, g.R, b.csDia], [g.R, g.ssTop, b.ssDia], [O, g.stTop, b.stDia], [O, g.Jdt, b.dtDia], [g.Jst, g.Jtt, b.ttDia], [g.T, g.B, b.htDia],
-    ].map(t => tube(t[0], t[1], t[2], fc));
-    let s = tubes.map(t => t[0]).join('') + tubes.map(t => t[1]).join('');
+    const sus = /^(fullsus|dh)$/.test(b.style), sp = sus ? suspPts(g) : null;
+    const list = sus
+      ? [[sp.Pv, g.R, b.csDia], [g.R, sp.N, b.ssDia], [O, g.stTop, b.stDia], [O, g.Jdt, b.dtDia], [g.Jst, g.Jtt, b.ttDia], [g.T, g.B, b.htDia]]
+      : [[O, g.R, b.csDia], [g.R, g.ssTop, b.ssDia], [O, g.stTop, b.stDia], [O, g.Jdt, b.dtDia], [g.Jst, g.Jtt, b.ttDia], [g.T, g.B, b.htDia]];
+    const tubes = list.map(t => tube(t[0], t[1], t[2], fc));
+    let s = '';
+    // 쇼크 (프레임 뒤쪽에 먼저)
+    if (sus) {
+      const mid = add(sp.M, mul(sub(sp.Dm, sp.M), 0.55));
+      s += ln(sp.M, mid, 40, line ? '#111' : '#1e1e1e', 'round') + ln(sp.M, mid, 36, line ? '#fff' : '#3a3a3a', 'round');
+      s += ln(mid, sp.Dm, 18, line ? '#111' : '#000', 'round') + ln(mid, sp.Dm, 15, line ? '#fff' : '#c9c9c9', 'round');
+      if (!line) s += ln(add(sp.M, mul(sub(sp.Dm, sp.M), 0.2)), add(sp.M, mul(sub(sp.Dm, sp.M), 0.5)), 30, '#d6452f', 'butt', 'stroke-dasharray="4 4"');
+    }
+    s += tubes.map(t => t[0]).join('') + tubes.map(t => t[1]).join('');
+    if (sus) {   // 로커 링크와 피벗
+      const rk = [sp.N, sp.K, sp.M];
+      s += `<path d="M${rk.map(P).join(' L')}" fill="none" stroke="${line ? '#111' : oc}" stroke-width="${r1(28 + 2.2 / scale * 1.4)}" stroke-linecap="round" stroke-linejoin="round"/><path d="M${rk.map(P).join(' L')}" fill="none" stroke="${line ? '#fff' : shade(fc, 0.12)}" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>`;
+      [sp.N, sp.K, sp.M, sp.Dm, sp.Pv].forEach(q => { s += circ(q, 7, line ? '#fff' : '#9a9a9a', line ? '#111' : '#333', 1.2); });
+    }
+    // e-바이크: 다운튜브 배터리 + BB 모터
+    if (b.ebike) {
+      const dd = nrmz(g.Jdt), pp = rot90(dd), off = b.dtDia / 2 + 15;
+      const a1 = add(mul(dd, len(g.Jdt) * 0.22), mul(pp, off)), a2 = add(mul(dd, len(g.Jdt) * 0.78), mul(pp, off));
+      s += ln(a1, a2, 34, line ? '#111' : '#0f0f0f', 'round') + ln(a1, a2, 31, line ? '#fff' : '#2e2e2e', 'round');
+      if (!line) s += ln(add(a1, mul(dd, 30)), add(a1, mul(dd, 60)), 6, '#6fd06f', 'round');
+      s += ptsPath([v2(-75, 70), v2(55, 70), v2(70, -55), v2(-60, -70)], line ? '#fff' : '#262626', line ? '#111' : '#000', 1.4);
+    }
     s += circ(O, 22, line ? '#fff' : fc, line ? '#111' : oc, line ? 1.2 / scale : 1.6);
     s += circ(g.R, 15, line ? '#fff' : fc, line ? '#111' : oc, line ? 1.2 / scale : 1.6);
     // 시트 클램프
@@ -234,8 +355,15 @@ function bikeSvg(g, mode, opt = {}) {
     const kcol = line ? '#fff' : kc, ko = line ? '#111' : shade(kc === '#151515' ? '#555555' : kc, -0.35), crownEnd = add(g.C, mul(g.u, 24));
     let s = '';
     const legs = [];
-    if (b.forkType === 'straight') legs.push(['l', crownEnd, g.F, b.bladeDia]);
-    else if (b.forkType === 'susp') { const mp = add(g.C, add(mul(g.u, b.forkLen * 0.5), mul(g.n, b.rake * 0.5))); legs.push(['l', crownEnd, mp, 30], ['l', mp, g.F, 38]); }
+    if (b.forkType === 'straight' && b.style !== 'classic') legs.push(['t', crownEnd, g.F, b.bladeDia]);
+    else if (b.forkType === 'straight') legs.push(['l', crownEnd, g.F, b.bladeDia]);
+    else if (b.forkType === 'susp') {
+      // 서스펜션: 은색 스탠션 + 검은 로어 + 아치. 다운힐은 더블 크라운
+      const top = b.style === 'dh' ? add(g.T, mul(g.u, -(b.upperStack + 30))) : crownEnd;
+      const mp = add(g.C, add(mul(g.u, b.forkLen * 0.42), mul(g.n, b.rake * 0.42)));
+      legs.push(['s', top, mp, 34], ['l', add(mp, mul(nrmz(sub(mp, g.F)), 18)), g.F, 44]);
+      if (b.style === 'dh') legs.push(['c', top]);
+    }
     else legs.push(['q', crownEnd, g.F, b.bladeDia]);
     legs.forEach(L => {
       const w2 = L[3];
@@ -244,23 +372,34 @@ function bikeSvg(g, mode, opt = {}) {
         const d = `M${P(L[1])} Q${P(cp)} ${P(L[2])}`;
         s += `<path d="${d}" fill="none" stroke="${ko}" stroke-width="${r1(w2 + 2.5 / scale)}"/><path d="${d}" fill="none" stroke="${kcol}" stroke-width="${w2}"/>`;
         s += `<path d="${d}" fill="none" stroke="${kcol}" stroke-width="${w2 * 0.55}" stroke-linecap="round"/>`;
-      } else s += ln(L[1], L[2], w2 + 2.5 / scale, ko) + ln(L[1], L[2], w2, kcol);
+      } else if (L[0] === 't') s += taper(L[1], L[2], w2, w2 * 0.55, kcol, ko, 1.4);
+      else if (L[0] === 's') s += ln(L[1], L[2], w2 + 2.5 / scale, line ? '#111' : '#6f6f6f') + ln(L[1], L[2], w2, line ? '#fff' : '#cfcfcf');
+      else if (L[0] === 'c') s += ln(add(L[1], mul(g.n, -10)), add(L[1], mul(g.n, 40)), 26, ko, 'round') + ln(add(L[1], mul(g.n, -10)), add(L[1], mul(g.n, 40)), 22, kcol, 'round');
+      else s += ln(L[1], L[2], w2 + 2.5 / scale, ko) + ln(L[1], L[2], w2, line ? '#fff' : (b.forkType === 'susp' ? '#1d1d1d' : kcol));
     });
-    s += ln(g.C, crownEnd, 48, ko) + ln(add(g.C, mul(g.u, 1)), add(crownEnd, mul(g.u, -1)), 45, kcol);
+    if (b.forkType === 'susp' && !line) { const ab = add(g.C, add(mul(g.u, b.forkLen * 0.55), mul(g.n, b.rake * 0.55 + 26))); s += circ(ab, 10, '#1d1d1d'); }
+    const cw = b.style === 'aero' ? b.htDia : 48;   // 에어로는 크라운이 헤드튜브에 묻힘
+    s += ln(g.C, crownEnd, cw, ko) + ln(add(g.C, mul(g.u, 1)), add(crownEnd, mul(g.u, -1)), cw - 3, b.style === 'aero' && !line ? fc : kcol);
     s += circ(g.F, 11, kcol, ko, 1.6);
     out.push(grp('fork', s));
   }
   // 헤드셋·스템
   if (!hide.stem) {
-    const up = mul(g.u, -1), hs = line ? '#fff' : shade(cc, 0.1), hk = line ? '#111' : shade(cc, -0.3);
+    const up = mul(g.u, -1), aeroHs = b.style === 'aero', hs = line ? '#fff' : aeroHs ? fc : shade(cc, 0.1), hk = line ? '#111' : aeroHs ? oc : shade(cc, -0.3);
     const a0 = add(g.T, mul(up, b.upperStack)), a1 = add(a0, mul(up, b.spacers)), a2 = add(a1, mul(up, b.stemH)), a3 = add(a2, mul(up, 4));
     let s = ln(g.B, g.C, b.htDia + 4, hk) + ln(g.B, g.C, b.htDia + 1, hs) + ln(g.T, a0, b.htDia + 4, hk) + ln(g.T, a0, b.htDia + 1, hs);
-    if (b.spacers > 0) s += ln(a0, a1, 33, hk) + ln(a0, a1, 31, line ? '#fff' : shade(cc, 0.05));
-    s += ln(a1, a2, 42, hk) + ln(a1, a2, 39, line ? '#fff' : cc) + ln(a2, a3, 30, line ? '#555' : '#222');
-    s += ln(g.Q, g.E, 33, hk) + ln(g.Q, g.E, 30, line ? '#fff' : cc) + circ(g.E, 20, line ? '#fff' : cc, hk, 1.6);
+    if (b.style === 'aero') {   // 일체형 콕핏: 헤드튜브 모양을 잇는 스페이서, 매끈한 스템, 클램프 없음
+      s += ln(a0, a1, b.htDia - 4, hk) + ln(a0, a1, b.htDia - 7, line ? '#fff' : fc);
+      s += ln(a1, a2, 44, hk, 'round') + ln(a1, a2, 41, line ? '#fff' : '#1a1a1a', 'round');
+      s += ln(g.Q, g.E, 34, hk, 'round') + ln(g.Q, g.E, 31, line ? '#fff' : '#1a1a1a', 'round');
+    } else {
+      if (b.spacers > 0) s += ln(a0, a1, 33, hk) + ln(a0, a1, 31, line ? '#fff' : shade(cc, 0.05));
+      s += ln(a1, a2, 42, hk) + ln(a1, a2, 39, line ? '#fff' : cc) + ln(a2, a3, 30, line ? '#555' : '#222');
+      s += ln(g.Q, g.E, 33, hk) + ln(g.Q, g.E, 30, line ? '#fff' : cc) + circ(g.E, 20, line ? '#fff' : cc, hk, 1.6);
+    }
     out.push(grp('stem', s));
   }
-  if (!hide.bar) out.push(grp('bar', barPath(g, line ? '#111' : '#1c1c1c', 23, false, line)));
+  if (!hide.bar) out.push(grp('bar', barPath(g, line ? '#111' : '#1c1c1c', b.style === 'aero' ? 30 : MTB_STYLE.test(b.style) ? 26 : 23, false, line)));
   // 안장
   if (!hide.saddle) {
     const t = g.topY, x0 = g.tail.x, x1 = g.nose.x, L = b.saddleLen;
@@ -874,7 +1013,10 @@ const DLG = {
     body.appendChild(row('크랭크 끝-앞타이어', num(() => G.m.toe, () => {}, { ro: true }), 'mm'));
     binder(api, body);
   } },
-  tubes: { title: '튜브', w: 330, build(body, api) {
+  tubes: { title: '스타일 · 튜브', w: 330, build(body, api) {
+    body.appendChild(row('스타일', combo(STYLES, () => bike.style || 'classic', v => { applyStyle(bike, v, true); changed(); toast('스타일: ' + (STYLES.find(x => x[0] === v) || [, v])[1] + ' (튜브·림·포크·핸들바 모양만 바뀌고 치수는 그대로)'); })));
+    body.appendChild(chk('e-바이크 (배터리 · 모터)', () => bike.ebike, v => { bike.ebike = v; changed(); }));
+    body.appendChild(el('hr'));
     [['탑튜브', 'ttDia'], ['다운튜브', 'dtDia'], ['시트튜브', 'stDia'], ['헤드튜브', 'htDia'], ['체인스테이', 'csDia'], ['시트스테이', 'ssDia']].forEach(x => body.appendChild(fieldN(x[0] + ' 지름', x[1], 'mm', { min: 8, max: 70 })));
     body.appendChild(fieldN('시트스테이 위치 (탑튜브 아래)', 'ssDrop', 'mm', { min: -40, max: 300 }));
     binder(api, body);
@@ -1143,10 +1285,9 @@ function brandBike(br, m, sz) {
   if (b.forkType === 'susp' && (b.forkLen < 450 || m.fork === 'rigid')) b.forkType = 'straight';   // 짧은 포크 · 리지드 포크(fork: 'rigid')는 리지드로 그림
   b.htTopExt = r1(Math.min(28.9, Math.max(12, ht * 0.2))); b.htBotExt = r1(Math.min(49.2, Math.max(18, ht * 0.3)));
   if (b.stMode === 'ct') b.stExt = r1(Math.min(80, Math.max(25, b.stVal * 0.11)));
-  // 튜브 굵기 (그림용)
-  if (mtb) Object.assign(b, { ttDia: 40, dtDia: 50, stDia: 34.9, htDia: 50, csDia: 26, ssDia: 20 });
-  else if (/gravel|cyclocross|touring|hybrid|city|cargo|ebike/.test(cat)) Object.assign(b, { ttDia: 36, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 23, ssDia: 17 });
-  else Object.assign(b, { ttDia: 34, dtDia: 44, stDia: 31.8, htDia: 46, csDia: 22, ssDia: 16 });
+  // 그림 스타일 (튜브 굵기·림·포크 모양 등). 카테고리로 정함, 튜브 대화상자에서 바꿀 수 있음
+  { const ft = b.forkType; applyStyle(b, styleOfCat(cat)); if (mtb) b.forkType = ft; }
+  b.ebike = /^ebike/.test(cat);
   // 핏 부품 (제조사 값이 있으면 그 값, 없으면 예시)
   b.crankLen = isNum(sz.crank) ? sz.crank : mtb ? 170 : 172.5;
   b.stemLen = isNum(sz.stem) ? sz.stem : mtb ? 45 : flatBar ? 80 : 100;
@@ -1154,7 +1295,6 @@ function brandBike(br, m, sz) {
   if (isNum(sz.bar)) b.barWidth = sz.bar;
   if (flatBar) Object.assign(b, { barType: mtb ? 'riser' : 'flat', barRise: mtb ? 25 : 0, barSweep: mtb ? 30 : 20 });
   if (/gravel|cyclocross/.test(cat)) { b.ring = 40; b.cog = 20; } else if (mtb) { b.ring = 32; b.cog = 24; } else if (flatBar) { b.ring = 42; b.cog = 18; }
-  b.spokes = mtb ? 28 : 24; b.rimDepth = mtb ? 22 : /aero/.test(cat) ? 50 : 35;
   // 안장 높이는 그림을 위한 예시 (시트튜브와 스택으로 대략)
   const stct = b.stMode === 'ct' ? b.stVal : b.stVal + b.stExt;
   b.saddleMode = 'bb'; b.saddleVal = Math.round(Math.max(stct + (mtb ? 260 : 220), 0.55 * sz.stack + 390));
@@ -1268,7 +1408,7 @@ const ROW1 = [
   ['png', '이미지로 저장 (PNG)', () => exportPng()], ['print', '인쇄 (Ctrl+P)', () => doPrint()], ['zoom', '화면에 맞춤 (F)', () => fit()],
 ];
 const ROW2 = [
-  ['basic', '기본 치수', 'basic'], ['wheels', '휠', 'wheels'], ['fork', '포크', 'fork'], ['stem', '헤드셋 · 스템', 'stem'], ['bar', '핸들바', 'bar'], ['saddle', '안장', 'saddle'], ['post', '시트포스트', 'post'], ['crank', '크랭크 · 구동계', 'crank'], ['tubes', '튜브', 'tubes'], '|', ['compare', '비교 자전거 추가', 'compare'],
+  ['basic', '기본 치수', 'basic'], ['wheels', '휠', 'wheels'], ['fork', '포크', 'fork'], ['stem', '헤드셋 · 스템', 'stem'], ['bar', '핸들바', 'bar'], ['saddle', '안장', 'saddle'], ['post', '시트포스트', 'post'], ['crank', '크랭크 · 구동계', 'crank'], ['tubes', '스타일 · 튜브', 'tubes'], '|', ['compare', '비교 자전거 추가', 'compare'],
 ];
 function buildToolbar() {
   const mk = (row, items) => {
@@ -1296,7 +1436,9 @@ function cycleMode() { view.mode = { color: 'line', line: 'center', center: 'col
 function newBike(t) {
   if (docState.dirty && !confirm('저장하지 않은 변경이 있습니다. 새로 만들까요?')) return;
   const tpl = t ? TEMPLATES.find(x => x.id === t) : null;
-  setBike(Object.assign(clone(DEF), tpl ? tpl.b : {}, { name: tpl ? tpl.name : '새 자전거' }));
+  const nb = Object.assign(clone(DEF), tpl ? tpl.b : {}, { name: tpl ? tpl.name : '새 자전거' });
+  if (tpl && tpl.style) { applyStyle(nb, tpl.style); Object.assign(nb, tpl.b); nb.style = tpl.style; }
+  setBike(nb);
 }
 function saveCmd() { if (docState.libId) libSave(false); else { openDlg('lib'); toast('이름을 적고 저장을 누르세요'); } }
 
