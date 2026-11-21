@@ -1086,8 +1086,26 @@ const CATS = [
 ];
 const CAT_NAME = Object.fromEntries(CATS);
 const brandCache = {};
+// 비공개 지오메트리 (출시 전 모델 등): 리포지토리가 공개라서 brands/*.json 에 두지 않음.
+// 로그인한 직원에게만 Apps Script(GET geoprivate)가 Index 스프레드시트 '비공개 지오메트리' 탭(brand | model JSON | updatedAt | by)에서 내려주고, 같은 브랜드 목록 맨 앞에 붙임
+let privGeo = null;
+function loadPrivateGeo() {
+  if (!privGeo) privGeo = (async () => {
+    if (!window.MR || !MR.session() || !MR.url()) return [];
+    const u = new URL(MR.url()); u.searchParams.set('action', 'geoprivate'); u.searchParams.set('s', MR.session().token);
+    const j = await MR._handle(await MR._fetch(u, { redirect: 'follow' }), true);   // 실패해도 로그아웃시키지 않음
+    return Array.isArray(j.models) ? j.models : [];
+  })().catch(() => []);
+  return privGeo;
+}
 function loadBrand(id) {
-  if (!brandCache[id]) brandCache[id] = fetch(`/geometry/brands/${id}.json?v=20261117a`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true }));
+  if (!brandCache[id]) brandCache[id] = Promise.all([
+    fetch(`/geometry/brands/${id}.json?v=20261121a`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => ({ models: [], error: true })),
+    loadPrivateGeo(),
+  ]).then(([d, priv]) => {
+    const extra = priv.filter(p => p && p.brand === id && p.model && Array.isArray(p.model.sizes)).map(p => Object.assign({}, p.model, { private: true }));
+    return extra.length ? Object.assign({}, d, { error: false, models: extra.concat(d.models || []) }) : d;
+  });
   return brandCache[id];
 }
 const isNum = v => typeof v === 'number' && isFinite(v);
@@ -1186,6 +1204,7 @@ function fillSizes(f, br, m) {
     };
     f.appendChild(b);
   });
+  if (m.private) f.appendChild(el('div', 'ff', '비공개 데이터 · 로그인한 직원에게만 보입니다'));
   if (m.note) f.appendChild(el('div', 'ff', esc(m.note)));
   if (m.trims && m.trims.length) f.appendChild(el('div', 'ff', '같은 지오메트리: ' + esc(m.trims.join(', '))));
   if (m.source) { const a = el('a', 'ff', '제조사 지오메트리 표 ↗'); a.href = m.source; a.target = '_blank'; a.rel = 'noopener'; f.appendChild(a); }

@@ -210,6 +210,7 @@ function doGet(e) {
       case 'report':   return json_({ ok: true, ...reportData_(user) });
       case 'garage':   return json_({ ok: true, ...garageData_(user) });
       case 'strategy': return json_({ ok: true, ...strategyData_(user, p.b) });
+      case 'geoprivate': return json_({ ok: true, models: privateGeo_() });
       case 'projimg':  return json_({ ok: true, ...readProjImg_(p) });
       case 'gallery':  return json_({ ok: true, ...readGallery_(p) });
       default:         return json_({ ok: false, error: 'unknown action' });
@@ -2119,6 +2120,25 @@ function strategyData_(user, brand) {
     return { brand: key, title: String(rows[i][1] || ''), html: String(rows[i][2] || ''), updatedAt: String(rows[i][3] || '') };
   }
   throw new Error('이 브랜드의 전략 내용이 아직 없습니다');
+}
+
+// ───────────────────────────── 비공개 지오메트리 (GET geoprivate) ─────────────────────────────
+// 지오메트리 앱의 브랜드 데이터 중 출시 전 모델처럼 공개하면 안 되는 것. 리포지토리가 공개라서 geometry/brands/*.json 에 두지 않고
+// Index 스프레드시트 '비공개 지오메트리' 탭에 둠. 탭: brand | model | updatedAt | by
+//  brand 는 geometry.js BRANDS 의 id (예: parlee), model 은 brands/*.json 의 models 한 개와 같은 모양의 JSON
+// 로그인한 직원 모두에게 내려줌 (auth_ 통과). 탭이 없으면 빈 목록
+
+function privateGeo_() {
+  const sh = indexSs_().getSheetByName('비공개 지오메트리');
+  if (!sh) return [];
+  const rows = sh.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const brand = String(rows[i][0] || '').trim().toLowerCase();
+    if (!brand || !rows[i][1]) continue;
+    try { out.push({ brand, model: JSON.parse(String(rows[i][1])), updatedAt: String(rows[i][2] || '') }); } catch (e) {}
+  }
+  return out;
 }
 
 // ───────────────────────────── 루비개러지 앱 (GET/POST garage) ─────────────────────────────
