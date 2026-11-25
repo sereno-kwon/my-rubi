@@ -47,7 +47,7 @@ window.MYRUBI_APPS = [
   { id: 'brands',    title: 'Brand',         kind: 'folder' },
   { id: 'management', title: 'Management',  kind: 'folder' },
   { id: 'logistics',  title: 'Logistics',   kind: 'folder' },
-  { id: 'strategy',   title: '전략상황판',    kind: 'folder', only: ['ohyun', 'oryun'], note: '수입 브랜드별 전략 상황판' },
+  { id: 'strategy',   title: '전략상황판',    kind: 'folder', only: ['ohyun', 'oryun', '김현우'], note: '수입 브랜드별 전략 상황판' },
 
   // 내장
   { id: 'settings',  title: '바탕화면 설정', icon: 'gear', tint: 'slate', kind: 'builtin' },
@@ -74,10 +74,10 @@ window.MYRUBI_APPS = [
   // LOGISTICS
   { id: 'l-package',     folder: 'logistics', title: '패키지 데이터베이스',          icon: 'box',   tint: 'amber',  kind: 'link', url: 'https://docs.google.com/spreadsheets/d/1u-jDQnshR2zXRjpcBt77eXSWQ885G-JjJkdfyWK_xLo/edit?gid=1261343604#gid=1261343604' },
 
-  // BRAND STRATEGY (전략상황판 폴더, Report 구역. 보는 사람은 매출·매입보고서와 같음)
+  // BRAND STRATEGY (전략상황판 폴더, Report 구역. 보는 사람은 권오현·권오륜 + 김현우, Code.gs STRATEGY_VIEWERS 와 맞출 것)
   // 2026-11-19: 전략 페이지가 있는 브랜드만 둠 (준비 중 항목은 모두 뺌). 새 브랜드 전략 페이지를 만들면 같은 모양으로 한 줄 추가
-  { id: 's-quoc', folder: 'strategy', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/quoc/', only: ['ohyun', 'oryun'], note: 'QUOC 2027 플랜: 아젠다, 소비자가, 프리오더, 분기별 일정' },
-  { id: 's-parlee-aptos', folder: 'strategy', title: '팔리 APTOS', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/parlee-aptos/', only: ['ohyun', 'oryun'], note: 'Aptos 딜러 키트 한글판 PDF, 출시 일정과 가격 요약' },
+  { id: 's-quoc', folder: 'strategy', title: 'QUOC', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/quoc/', only: ['ohyun', 'oryun', '김현우'], note: 'QUOC 2027 플랜: 아젠다, 소비자가, 프리오더, 분기별 일정' },
+  { id: 's-parlee-aptos', folder: 'strategy', title: '팔리 APTOS', icon: 'note', tint: 'paper', kind: 'frame', url: '/strategy/parlee-aptos/', only: ['ohyun', 'oryun', '김현우'], note: 'Aptos 딜러 키트 한글판 PDF, 출시 일정과 가격 요약' },
 
   // BRAND (group 이 같은 앱끼리 폴더 안에서 한 구역으로 묶임)
   // 루비가 운영하는 한국 사이트. 순서는 브랜드전략과 같은 2026 매출순 (자전거·부품 각각). 사이트를 새로 만들면 여기에 한 줄 추가
