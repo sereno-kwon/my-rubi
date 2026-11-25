@@ -37,7 +37,7 @@
  *    개러지 거래처 매출은 금액까지, 나머지 채널은 판매 수량만, 품목은 원가(입고단가·딜러가) 없이 돌려줌
  *    스마트스토어 통계 엑셀(유입·조회·결제)은 '트래픽' 탭에 저장
  *  - 브랜드전략(/strategy/브랜드/): 'Index 스프레드시트 브랜드전략' 탭(brand | title | html | updatedAt | by)의 본문 조각을 돌려줌 (GET strategy, b=브랜드)
- *    공급율·마진 같은 내부 숫자가 들어 있어서 리포지토리에 두지 않고, REPORT_VIEWERS 와 STRATEGY_VIEWERS(김현우) 에게만 내려줌
+ *    공급율·마진 같은 내부 숫자가 들어 있어서 리포지토리에 두지 않고, 로그인한 직원에게만 내려줌 (STRATEGY_VIEWERS 가 비어 있으면 멤버 전체)
  *  - 아코디언 V6(/accordion/) AI 생성: 제품 이름 한 줄을 받아 Claude API(웹 검색)로 상세 아코디언 1~4번 섹션 내용을 JSON으로 만들어 돌려줌 (POST accGen)
  *    API 키는 스크립트 속성 ANTHROPIC_API_KEY, 모델은 ACC_MODEL(비우면 claude-sonnet-5-5). 만든 기록은 '아코디언생성' 탭에 남김
  *    확인하지 못한 스펙은 빈칸으로 두고 unverified 목록으로 따로 돌려줌. 직원이 미리보기에서 확인한 뒤 복사함
@@ -99,9 +99,9 @@ const CONFIG = {
   //  apps.js 의 garage 앱 only 와 맞출 것
   GARAGE_VIEWERS: ['전요셉'],
 
-  // 전략상황판(/strategy/) 을 볼 수 있는 계정 (REPORT_VIEWERS 는 자동으로 포함). 이메일 아이디 또는 구글 계정 이름
-  //  매출·매입보고서는 열리지 않음. apps.js 의 strategy 폴더와 s-* 항목 only 와 맞출 것
-  STRATEGY_VIEWERS: ['김현우'],
+  // 전략상황판(/strategy/) 을 볼 수 있는 계정. 비워두면 로그인한 직원 모두 (2026-11-25 멤버 전체 공개)
+  //  다시 좁힐 때는 이메일 아이디 또는 구글 계정 이름을 적고 (REPORT_VIEWERS 는 자동 포함), apps.js 의 strategy 폴더와 s-* 항목에 only 를 다시 넣을 것
+  STRATEGY_VIEWERS: [],
   // 판매현황 거래처명 중 루비개러지로 볼 것 (정규식)
   GARAGE_PARTNER: '개러지',
 };
@@ -2110,11 +2110,11 @@ function test_report() {
 // ───────────────────────────── 브랜드전략 (GET strategy) ─────────────────────────────
 // 브랜드별 전략 페이지(/strategy/브랜드/)의 본문. 리포지토리가 공개라서 페이지에는 틀만 두고, 본문은 Index 스프레드시트 '브랜드전략' 탭에 둠
 // 탭: brand | title | html | updatedAt | by  (한 브랜드 한 줄, brand 는 페이지 주소의 브랜드 이름, html 은 페이지 본문 조각)
-// 보는 사람은 REPORT_VIEWERS + STRATEGY_VIEWERS (매출·매입보고서는 REPORT_VIEWERS 만)
+// 보는 사람은 로그인한 직원 전체 (STRATEGY_VIEWERS 로 좁힐 수 있음. 매출·매입보고서는 REPORT_VIEWERS 만)
 
 function canStrategy_(user) {
-  if (canReport_(user)) return true;
   const list = CONFIG.STRATEGY_VIEWERS || [];
+  if (!list.length || canReport_(user)) return true;
   return list.some(x => emailKey_(x) === emailKey_(user.email) || (nameKey_(x) && nameKey_(x) === nameKey_(user.name)));
 }
 function strategyData_(user, brand) {
