@@ -124,7 +124,8 @@ function render() {
   }
   if (!rows.length) html = `<p class="empty">“${esc(raw)}”와 맞는 항목이 없습니다.</p>`;
   listEl.innerHTML = html;
-  listEl.classList.toggle('dense', rows.length > 12);
+  // 처음 화면처럼 줄이 많으면 18px. 폴더 안(전략상황판 등)도 처음 화면 메뉴와 같은 크기로
+  listEl.classList.toggle('dense', rows.length > 12 || !!folder);
   numReset();
   const km = $('#kMax'); if (km) km.textContent = Math.max(1, rows.length);
   sel = Math.max(0, Math.min(sel, rows.length - 1));
